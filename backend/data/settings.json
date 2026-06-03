@@ -4,5 +4,29 @@
   "address": "Kenyatta Avenue",
   "defaultThanks": "Thank you for dining with us. We appreciate your visit.",
   "email": "",
-  "restaurantId": "default"
+  "restaurantId": "default",
+  "test-restaurant-425": {
+    "restaurantName": "Test Restaurant",
+    "defaultThanks": "Thank you for your visit!",
+    "address": "",
+    "phone": ""
+  },
+  "upgrade-square-210": {
+    "restaurantName": "Upgrade Square",
+    "defaultThanks": "Thank you for your visit!",
+    "address": "",
+    "phone": ""
+  },
+  "rahlah-691": {
+    "restaurantName": "RAHLAH",
+    "defaultThanks": "Thank you for your visit!",
+    "address": "",
+    "phone": ""
+  },
+  "yendor-551": {
+    "restaurantName": "Yendor",
+    "defaultThanks": "Thank you for your visit!",
+    "address": "",
+    "phone": ""
+  }
 }
