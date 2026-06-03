@@ -354,5 +354,31 @@
     "createdAt": "6/3/2026, 10:06:01 PM",
     "sentAt": "6/3/2026, 10:14:34 PM",
     "updatedAt": "6/3/2026, 10:14:34 PM"
+  },
+  {
+    "id": 1780516581297,
+    "restaurantId": "upgrade-square-210",
+    "customerId": 1780516581296,
+    "customerName": "Waromi",
+    "phone": "0769329029",
+    "message": "Hi Waromi, thank you for dining at Upgrade Square. We hope to see you again soon!",
+    "status": "Sent",
+    "retryCount": 0,
+    "createdAt": "6/3/2026, 10:56:21 PM",
+    "sentAt": "6/3/2026, 10:56:37 PM",
+    "updatedAt": "6/3/2026, 10:56:37 PM"
+  },
+  {
+    "id": 1780516673286,
+    "restaurantId": "upgrade-square-210",
+    "customerId": 1780516673285,
+    "customerName": "Wafula",
+    "phone": "0769329029",
+    "message": "Hi Wafula, thank you for dining at Upgrade Square. We hope to see you again soon!",
+    "status": "Sent",
+    "retryCount": 0,
+    "createdAt": "6/3/2026, 10:57:53 PM",
+    "sentAt": "6/3/2026, 10:57:56 PM",
+    "updatedAt": "6/3/2026, 10:57:56 PM"
   }
 ]

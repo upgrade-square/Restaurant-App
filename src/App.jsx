@@ -1,9 +1,6 @@
 import { useState, useEffect } from 'react'
 import './App.css'
-
-const BASE_URL = 'http://localhost:5000'
-const API_URL = `${BASE_URL}/customers`
-const RESTAURANT_ID = 'default'
+import API_BASE from './config/api'
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -19,7 +16,12 @@ function App() {
   const [error, setError] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
 
-  // New States
+  // Auth State
+  const [token, setToken] = useState(localStorage.getItem('token'))
+  const [user, setUser] = useState(JSON.parse(localStorage.getItem('user') || 'null'))
+  const [restaurant, setRestaurant] = useState(JSON.parse(localStorage.getItem('restaurant') || 'null'))
+  const [authMode, setAuthMode] = useState('login') // 'login' or 'register'
+
   const [settings, setSettings] = useState({
     restaurantName: '',
     phone: '',
@@ -46,113 +48,175 @@ function App() {
     appVersion: '---'
   })
 
-  // Fetch data
-  useEffect(() => {
-    fetchAll()
-    const interval = setInterval(fetchAll, 60000)
-    return () => clearInterval(interval)
-  }, [])
+  // API Wrapper with Auth
+  const fetchWithAuth = async (endpoint, options = {}) => {
+    const headers = {
+      ...options.headers,
+      'Content-Type': 'application/json',
+    }
 
-  const fetchAll = () => {
-    fetchCustomers()
-    fetchHistory()
-    fetchSettings()
-    fetchTemplates()
-    fetchMetrics()
-    fetchGatewayStatus()
-  }
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
 
-  const fetchCustomers = async () => {
     try {
-      const response = await fetch(`${API_URL}?restaurantId=${RESTAURANT_ID}`)
-      if (!response.ok) throw new Error('Failed to fetch customers')
-      const data = await response.json()
-      setCustomers(data)
-      setError(null)
+      const response = await fetch(`${API_BASE}${endpoint}`, { ...options, headers })
+
+      if (response.status === 401) {
+        handleLogout()
+        throw new Error('Session expired. Please login again.')
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`)
+      }
+
+      return await response.json()
     } catch (err) {
-      setError('Could not connect to the server.')
-    } finally {
-      setLoading(false)
+      if (err.message.includes('Failed to fetch')) {
+        throw new Error('Server unreachable. Please check your connection.')
+      }
+      throw err
     }
   }
 
-  const fetchHistory = async () => {
+  const handleLogin = async (email, password) => {
     try {
-      const response = await fetch(`${BASE_URL}/sms-queue/history?restaurantId=${RESTAURANT_ID}`)
-      if (!response.ok) throw new Error('Failed to fetch history')
+      const response = await fetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      })
       const data = await response.json()
-      setSmsHistory(data)
-    } catch (err) { console.error('History fetch error', err) }
+
+      if (!response.ok) throw new Error(data.error || 'Login failed')
+
+      localStorage.setItem('token', data.token)
+      localStorage.setItem('user', JSON.stringify(data.user))
+      localStorage.setItem('restaurant', JSON.stringify(data.restaurant))
+
+      setToken(data.token)
+      setUser(data.user)
+      setRestaurant(data.restaurant)
+      setError(null)
+    } catch (err) {
+      setError(err.message)
+      throw err
+    }
   }
 
-  const fetchSettings = async () => {
+  const handleRegister = async (registrationData) => {
     try {
-      const res = await fetch(`${BASE_URL}/settings?restaurantId=${RESTAURANT_ID}`)
-      const data = await res.json()
-      setSettings(data)
-    } catch (err) { console.error('Settings fetch error', err) }
+      const response = await fetch(`${API_BASE}/onboarding/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(registrationData)
+      })
+      const data = await response.json()
+
+      if (!response.ok) throw new Error(data.error || 'Onboarding failed')
+
+      // Auto-login after successful registration
+      localStorage.setItem('token', data.token)
+      localStorage.setItem('user', JSON.stringify(data.user))
+      localStorage.setItem('restaurant', JSON.stringify(data.restaurant))
+
+      setToken(data.token)
+      setUser(data.user)
+      setRestaurant(data.restaurant)
+      setError(null)
+    } catch (err) {
+      setError(err.message)
+      throw err
+    }
   }
 
-  const fetchTemplates = async () => {
-    try {
-      const res = await fetch(`${BASE_URL}/templates?restaurantId=${RESTAURANT_ID}`)
-      const data = await res.json()
-      setTemplates(data)
-    } catch (err) { console.error('Templates fetch error', err) }
+  const handleLogout = () => {
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+    localStorage.removeItem('restaurant')
+    setToken(null)
+    setUser(null)
+    setRestaurant(null)
   }
 
-  const fetchMetrics = async () => {
-    try {
-      const res = await fetch(`${BASE_URL}/metrics?restaurantId=${RESTAURANT_ID}`)
-      const data = await res.json()
-      setMetrics(data)
-    } catch (err) { console.error('Metrics fetch error', err) }
-  }
+  useEffect(() => {
+    if (token) {
+      // Initial load
+      refreshDashboard(false)
 
-  const fetchGatewayStatus = async () => {
+      // Automatic polling every 15 seconds
+      const interval = setInterval(() => refreshDashboard(true), 15000)
+
+      return () => clearInterval(interval)
+    } else {
+      setLoading(false)
+    }
+  }, [token])
+
+  const refreshDashboard = async (isBackground = false) => {
     try {
-      const res = await fetch(`${BASE_URL}/gateway/status`)
-      const data = await res.json()
-      setGatewayStatus(data)
-    } catch (err) { console.error('Gateway status error', err) }
+      if (!isBackground) setLoading(true)
+
+      const [customersData, historyData, settingsData, templatesData, metricsData, statusData] = await Promise.all([
+        fetchWithAuth('/customers'),
+        fetchWithAuth('/sms-queue/history'),
+        fetchWithAuth('/settings'),
+        fetchWithAuth('/templates'),
+        fetchWithAuth('/metrics'),
+        fetchWithAuth('/gateway/status')
+      ])
+
+      // Only update state if data actually changed (React does this optimization automatically for simple values)
+      setCustomers(customersData)
+      setSmsHistory(historyData)
+      setSettings(settingsData)
+      setTemplates(templatesData)
+      setMetrics(metricsData)
+      setGatewayStatus(statusData)
+      setError(null)
+    } catch (err) {
+      // Don't show technical errors for background sync unless it's a critical auth failure
+      if (!isBackground) {
+        setError(err.message)
+      }
+    } finally {
+      if (!isBackground) setLoading(false)
+    }
   }
 
   const handleSaveSettings = async (e) => {
     e.preventDefault()
     try {
-      const res = await fetch(`${BASE_URL}/settings`, {
+      await fetchWithAuth('/settings', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...settings, restaurantId: RESTAURANT_ID })
+        body: JSON.stringify(settings)
       })
-      if (res.ok) alert('Settings saved successfully!')
-    } catch (err) { alert('Save failed') }
+      alert('Settings saved successfully!')
+    } catch (err) { alert('Save failed: ' + err.message) }
   }
 
   const handleSaveTemplates = async (e) => {
     e.preventDefault()
     try {
-      const res = await fetch(`${BASE_URL}/templates`, {
+      await fetchWithAuth('/templates', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...templates, restaurantId: RESTAURANT_ID })
+        body: JSON.stringify(templates)
       })
-      if (res.ok) alert('Templates saved successfully!')
-    } catch (err) { alert('Save failed') }
+      alert('Templates saved successfully!')
+    } catch (err) { alert('Save failed: ' + err.message) }
   }
 
   const handleResend = async (smsId) => {
     if (!window.confirm('Would you like to manually resend this message?')) return
     try {
-      const response = await fetch(`${BASE_URL}/sms-queue/${smsId}`, {
+      await fetchWithAuth(`/sms-queue/${smsId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'Pending', restaurantId: RESTAURANT_ID })
+        body: JSON.stringify({ status: 'Pending' })
       })
-      if (response.ok) {
-        fetchAll()
-      }
-    } catch (err) { alert('Resend failed') }
+      fetchAll()
+    } catch (err) { alert('Resend failed: ' + err.message) }
   }
 
   const filteredHistory = smsHistory.filter(sms => {
@@ -172,15 +236,10 @@ function App() {
     if (!formData.name || !formData.phone || !formData.amount) return
 
     try {
-      const response = await fetch(API_URL, {
+      await fetchWithAuth('/customers', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, restaurantId: RESTAURANT_ID })
+        body: JSON.stringify(formData)
       })
-
-      if (!response.ok) throw new Error('Failed to add customer')
-
-      await response.json()
       setFormData({ name: '', phone: '', amount: '' })
       fetchAll()
     } catch (err) {
@@ -191,12 +250,17 @@ function App() {
   const deleteSmsRecord = async (id) => {
     if (!window.confirm('Delete this SMS record from history? This action cannot be undone.')) return
     try {
-      const response = await fetch(`${BASE_URL}/sms-queue/${id}`, { method: 'DELETE' })
-      if (!response.ok) throw new Error('Failed to delete record')
+      await fetchWithAuth(`/sms-queue/${id}`, { method: 'DELETE' })
       fetchAll()
     } catch (err) {
       alert('Error: ' + err.message)
     }
+  }
+
+  if (!token) {
+    return authMode === 'login'
+      ? <LoginPage onLogin={handleLogin} onToggleMode={() => setAuthMode('register')} error={error} />
+      : <SignupPage onRegister={handleRegister} onToggleMode={() => setAuthMode('login')} error={error} />
   }
 
   return (
@@ -204,12 +268,13 @@ function App() {
       <nav className="navbar">
         <div className="logo-area">
           <div className="logo-text">Mikrod<span>Tech</span></div>
-          <div className="badge-logo">{settings.restaurantName || 'SaaS Dashboard'}</div>
+          <div className="badge-logo">{restaurant?.name || 'SaaS Dashboard'}</div>
         </div>
         <div className="nav-links">
           <button className={`nav-btn ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>Dashboard</button>
           <button className={`nav-btn ${activeTab === 'templates' ? 'active' : ''}`} onClick={() => setActiveTab('templates')}>Templates</button>
           <button className={`nav-btn ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>Settings</button>
+          <button className="nav-btn logout-btn" onClick={handleLogout}>Logout</button>
         </div>
       </nav>
 
@@ -239,10 +304,11 @@ function App() {
                 <span className="stat-label">Failed</span>
                 <span className="stat-value" style={{ color: '#991b1b' }}>{metrics.failed}</span>
               </div>
-              <div className={`stat-card gateway-card ${gatewayStatus.status === 'Online' ? 'status-online' : 'status-offline'}`}>
+              <div className={`stat-card gateway-card status-${gatewayStatus.status?.toLowerCase() || 'offline'}`}>
                 <span className="stat-label">Gateway Status</span>
                 <span className="stat-value status-indicator">
-                  {gatewayStatus.status === 'Online' ? '🟢 Online' : '🔴 Offline'}
+                  {gatewayStatus.status === 'Online' ? '🟢 Online' :
+                    gatewayStatus.status === 'Unregistered' ? '⚪ Unregistered' : '🔴 Offline'}
                 </span>
                 <div className="gateway-mini-stats">
                   <span>Battery: {gatewayStatus.batteryLevel}%</span>
@@ -407,5 +473,118 @@ function App() {
   )
 }
 
-export default App
+const LoginPage = ({ onLogin, onToggleMode, error }) => {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
 
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setLoading(true)
+    try {
+      await onLogin(email, password)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="login-container">
+      <div className="login-card">
+        <h2>Login</h2>
+        {error && <div className="error-banner">{error}</div>}
+        <form onSubmit={handleSubmit}>
+          <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required />
+          <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required />
+          <button type="submit" disabled={loading}>{loading ? '...' : 'Sign In'}</button>
+        </form>
+        <div className="auth-switch">
+          <p>New restaurant? <button onClick={onToggleMode}>Create Account</button></p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const SignupPage = ({ onRegister, onToggleMode, error }) => {
+  const [formData, setFormData] = useState({
+    restaurantName: '',
+    ownerName: '',
+    email: '',
+    password: '',
+    confirmPassword: ''
+  })
+  const [loading, setLoading] = useState(false)
+  const [localError, setLocalError] = useState(null)
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setLocalError(null)
+
+    if (formData.password !== formData.confirmPassword) {
+      return setLocalError('Passwords do not match')
+    }
+
+    setLoading(true)
+    try {
+      const { confirmPassword, ...data } = formData
+      await onRegister(data)
+    } catch (err) {
+      setLocalError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="login-container">
+      <div className="login-card">
+        <h2>Register Restaurant</h2>
+        {(error || localError) && <div className="error-banner">{localError || error}</div>}
+        <form onSubmit={handleSubmit}>
+          <input
+            type="text"
+            placeholder="Restaurant Name"
+            value={formData.restaurantName}
+            onChange={e => setFormData({ ...formData, restaurantName: e.target.value })}
+            required
+          />
+          <input
+            type="text"
+            placeholder="Owner Name"
+            value={formData.ownerName}
+            onChange={e => setFormData({ ...formData, ownerName: e.target.value })}
+            required
+          />
+          <input
+            type="email"
+            placeholder="Email"
+            value={formData.email}
+            onChange={e => setFormData({ ...formData, email: e.target.value })}
+            required
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={formData.password}
+            onChange={e => setFormData({ ...formData, password: e.target.value })}
+            required
+          />
+          <input
+            type="password"
+            placeholder="Confirm Password"
+            value={formData.confirmPassword}
+            onChange={e => setFormData({ ...formData, confirmPassword: e.target.value })}
+            required
+          />
+          <button type="submit" disabled={loading}>{loading ? 'Registering...' : 'Create Account'}</button>
+        </form>
+        <div className="auth-switch">
+          <p>Already have an account? <button onClick={onToggleMode}>Sign In</button></p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default App

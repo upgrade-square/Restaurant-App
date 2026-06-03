@@ -460,6 +460,11 @@ body {
   background: linear-gradient(to bottom right, #ffffff, #fef2f2);
 }
 
+.gateway-card.status-unregistered {
+  border-left-color: #94a3b8;
+  background: linear-gradient(to bottom right, #ffffff, #f8fafc);
+}
+
 .status-indicator {
   font-size: 1.1rem !important;
   display: block;
