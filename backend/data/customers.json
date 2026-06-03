@@ -1,0 +1,123 @@
+[
+  {
+    "id": 1780432996625,
+    "name": "Andria Simati",
+    "phone": "0705826780",
+    "amount": "20",
+    "sms_status": "Sent",
+    "sent_at": "6/2/2026, 11:43:31 PM",
+    "timestamp": "6/2/2026, 11:43:16 PM"
+  },
+  {
+    "id": 1780433173130,
+    "name": "Lyzz Cheryl",
+    "phone": "0769329029",
+    "amount": "100",
+    "sms_status": "Sent",
+    "timestamp": "6/2/2026, 11:46:13 PM",
+    "sent_at": "6/2/2026, 11:46:32 PM"
+  },
+  {
+    "id": 1780434761157,
+    "name": "Mike Wabwile",
+    "phone": "0769329029",
+    "amount": "200",
+    "sms_status": "Sent",
+    "sms_id": 1780434761158,
+    "timestamp": "6/3/2026, 12:12:41 AM",
+    "sent_at": "6/3/2026, 12:12:53 AM",
+    "retry_count": 0
+  },
+  {
+    "id": 1780434844113,
+    "name": "Hello",
+    "phone": "0769329029",
+    "amount": "100",
+    "sms_status": "Sent",
+    "sms_id": 1780434844114,
+    "timestamp": "6/3/2026, 12:14:04 AM",
+    "sent_at": "6/3/2026, 12:14:12 AM",
+    "retry_count": 0
+  },
+  {
+    "id": 1780435257454,
+    "name": "Rodney Mike",
+    "phone": "0769329029",
+    "amount": "123",
+    "sms_status": "Sent",
+    "sms_id": 1780435257455,
+    "timestamp": "6/3/2026, 12:20:57 AM",
+    "sent_at": "6/3/2026, 12:24:54 AM"
+  },
+  {
+    "id": 1780435408966,
+    "name": "Mike",
+    "phone": "0769329029",
+    "amount": "123",
+    "sms_status": "Sent",
+    "sms_id": 1780435408967,
+    "timestamp": "6/3/2026, 12:23:28 AM",
+    "sent_at": "6/3/2026, 12:24:55 AM"
+  },
+  {
+    "id": 1780435550244,
+    "name": "Rodney",
+    "phone": "0769329029",
+    "amount": "11",
+    "sms_status": "Sent",
+    "timestamp": "6/3/2026, 12:25:50 AM",
+    "sent_at": "6/3/2026, 12:25:54 AM"
+  },
+  {
+    "id": 1780436035427,
+    "name": "Christine Simati",
+    "phone": "0769329029",
+    "amount": "100",
+    "sms_status": "Sent",
+    "timestamp": "6/3/2026, 12:33:55 AM",
+    "sent_at": "6/3/2026, 12:34:15 AM",
+    "active": false,
+    "archivedAt": "6/3/2026, 2:19:01 PM"
+  },
+  {
+    "id": 1780472485909,
+    "name": "Vale Simati",
+    "phone": "0769329029",
+    "amount": "1000",
+    "sms_status": "Sent",
+    "timestamp": "6/3/2026, 10:41:25 AM",
+    "sent_at": "6/3/2026, 10:41:32 AM"
+  },
+  {
+    "id": 1780476827301,
+    "name": "Valerie",
+    "phone": "0769329029",
+    "amount": "100",
+    "sms_status": "Sent",
+    "timestamp": "6/3/2026, 11:53:47 AM",
+    "created_at": "6/3/2026, 11:53:47 AM",
+    "sent_at": "6/3/2026, 11:53:56 AM"
+  },
+  {
+    "id": 1780481958735,
+    "restaurantId": "default",
+    "name": "Fix Verification",
+    "phone": "999888777",
+    "amount": 50,
+    "sms_status": "Sent",
+    "timestamp": "6/3/2026, 1:19:18 PM",
+    "created_at": "6/3/2026, 1:19:18 PM",
+    "sent_at": "6/3/2026, 1:19:28 PM"
+  },
+  {
+    "id": 1780482072532,
+    "restaurantId": "default",
+    "name": "Rodney",
+    "phone": "0769329029",
+    "amount": "10",
+    "sms_status": "Sent",
+    "timestamp": "6/3/2026, 1:21:12 PM",
+    "created_at": "6/3/2026, 1:21:12 PM",
+    "sent_at": "6/3/2026, 1:21:28 PM"
+  }
+]
