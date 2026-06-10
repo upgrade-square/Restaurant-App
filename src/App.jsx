@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import './App.css'
-import API_BASE from './config/api'
+import API_URL from './config/api'
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -40,7 +40,7 @@ function App() {
     const headers = { ...options.headers, 'Content-Type': 'application/json' }
     if (token) headers['Authorization'] = `Bearer ${token}`
     try {
-      const response = await fetch(`${API_BASE}${endpoint}`, { ...options, headers })
+      const response = await fetch(`${API_URL}${endpoint}`, { ...options, headers })
       if (response.status === 401) { handleLogout(); throw new Error('Session expired') }
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
