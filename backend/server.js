@@ -634,11 +634,12 @@ app.get('/metrics', authenticateToken, checkSubscription, (req, res) => {
 });
 
 // --- AUTH ENDPOINTS ---
+const authRouter = express.Router();
 
 /**
  * @api {post} /auth/register Register User (Testing Only)
  */
-app.post('/auth/register', async (req, res) => {
+authRouter.post('/register', async (req, res) => {
     try {
         const { name, email, password, restaurantId = DEFAULT_RESTAURANT_ID, role = 'owner' } = req.body;
         if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
@@ -671,7 +672,7 @@ app.post('/auth/register', async (req, res) => {
 /**
  * @api {post} /auth/login Login User
  */
-app.post('/auth/login', async (req, res) => {
+authRouter.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
         const users = readData(USERS_FILE);
@@ -709,6 +710,30 @@ app.post('/auth/login', async (req, res) => {
         res.status(500).json({ error: 'Login failed' });
     }
 });
+
+/**
+ * @api {get} /auth/me Get Current User Info
+ */
+authRouter.get('/me', authenticateToken, (req, res) => {
+    try {
+        const users = readData(USERS_FILE);
+        const user = users.find(u => u.id === req.user.userId);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        res.json({
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            restaurantId: user.restaurantId,
+            role: user.role
+        });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch user data' });
+    }
+});
+
+// Mount Auth Router
+app.use('/auth', authRouter);
 
 /**
  * @api {post} /onboarding/register Professional SaaS Onboarding
@@ -1143,26 +1168,7 @@ app.get('/subscription/history', authenticateToken, (req, res) => {
     }
 });
 
-/**
- * @api {get} /auth/me Get Current User Info
- */
-app.get('/auth/me', authenticateToken, (req, res) => {
-    try {
-        const users = readData(USERS_FILE);
-        const user = users.find(u => u.id === req.user.userId);
-        if (!user) return res.status(404).json({ error: 'User not found' });
-
-        res.json({
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            restaurantId: user.restaurantId,
-            role: user.role
-        });
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to fetch user data' });
-    }
-});
+// Route moved to authRouter
 
 /**
  * @api {post} /gateway/register Register Gateway Device
