@@ -636,6 +636,9 @@ app.get('/metrics', authenticateToken, checkSubscription, (req, res) => {
 // --- AUTH ENDPOINTS ---
 const authRouter = express.Router();
 
+// Auth Health Check
+authRouter.get('/status', (req, res) => res.json({ status: 'auth system online' }));
+
 /**
  * @api {post} /auth/register Register User (Testing Only)
  */
@@ -709,6 +712,14 @@ authRouter.post('/login', async (req, res) => {
     } catch (error) {
         res.status(500).json({ error: 'Login failed' });
     }
+});
+
+// Explicitly handle other methods to /login to prevent 405 conflicts
+authRouter.all('/login', (req, res) => {
+    res.status(405).json({
+        error: 'Method Not Allowed',
+        message: `Authentication requires POST. Received ${req.method}`
+    });
 });
 
 /**
