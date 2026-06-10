@@ -1,0 +1,94 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Restaurant {
+  id                 String      @id
+  name               String
+  plan               String      @default("Starter")
+  subscriptionStatus String      @default("Trial")
+  subscriptionExpiry DateTime?
+  createdAt          DateTime    @default(now())
+  
+  users              User[]
+  customers          Customer[]
+  smsQueue           SmsQueue[]
+  templates          SmsTemplate?
+  payments           Payment[]
+}
+
+model User {
+  id           BigInt     @id
+  name         String
+  email        String     @unique
+  passwordHash String
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  role         String     @default("owner")
+  createdAt    DateTime   @default(now())
+}
+
+model Customer {
+  id           BigInt     @id
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  name         String
+  phone        String
+  amount       String?    // Stored as string to match existing legacy data quirks, or Decimal
+  sms_status   String     @default("Pending")
+  active       Boolean    @default(true)
+  timestamp    String?    // To preserve legacy timestamp strings
+  created_at   String?    // To preserve legacy date strings
+  createdAt    DateTime   @default(now())
+  archivedAt   DateTime?
+  
+  smsEntries   SmsQueue[]
+}
+
+model SmsQueue {
+  id           BigInt     @id
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  customerId   BigInt
+  customer     Customer   @relation(fields: [customerId], references: [id])
+  customerName String
+  phone        String
+  message      String
+  status       String     @default("Pending")
+  retryCount   Int        @default(0)
+  createdAt    String?    // To preserve legacy date strings
+  createdDate  DateTime   @default(now())
+  updatedAt    String?    // To preserve legacy date strings
+  updatedDate  DateTime   @updatedAt
+  sentAt       String?    // To preserve legacy date strings
+}
+
+model SmsTemplate {
+  id           Int        @id @default(autoincrement())
+  restaurantId String     @unique
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  thankYou     String
+  reservation  String
+  promotional  String
+}
+
+model Payment {
+  id              BigInt     @id
+  restaurantId    String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  transactionCode String     @unique
+  name            String?
+  phone           String?
+  amount          Decimal?
+  date            DateTime   @default(now())
+  smsSent         Boolean    @default(false)
+  createdAt       DateTime?  @default(now())
+}

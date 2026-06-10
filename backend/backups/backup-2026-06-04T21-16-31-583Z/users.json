@@ -1,0 +1,38 @@
+[
+  {
+    "id": 1780491647541,
+    "name": "Admin",
+    "email": "admin@test.com",
+    "passwordHash": "$2b$10$p1ZGdg.9jYnFGrBmsCejbOxzZ9SDUm4iZNTilevOFQyH2hRZzYUzK",
+    "restaurantId": "test-restaurant-425",
+    "role": "admin",
+    "createdAt": "2026-06-03T13:00:47.541Z"
+  },
+  {
+    "id": 1780491742098,
+    "name": "Rodney Simati",
+    "email": "rodneymike69@gmail.com",
+    "passwordHash": "$2b$10$SW0OikYM2haT61lH4iqYAumGdTCIG5yfouCieMXE.WdDYEpfEb9r2",
+    "restaurantId": "upgrade-square-210",
+    "role": "owner",
+    "createdAt": "2026-06-03T13:02:22.098Z"
+  },
+  {
+    "id": 1780494557796,
+    "name": "Mike",
+    "email": "mikrodtech@gmail.com",
+    "passwordHash": "$2b$10$/6DUkReFbck/yDy2uWjfBu8xMR63dSX4k8AkiSxS6lr5qPN7MZtdu",
+    "restaurantId": "rahlah-691",
+    "role": "owner",
+    "createdAt": "2026-06-03T13:49:17.796Z"
+  },
+  {
+    "id": 1780501199413,
+    "name": "yendor",
+    "email": "hackeryendor@gmail.com",
+    "passwordHash": "$2b$10$fflK5hg0q/hipFurhhK4Au3SIabtJth6Y8PI7yxkFgPwbPte.tHIe",
+    "restaurantId": "yendor-551",
+    "role": "owner",
+    "createdAt": "2026-06-03T15:39:59.413Z"
+  }
+]

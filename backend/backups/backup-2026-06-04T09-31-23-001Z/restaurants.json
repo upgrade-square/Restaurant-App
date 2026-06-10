@@ -1,0 +1,27 @@
+[
+  {
+    "id": "default",
+    "name": "MikrodTech Restaurant",
+    "createdAt": "6/3/2026, 12:34:20 PM"
+  },
+  {
+    "id": "test-restaurant-425",
+    "name": "Test Restaurant",
+    "createdAt": "2026-06-03T13:00:47.396Z"
+  },
+  {
+    "id": "upgrade-square-210",
+    "name": "Upgrade Square",
+    "createdAt": "2026-06-03T13:02:21.964Z"
+  },
+  {
+    "id": "rahlah-691",
+    "name": "RAHLAH",
+    "createdAt": "2026-06-03T13:49:17.702Z"
+  },
+  {
+    "id": "yendor-551",
+    "name": "Yendor",
+    "createdAt": "2026-06-03T15:39:59.311Z"
+  }
+]

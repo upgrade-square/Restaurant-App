@@ -2,26 +2,42 @@
   {
     "id": "default",
     "name": "MikrodTech Restaurant",
+    "plan": "Professional",
+    "subscriptionStatus": "trial",
+    "subscriptionExpiry": "2026-06-14T12:47:55.452Z",
+    "payoutHistory": [],
     "createdAt": "6/3/2026, 12:34:20 PM"
   },
   {
     "id": "test-restaurant-425",
     "name": "Test Restaurant",
+    "plan": "Starter",
+    "subscriptionStatus": "active",
+    "subscriptionExpiry": "2026-07-10T13:00:47.000Z",
     "createdAt": "2026-06-03T13:00:47.396Z"
   },
   {
     "id": "upgrade-square-210",
     "name": "Upgrade Square",
+    "plan": "Professional",
+    "subscriptionStatus": "Active",
+    "subscriptionExpiry": "2026-07-03T13:02:21Z",
     "createdAt": "2026-06-03T13:02:21.964Z"
   },
   {
     "id": "rahlah-691",
     "name": "RAHLAH",
+    "plan": "Enterprise",
+    "subscriptionStatus": "active",
+    "subscriptionExpiry": "2026-08-02T13:49:17.000Z",
     "createdAt": "2026-06-03T13:49:17.702Z"
   },
   {
     "id": "yendor-551",
     "name": "Yendor",
+    "plan": "Professional",
+    "subscriptionStatus": "Expired",
+    "subscriptionExpiry": "2026-06-01T15:39:59Z",
     "createdAt": "2026-06-03T15:39:59.311Z"
   }
 ]

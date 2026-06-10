@@ -15,7 +15,7 @@
     "amount": "100",
     "sms_status": "Sent",
     "timestamp": "6/2/2026, 11:46:13 PM",
-    "sent_at": "6/2/2026, 11:46:32 PM"
+    "sent_at": "6/8/2026, 12:55:58 AM"
   },
   {
     "id": 1780434761157,
@@ -263,5 +263,27 @@
     "timestamp": "6/3/2026, 10:57:53 PM",
     "created_at": "6/3/2026, 10:57:53 PM",
     "sent_at": "6/3/2026, 10:57:56 PM"
+  },
+  {
+    "id": 1780782925697,
+    "restaurantId": "rahlah-691",
+    "name": "Anne   Simati",
+    "phone": "0792758169",
+    "amount": "M-Pesa",
+    "sms_status": "Sent",
+    "active": true,
+    "createdAt": "2026-06-06T21:55:25.697Z",
+    "sent_at": "6/7/2026, 12:55:28 AM"
+  },
+  {
+    "id": 1780860230752,
+    "restaurantId": "rahlah-691",
+    "name": "COLLINS SIMIYU MODERN",
+    "phone": "0742148605",
+    "amount": "M-Pesa",
+    "sms_status": "Sent",
+    "active": true,
+    "createdAt": "2026-06-07T19:23:50.752Z",
+    "sent_at": "6/7/2026, 10:24:04 PM"
   }
 ]

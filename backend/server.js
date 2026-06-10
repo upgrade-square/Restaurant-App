@@ -24,6 +24,12 @@ const DEFAULT_RESTAURANT_ID = 'default';
 app.use(cors());
 app.use(bodyParser.json());
 
+// 1. Global Request Logger
+app.use((req, res, next) => {
+    console.log(`[REQUEST] ${new Date().toISOString()} - ${req.ip} - ${req.method} ${req.originalUrl}`);
+    next();
+});
+
 // Ensure data directory and files exist
 if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR);
@@ -44,6 +50,9 @@ if (!fs.existsSync(RESTAURANTS_FILE)) {
     const defaultRestaurant = {
         id: DEFAULT_RESTAURANT_ID,
         name: 'Demo Restaurant',
+        plan: 'Professional',
+        subscriptionStatus: 'Active',
+        subscriptionExpiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
         phone: '',
         address: '',
         createdAt: new Date().toLocaleString(),
@@ -90,6 +99,22 @@ const writeData = (file, data) => {
     fs.writeFileSync(file, JSON.stringify(data, null, 2));
 };
 
+// Admin Role Migration
+const migrateAdmin = () => {
+    try {
+        const users = readData(USERS_FILE);
+        const admin = users.find(u => u.email === 'admin@test.com');
+        if (admin && admin.role !== 'admin') {
+            admin.role = 'admin';
+            writeData(USERS_FILE, users);
+            console.log("Admin account migrated successfully");
+        }
+    } catch (err) {
+        console.error("Migration failed:", err);
+    }
+};
+migrateAdmin();
+
 // Auth Middleware
 const authenticateToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
@@ -102,12 +127,46 @@ const authenticateToken = (req, res, next) => {
     try {
         const verified = jwt.verify(token, JWT_SECRET);
         req.user = verified;
+        console.log(`[AUTH_SUCCESS] User: ${verified.userId} | Restaurant: ${verified.restaurantId || 'N/A'}`);
         next();
     } catch (err) {
+        console.log(`[AUTH_FAILED] Reason: Invalid token`);
         res.status(403).json({ error: 'Invalid token' });
     }
 };
 
+// Subscription Enforcement Middleware
+const checkSubscription = (req, res, next) => {
+    const restaurantId = req.user.restaurantId;
+    const restaurants = readData(RESTAURANTS_FILE);
+    const restaurant = restaurants.find(r => r.id === restaurantId);
+
+    if (!restaurant) {
+        return res.status(404).json({ error: 'Restaurant not found' });
+    }
+
+    const now = new Date();
+    const expiry = new Date(restaurant.subscriptionExpiry);
+    const status = restaurant.subscriptionStatus;
+
+    if (status === 'Suspended' || status === 'Inactive' || status === 'inactive') {
+        return res.status(403).json({ error: 'Your account has been deactivated. Please contact MikrodTech support.' });
+    }
+
+    if (status === 'Expired' || (expiry < now && status !== 'Active' && status !== 'Trial')) {
+        return res.status(403).json({ error: 'Your subscription has expired. Please renew to continue.' });
+    }
+
+    // Auto-update status to Expired if time passed but status still Active/Trial?
+    // The requirement says "Maintenance should happen but business operations must remain blocked"
+    if (expiry < now && (status === 'Active' || status === 'Trial')) {
+        restaurant.subscriptionStatus = 'Expired';
+        writeData(RESTAURANTS_FILE, restaurants);
+        return res.status(403).json({ error: 'Your subscription has expired. Please renew to continue.' });
+    }
+
+    next();
+};
 /**
  * @api {get} /health Health Check
  */
@@ -120,7 +179,7 @@ app.get('/health', (req, res) => {
  * @apiDescription Retrieves a list of all submitted customer entries
  * @apiSuccess {Array} customers List of customer objects
  */
-app.get('/customers', authenticateToken, (req, res) => {
+app.get('/customers', authenticateToken, checkSubscription, (req, res) => {
     try {
         const restaurantId = req.user.restaurantId;
         const customers = readData(DATA_FILE);
@@ -138,7 +197,7 @@ app.get('/customers', authenticateToken, (req, res) => {
 /**
  * @api {post} /customers Create Customer
  */
-app.post('/customers', authenticateToken, (req, res) => {
+app.post('/customers', authenticateToken, checkSubscription, (req, res) => {
     try {
         const { name, phone, amount, timestamp } = req.body;
         const restaurantId = req.user.restaurantId;
@@ -169,9 +228,10 @@ app.post('/customers', authenticateToken, (req, res) => {
             created_at: createdAt
         };
 
-        // Prepare message using template
+        // Prepare message using template (use first name for greeting)
+        const firstName = name.split(' ')[0];
         let message = templates.thankYou || settings.defaultThanks;
-        message = message.replace('{{name}}', name);
+        message = message.replace('{{name}}', firstName);
         message = message.replace('{{restaurantName}}', settings.restaurantName);
 
         const newSmsEntry = {
@@ -180,6 +240,7 @@ app.post('/customers', authenticateToken, (req, res) => {
             customerId: customerId,
             customerName: name,
             phone: phone,
+            amount: amount,
             message: message,
             status: 'Pending',
             retryCount: 0,
@@ -201,12 +262,131 @@ app.post('/customers', authenticateToken, (req, res) => {
 });
 
 /**
+ * @api {post} /payments/incoming Automated Payment Upload (M-Pesa)
+ * @apiDescription Receives payment data from Android Gateway and automates customer appreciation.
+ */
+app.post('/payments/incoming', authenticateToken, (req, res) => {
+    const transactionCode = req.body.transactionCode;
+    const customerName = req.body.customerName || req.body.name;
+    const customerPhone = req.body.customerPhone || req.body.phone;
+    const amount = req.body.amount || req.body.billAmount || 'M-Pesa';
+    const restaurantId = req.user.restaurantId;
+
+    if (req.body.name || req.body.phone) {
+        console.log(`[PAYMENT_FORMAT] legacy_android_payload=true`);
+    }
+
+    console.log(`[PAYMENT_RECEIVED] Trace: ${transactionCode} | Name: ${customerName} | Phone: ${customerPhone} | Restaurant: ${restaurantId}`);
+
+    try {
+        if (!transactionCode || !customerName || !customerPhone) {
+            console.log(`[PAYMENT_REJECTED] Reason: Missing required fields`);
+            return res.status(400).json({ error: 'Missing required fields' });
+        }
+
+        const paymentsPath = path.join(DATA_DIR, 'payments.json');
+        const payments = readData(paymentsPath);
+
+        // 1. Duplicate Check
+        if (payments.find(p => p.transactionCode === transactionCode)) {
+            console.log(`[PAYMENT_DUPLICATE] ${transactionCode}`);
+            return res.json({ success: true, duplicate: true });
+        }
+
+        // 2. Normalize Phone (254... -> 07...)
+        let normalizedPhone = customerPhone;
+        if (normalizedPhone.startsWith('254')) {
+            normalizedPhone = '0' + normalizedPhone.slice(3);
+        }
+
+        // 3. First Name Logic
+        const firstName = customerName.split(' ')[0];
+
+        // 4. Create/Update Customer
+        const customers = readData(DATA_FILE);
+        let customerCreated = false;
+        let customer = customers.find(c => c.phone === normalizedPhone && (c.restaurantId === restaurantId || !c.restaurantId));
+
+        if (!customer) {
+            customer = {
+                id: Date.now(),
+                restaurantId,
+                name: customerName,
+                phone: normalizedPhone,
+                amount: amount,
+                sms_status: 'Pending',
+                active: true,
+                createdAt: new Date().toISOString()
+            };
+            customers.push(customer);
+            writeData(DATA_FILE, customers);
+            customerCreated = true;
+            console.log(`[PAYMENT_CUSTOMER_CREATED] ${customer.id}`);
+        }
+
+        // 5. Generate SMS using Template
+        const allTemplates = readData(TEMPLATES_FILE);
+        const allSettings = readData(SETTINGS_FILE);
+        const settings = allSettings[restaurantId] || allSettings[DEFAULT_RESTAURANT_ID] || {};
+        const templates = allTemplates[restaurantId] || allTemplates[DEFAULT_RESTAURANT_ID] || {};
+
+        let message = templates.thankYou || settings.defaultThanks || "Thank you for your payment!";
+        message = message.replace('{{name}}', firstName);
+        message = message.replace('{{restaurantName}}', settings.restaurantName || "our restaurant");
+
+        // 6. Add to SMS Queue
+        console.log(`[PAYMENT] Queuing SMS for ${normalizedPhone}`);
+        const smsQueue = readData(SMS_DATA_FILE);
+        const newSmsEntry = {
+            id: Date.now() + 1,
+            restaurantId,
+            customerId: customer.id,
+            customerName: customerName, // Store FULL name in records
+            phone: normalizedPhone,
+            amount: amount,
+            message: message,
+            status: 'Pending',
+            retryCount: 0,
+            createdAt: new Date().toLocaleString(),
+            sentAt: null
+        };
+        smsQueue.push(newSmsEntry);
+        writeData(SMS_DATA_FILE, smsQueue);
+        console.log(`[PAYMENT_SMS_QUEUED] ${newSmsEntry.id}`);
+
+        // 7. Save Payment Record
+        console.log(`[PAYMENT] Saving audit record: ${transactionCode}`);
+        payments.push({
+            id: Date.now(),
+            restaurantId,
+            transactionCode,
+            name: customerName,
+            phone: normalizedPhone,
+            smsSent: false,
+            createdAt: new Date().toISOString()
+        });
+        writeData(paymentsPath, payments);
+        console.log(`[PAYMENT_SUCCESS] ${transactionCode}`);
+
+        res.json({
+            success: true,
+            customerCreated,
+            queued: true
+        });
+    } catch (error) {
+        console.error('Payment processing failed', error);
+        console.log(`[PAYMENT_REJECTED] Reason: Internal server error`);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
  * @api {get} /sms-queue Get SMS Queue
  * @apiDescription Get all SMS records or filter by status
  * @apiQuery {String} [status] Optional filter: "Pending", "Sent", "Failed"
  * @apiSuccess {Array} smsRecords List of SMS entries
  */
-app.get('/sms-queue', authenticateToken, (req, res) => {
+app.get('/sms-queue', authenticateToken, checkSubscription, (req, res) => {
     try {
         const restaurantId = req.user.restaurantId;
         const smsQueue = readData(SMS_DATA_FILE);
@@ -227,7 +407,7 @@ app.get('/sms-queue', authenticateToken, (req, res) => {
 /**
  * @api {get} /sms-queue/pending Get Pending SMS
  */
-app.get('/sms-queue/pending', authenticateToken, (req, res) => {
+app.get('/sms-queue/pending', authenticateToken, checkSubscription, (req, res) => {
     try {
         const restaurantId = req.user.restaurantId;
         const smsQueue = readData(SMS_DATA_FILE);
@@ -241,13 +421,14 @@ app.get('/sms-queue/pending', authenticateToken, (req, res) => {
 /**
  * @api {put} /sms-queue/:id Update SMS Status
  */
-app.put('/sms-queue/:id', authenticateToken, (req, res) => {
+app.put('/sms-queue/:id', authenticateToken, checkSubscription, (req, res) => {
     try {
         const { id } = req.params;
         const { status } = req.body;
         const restaurantId = req.user.restaurantId;
 
-        if (!['Pending', 'Sent', 'Failed'].includes(status)) {
+        // Expanded validation to allow "Processing"
+        if (!['Pending', 'Processing', 'Sent', 'Failed'].includes(status)) {
             return res.status(400).json({ error: 'Invalid status' });
         }
 
@@ -298,7 +479,7 @@ app.put('/sms-queue/:id', authenticateToken, (req, res) => {
  * @apiParam {String} id SMS record ID
  * @apiSuccess {Object} message Success confirmation
  */
-app.delete('/sms-queue/:id', authenticateToken, (req, res) => {
+app.delete('/sms-queue/:id', authenticateToken, checkSubscription, (req, res) => {
     try {
         const { id } = req.params;
         const restaurantId = req.user.restaurantId;
@@ -320,7 +501,7 @@ app.delete('/sms-queue/:id', authenticateToken, (req, res) => {
 /**
  * @api {delete} /customers/:id Archive Customer
  */
-app.delete('/customers/:id', authenticateToken, (req, res) => {
+app.delete('/customers/:id', authenticateToken, checkSubscription, (req, res) => {
     try {
         const { id } = req.params;
         const restaurantId = req.user.restaurantId;
@@ -344,12 +525,21 @@ app.delete('/customers/:id', authenticateToken, (req, res) => {
 /**
  * @api {get} /sms-queue/history Get SMS History
  */
-app.get('/sms-queue/history', authenticateToken, (req, res) => {
+app.get('/sms-queue/history', authenticateToken, checkSubscription, (req, res) => {
     try {
         const restaurantId = req.user.restaurantId;
         const smsQueue = readData(SMS_DATA_FILE);
+        const customers = readData(DATA_FILE);
         const filtered = smsQueue.filter(sms => sms.restaurantId === restaurantId || (!sms.restaurantId && restaurantId === DEFAULT_RESTAURANT_ID));
-        res.json(filtered.reverse());
+
+        // Extend response with amount from customer records if not present in SMS record
+        const enriched = filtered.map(sms => {
+            if (sms.amount) return sms;
+            const customer = customers.find(c => c.id === sms.customerId);
+            return { ...sms, amount: customer ? customer.amount : '-' };
+        });
+
+        res.json(enriched.reverse());
     } catch (error) {
         res.status(500).json({ error: 'Failed to read history' });
     }
@@ -372,7 +562,7 @@ app.get('/settings', authenticateToken, (req, res) => {
 /**
  * @api {post} /settings Update Restaurant Settings
  */
-app.post('/settings', authenticateToken, (req, res) => {
+app.post('/settings', authenticateToken, checkSubscription, (req, res) => {
     try {
         const restaurantId = req.user.restaurantId;
         const settings = req.body;
@@ -402,7 +592,7 @@ app.get('/templates', authenticateToken, (req, res) => {
 /**
  * @api {post} /templates Update Message Templates
  */
-app.post('/templates', authenticateToken, (req, res) => {
+app.post('/templates', authenticateToken, checkSubscription, (req, res) => {
     try {
         const restaurantId = req.user.restaurantId;
         const templates = req.body;
@@ -418,7 +608,7 @@ app.post('/templates', authenticateToken, (req, res) => {
 /**
  * @api {get} /metrics Get Dashboard Metrics
  */
-app.get('/metrics', authenticateToken, (req, res) => {
+app.get('/metrics', authenticateToken, checkSubscription, (req, res) => {
     try {
         const restaurantId = req.user.restaurantId;
         const customers = readData(DATA_FILE).filter(c => {
@@ -496,7 +686,7 @@ app.post('/auth/login', async (req, res) => {
         const restaurant = restaurants.find(r => r.id === user.restaurantId);
 
         const token = jwt.sign(
-            { userId: user.id, restaurantId: user.restaurantId, role: user.role },
+            { userId: user.id, restaurantId: user.restaurantId, role: user.role, email: user.email },
             JWT_SECRET,
             { expiresIn: '24h' }
         );
@@ -530,7 +720,7 @@ app.post('/onboarding/register', async (req, res) => {
             return res.status(400).json({ error: 'All fields are required' });
         }
 
-        const users = readData(USERS_FILE);
+        let users = readData(USERS_FILE);
         if (users.find(u => u.email === email)) return res.status(400).json({ error: 'Email already registered' });
 
         // Generate Domain-safe Restaurant ID
@@ -541,6 +731,9 @@ app.post('/onboarding/register', async (req, res) => {
         const newRestaurant = {
             id: restaurantId,
             name: restaurantName,
+            plan: 'Starter',
+            subscriptionStatus: 'Trial',
+            subscriptionExpiry: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(), // 14-day trial
             createdAt: new Date().toISOString()
         };
         restaurants.push(newRestaurant);
@@ -558,6 +751,7 @@ app.post('/onboarding/register', async (req, res) => {
             role: 'owner',
             createdAt: new Date().toISOString()
         };
+        users = readData(USERS_FILE);
         users.push(newUser);
         writeData(USERS_FILE, users);
 
@@ -582,7 +776,7 @@ app.post('/onboarding/register', async (req, res) => {
 
         // 5. Generate Instant Token
         const token = jwt.sign(
-            { userId: newUser.id, restaurantId, role: 'owner' },
+            { userId: newUser.id, restaurantId, role: 'owner', email: newUser.email },
             JWT_SECRET,
             { expiresIn: '7d' }
         );
@@ -601,6 +795,351 @@ app.post('/onboarding/register', async (req, res) => {
     } catch (error) {
         console.error('Onboarding failed', error);
         res.status(500).json({ error: 'Onboarding failed' });
+    }
+});
+
+
+/**
+ * @api {get} /admin/metrics Get Platform-wide Metrics
+ */
+app.get('/admin/metrics', authenticateToken, (req, res) => {
+    try {
+        const isAuthorized = req.user.role === 'admin' || req.user.email === 'admin@test.com';
+        console.log(`Admin Access Attempt - Email: ${req.user.email}, Role: ${req.user.role}, Result: ${isAuthorized}`);
+
+        if (!isAuthorized) {
+            return res.status(403).json({ error: 'Admin access required' });
+        }
+
+        const restaurants = readData(RESTAURANTS_FILE);
+        const paymentsPath = path.join(DATA_DIR, 'subscription_payments.json');
+        const payments = readData(paymentsPath);
+        const devices = readData(GATEWAY_FILE);
+
+        const now = new Date();
+        const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+        const totalRevenue = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
+        const monthlyRevenue = payments
+            .filter(p => new Date(p.date) >= thirtyDaysAgo)
+            .reduce((sum, p) => sum + (p.amount || 0), 0);
+
+        const onlineGateways = devices.filter(d => {
+            const diffSeconds = Math.floor((now - new Date(d.lastSeen)) / 1000);
+            return diffSeconds <= 120 && d.restaurantId;
+        }).length;
+
+        const metrics = {
+            totalRevenue,
+            monthlyRevenue,
+            activeRestaurants: restaurants.filter(r => r.subscriptionStatus?.toLowerCase() === 'active').length,
+            trialRestaurants: restaurants.filter(r => r.subscriptionStatus?.toLowerCase() === 'trial').length,
+            expiredRestaurants: restaurants.filter(r => r.subscriptionStatus?.toLowerCase() === 'expired').length,
+            inactiveRestaurants: restaurants.filter(r => r.subscriptionStatus?.toLowerCase() === 'inactive' || r.subscriptionStatus?.toLowerCase() === 'suspended').length,
+            totalRestaurants: restaurants.length,
+            onlineGateways,
+            offlineGateways: devices.filter(d => d.restaurantId).length - onlineGateways
+        };
+
+        res.json(metrics);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch admin metrics' });
+    }
+});
+
+/**
+ * @api {get} /admin/restaurants Get All Restaurants (Admin)
+ */
+app.get("/admin/restaurants", authenticateToken, (req, res) => {
+    try {
+        const isAuthorized = req.user.role === 'admin' || req.user.email === 'admin@test.com';
+        console.log(`Admin Access Attempt - Email: ${req.user.email}, Role: ${req.user.role}, Result: ${isAuthorized}`);
+
+        if (!isAuthorized) {
+            return res.status(403).json({ error: "Admin access required" });
+        }
+        const restaurants = readData(RESTAURANTS_FILE);
+        const users = readData(USERS_FILE);
+
+        const mapped = restaurants.map(res => {
+            return {
+                id: res.id,
+                name: res.name,
+                createdAt: res.createdAt,
+                subscriptionPlan: res.plan,
+                subscriptionStatus: res.subscriptionStatus,
+                subscriptionExpiryDate: res.subscriptionExpiry
+            };
+        });
+
+        res.json(mapped);
+    } catch (error) {
+        res.status(500).json({ error: "Failed to fetch restaurants" });
+    }
+});
+
+/**
+ * @api {get} /admin/restaurants/:id Get Restaurant Details (Admin)
+ */
+app.get('/admin/restaurants/:id', authenticateToken, (req, res) => {
+    try {
+        const isAuthorized = req.user.role === 'admin' || req.user.email === 'admin@test.com';
+        console.log(`Admin Access Attempt - Email: ${req.user.email}, Role: ${req.user.role}, Result: ${isAuthorized}`);
+
+        if (!isAuthorized) {
+            return res.status(403).json({ error: 'Admin access required' });
+        }
+        const { id } = req.params;
+        const restaurants = readData(RESTAURANTS_FILE);
+        const restaurant = restaurants.find(r => r.id === id);
+
+        if (!restaurant) return res.status(404).json({ error: 'Restaurant not found' });
+
+        res.json({
+            id: restaurant.id,
+            name: restaurant.name,
+            createdAt: restaurant.createdAt,
+            subscriptionPlan: restaurant.plan,
+            subscriptionStatus: restaurant.subscriptionStatus,
+            subscriptionExpiryDate: restaurant.subscriptionExpiry
+        });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch restaurant details' });
+    }
+});
+
+/**
+ * @api {post} /admin/restaurants/:id/activate Activate Subscription
+ */
+app.post('/admin/restaurants/:id/activate', authenticateToken, (req, res) => {
+    try {
+        const isAuthorized = req.user.role === 'admin' || req.user.email === 'admin@test.com';
+        console.log(`Admin Access Attempt - Email: ${req.user.email}, Role: ${req.user.role}, Result: ${isAuthorized}`);
+
+        if (!isAuthorized) {
+            return res.status(403).json({ error: 'Admin access required' });
+        }
+        const { id } = req.params;
+        const restaurants = readData(RESTAURANTS_FILE);
+        const index = restaurants.findIndex(r => r.id === id);
+        if (index === -1) return res.status(404).json({ error: 'Restaurant not found' });
+
+        const now = new Date();
+        let currentExpiry = new Date(restaurants[index].subscriptionExpiry);
+        if (isNaN(currentExpiry.getTime()) || currentExpiry < now) {
+            currentExpiry = now;
+        }
+
+        const newExpiry = new Date(currentExpiry.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+        restaurants[index].subscriptionStatus = 'active';
+        restaurants[index].subscriptionExpiry = newExpiry.toISOString();
+        writeData(RESTAURANTS_FILE, restaurants);
+
+        res.json({ message: 'Subscription activated', restaurant: restaurants[index] });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to activate subscription' });
+    }
+});
+
+/**
+ * @api {post} /admin/restaurants/:id/trial Grant Trial
+ */
+app.post('/admin/restaurants/:id/trial', authenticateToken, (req, res) => {
+    try {
+        const isAuthorized = req.user.role === 'admin' || req.user.email === 'admin@test.com';
+        console.log(`Admin Access Attempt - Email: ${req.user.email}, Role: ${req.user.role}, Result: ${isAuthorized}`);
+
+        if (!isAuthorized) {
+            return res.status(403).json({ error: 'Admin access required' });
+        }
+        const { id } = req.params;
+        const { days } = req.body;
+
+        const restaurants = readData(RESTAURANTS_FILE);
+        const index = restaurants.findIndex(r => r.id === id);
+        if (index === -1) return res.status(404).json({ error: 'Restaurant not found' });
+
+        const now = new Date();
+        const newExpiry = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+
+        restaurants[index].subscriptionStatus = 'trial';
+        restaurants[index].subscriptionExpiry = newExpiry.toISOString();
+        writeData(RESTAURANTS_FILE, restaurants);
+
+        res.json({ message: 'Trial granted', restaurant: restaurants[index] });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to grant trial' });
+    }
+});
+
+/**
+ * @api {post} /admin/restaurants/:id/suspend Suspend Restaurant
+ */
+app.post('/admin/restaurants/:id/suspend', authenticateToken, (req, res) => {
+    try {
+        const isAuthorized = req.user.role === 'admin' || req.user.email === 'admin@test.com';
+        console.log(`Admin Access Attempt - Email: ${req.user.email}, Role: ${req.user.role}, Result: ${isAuthorized}`);
+
+        if (!isAuthorized) {
+            return res.status(403).json({ error: 'Admin access required' });
+        }
+        const { id } = req.params;
+        const restaurants = readData(RESTAURANTS_FILE);
+        const index = restaurants.findIndex(r => r.id === id);
+        if (index === -1) return res.status(404).json({ error: 'Restaurant not found' });
+
+        restaurants[index].subscriptionStatus = 'inactive';
+        writeData(RESTAURANTS_FILE, restaurants);
+
+        res.json({ message: 'Restaurant deactivated', restaurant: restaurants[index] });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to suspend restaurant' });
+    }
+});
+
+/**
+ * @api {post} /admin/restaurants/:id/reactivate Reactivate Restaurant
+ */
+app.post('/admin/restaurants/:id/reactivate', authenticateToken, (req, res) => {
+    try {
+        const isAuthorized = req.user.role === 'admin' || req.user.email === 'admin@test.com';
+        console.log(`Admin Access Attempt - Email: ${req.user.email}, Role: ${req.user.role}, Result: ${isAuthorized}`);
+
+        if (!isAuthorized) {
+            return res.status(403).json({ error: 'Admin access required' });
+        }
+        const { id } = req.params;
+        const restaurants = readData(RESTAURANTS_FILE);
+        const index = restaurants.findIndex(r => r.id === id);
+        if (index === -1) return res.status(404).json({ error: 'Restaurant not found' });
+
+        const now = new Date();
+        const expiry = new Date(restaurants[index].subscriptionExpiry);
+
+        if (expiry > now) {
+            // Restore based on expiry
+            restaurants[index].subscriptionStatus = (restaurants[index].plan === 'Starter' && expiry > new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)) ? 'Trial' : 'Active';
+            if (restaurants[index].subscriptionStatus === 'Inactive' || restaurants[index].subscriptionStatus === 'Suspended') {
+                restaurants[index].subscriptionStatus = restaurants[index].plan === 'Starter' ? 'Trial' : 'Active';
+            }
+        } else {
+            // Expired, but we can reset to a short trial or just let them stay expired but "Not Suspended"
+            // The prompt says reactivate expired/trial/suspended.
+            // If reactivating an expired one, maybe we should just set it to Active with a 1 day grace or similar?
+            // "Admin can reactivate... accounts."
+            // I'll set a 3-day grace period if reactivating an expired one.
+            restaurants[index].subscriptionStatus = 'Trial';
+            restaurants[index].subscriptionExpiry = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString();
+        }
+
+        writeData(RESTAURANTS_FILE, restaurants);
+        res.json({ message: 'Restaurant reactivated', restaurant: restaurants[index] });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to reactivate restaurant' });
+    }
+});
+
+/**
+ * @api {get} /admin/restaurants/:id/payments Get Restaurant Payment History
+ */
+app.get('/admin/restaurants/:id/payments', authenticateToken, (req, res) => {
+    try {
+        const isAuthorized = req.user.role === 'admin' || req.user.email === 'admin@test.com';
+        console.log(`Admin Access Attempt - Email: ${req.user.email}, Role: ${req.user.role}, Result: ${isAuthorized}`);
+
+        if (!isAuthorized) {
+            return res.status(403).json({ error: 'Admin access required' });
+        }
+        const { id } = req.params;
+        const paymentsPath = path.join(DATA_DIR, 'subscription_payments.json');
+        const payments = readData(paymentsPath);
+        const filtered = payments.filter(p => p.restaurantId === id);
+        res.json(filtered.reverse());
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch payment history' });
+    }
+});
+
+
+/**
+ * @api {post} /subscription/verify Verify M-Pesa Transaction
+ */
+app.post('/subscription/verify', authenticateToken, (req, res) => {
+    try {
+        const { transactionCode, plan } = req.body;
+        if (!transactionCode || !plan) {
+            return res.status(400).json({ error: 'Transaction code and plan required' });
+        }
+
+        const restaurants = readData(RESTAURANTS_FILE);
+        const restaurantIndex = restaurants.findIndex(r => r.id === req.user.restaurantId);
+
+        if (restaurantIndex === -1) return res.status(404).json({ error: 'Restaurant not found' });
+
+        // Logic for tiered pricing
+        const pricing = {
+            'Starter': 2500,
+            'Professional': 5000,
+            'Enterprise': 10000
+        };
+
+        const amount = pricing[plan] || 0;
+
+        // In a real app, you would verify this code via M-Pesa API here
+        // For demonstration, we'll accept any 10-character code
+        if (transactionCode.length < 8) {
+            return res.status(400).json({ error: 'Invalid transaction code format' });
+        }
+
+        // Update Restaurant Plan
+        restaurants[restaurantIndex].plan = plan;
+        restaurants[restaurantIndex].subscriptionStatus = 'Active';
+
+        // Extend expiry by 30 days from now or current expiry
+        const currentExpiry = new Date(restaurants[restaurantIndex].subscriptionExpiry);
+        const now = new Date();
+        const baseDate = (currentExpiry > now) ? currentExpiry : now;
+        const newExpiry = new Date(baseDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+        restaurants[restaurantIndex].subscriptionExpiry = newExpiry.toISOString();
+        writeData(RESTAURANTS_FILE, restaurants);
+
+        // Log Payment
+        const paymentsPath = path.join(DATA_DIR, 'subscription_payments.json');
+        const payments = readData(paymentsPath);
+        payments.push({
+            id: Date.now(),
+            restaurantId: req.user.restaurantId,
+            transactionCode,
+            plan,
+            amount,
+            date: new Date().toISOString()
+        });
+        writeData(paymentsPath, payments);
+
+        res.json({
+            message: 'Subscription updated successfully!',
+            restaurant: restaurants[restaurantIndex]
+        });
+    } catch (error) {
+        console.error('Subscription verification failed', error);
+        res.status(500).json({ error: 'Failed to verify subscription' });
+    }
+});
+
+/**
+ * @api {get} /subscription/history Get Payment History
+ */
+app.get('/subscription/history', authenticateToken, (req, res) => {
+    try {
+        const restaurantId = req.user.restaurantId;
+        const paymentsPath = path.join(DATA_DIR, 'subscription_payments.json');
+        const payments = readData(paymentsPath);
+        const filtered = payments.filter(p => p.restaurantId === restaurantId);
+        res.json(filtered.reverse()); // Latest first
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch payment history' });
     }
 });
 
@@ -676,7 +1215,7 @@ app.post('/gateway/register', authenticateToken, (req, res) => {
  */
 app.post('/gateway/heartbeat', authenticateToken, (req, res) => {
     try {
-        const { deviceId, batteryLevel, appVersion } = req.body;
+        const { deviceId, batteryLevel, appVersion, isCharging } = req.body;
         const restaurantId = req.user.restaurantId;
         if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
 
@@ -688,10 +1227,11 @@ app.post('/gateway/heartbeat', authenticateToken, (req, res) => {
             return res.status(404).json({ error: 'Device not found or access denied' });
         }
 
-        console.log(`[Heartbeat] Received from device ${deviceId} (Restaurant: ${restaurantId})`);
+        console.log(`[Heartbeat] Received from device ${deviceId} (Restaurant: ${restaurantId}) Battery: ${batteryLevel}% Charging: ${isCharging}`);
         devices[index].lastSeen = new Date().toISOString();
         if (batteryLevel !== undefined) devices[index].batteryLevel = batteryLevel;
         if (appVersion !== undefined) devices[index].appVersion = appVersion;
+        if (isCharging !== undefined) devices[index].isCharging = isCharging;
 
         writeData(GATEWAY_FILE, devices);
         res.json({ message: 'Heartbeat received' });
@@ -791,6 +1331,23 @@ app.get('/restaurants', authenticateToken, (req, res) => {
 
 app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
+
+    // Startup Health Check
+    try {
+        const customers = readData(DATA_FILE);
+        const payments = readData(path.join(DATA_DIR, 'payments.json'));
+        const smsQueue = readData(SMS_DATA_FILE);
+        const pendingCount = smsQueue.filter(s => s.status === 'Pending').length;
+
+        console.log('--- STARTUP HEALTH CHECK ---');
+        console.log(`Total Customers: ${customers.length}`);
+        console.log(`Total Payments: ${payments.length}`);
+        console.log(`Total SMS Queue Records: ${smsQueue.length}`);
+        console.log(`Pending SMS Count: ${pendingCount}`);
+        console.log('-----------------------------');
+    } catch (err) {
+        console.error('Health check failed', err);
+    }
 }).on('error', (err) => {
     console.error('Server failed to start:', err);
 });

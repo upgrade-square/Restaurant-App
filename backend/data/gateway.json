@@ -3,10 +3,11 @@
     "deviceId": "a5aeb17e8adeb1a9",
     "deviceName": "SM-A155F",
     "appVersion": "1.0",
-    "lastSeen": "2026-06-03T20:11:07.704Z",
-    "batteryLevel": 52,
+    "lastSeen": "2026-06-07T22:06:48.877Z",
+    "batteryLevel": 98,
     "status": "Online",
-    "restaurantId": "yendor-551",
-    "isPrimary": true
+    "restaurantId": "rahlah-691",
+    "isPrimary": true,
+    "isCharging": false
   }
 ]

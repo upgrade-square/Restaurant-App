@@ -1,0 +1,20 @@
+[
+  {
+    "id": 1780589252312,
+    "restaurantId": "yendor-551",
+    "transactionCode": "UF4OA6UEK3",
+    "name": "Mike Rodney Wabwile",
+    "phone": "0769329029",
+    "smsSent": true,
+    "createdAt": "2026-06-04T16:07:32.312Z"
+  },
+  {
+    "id": 1780589297056,
+    "restaurantId": "yendor-551",
+    "transactionCode": "UF4OA6TP1F",
+    "name": "Mike Rodney Wabwile",
+    "phone": "0769329029",
+    "smsSent": true,
+    "createdAt": "2026-06-04T16:08:17.056Z"
+  }
+]

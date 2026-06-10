@@ -1,0 +1,38 @@
+[
+  {
+    "id": 1780589252312,
+    "restaurantId": "yendor-551",
+    "transactionCode": "UF4OA6UEK3",
+    "name": "Mike Rodney Wabwile",
+    "phone": "0769329029",
+    "smsSent": true,
+    "createdAt": "2026-06-04T16:07:32.312Z"
+  },
+  {
+    "id": 1780589297056,
+    "restaurantId": "yendor-551",
+    "transactionCode": "UF4OA6TP1F",
+    "name": "Mike Rodney Wabwile",
+    "phone": "0769329029",
+    "smsSent": true,
+    "createdAt": "2026-06-04T16:08:17.056Z"
+  },
+  {
+    "id": 1780589709062,
+    "restaurantId": "yendor-551",
+    "transactionCode": "UF4OA6UG94",
+    "name": "Mike Rodney Wabwile",
+    "phone": "0769329029",
+    "smsSent": true,
+    "createdAt": "2026-06-04T16:15:09.062Z"
+  },
+  {
+    "id": 1780593692340,
+    "restaurantId": "yendor-551",
+    "transactionCode": "UF41H6UPEH",
+    "name": "COLLINS SIMIYU MODERN",
+    "phone": "0742148605",
+    "smsSent": true,
+    "createdAt": "2026-06-04T17:21:32.340Z"
+  }
+]
