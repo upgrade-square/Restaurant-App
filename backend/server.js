@@ -1353,20 +1353,26 @@ if (fs.existsSync(distPath)) {
     console.log(`[Static] Serving frontend from: ${distPath}`);
     app.use(express.static(distPath));
 
-    // SPA Routing: Redirect unknown non-API routes to index.html
-    app.get('*', (req, res, next) => {
-        // Skip for API-like paths
-        if (req.url.startsWith('/auth') || req.url.startsWith('/customers') || req.url.startsWith('/sms-queue') || req.url.startsWith('/subscription')) {
-            return next();
-        }
-        res.sendFile(path.join(distPath, 'index.html'));
-    });
 }
 
-// Global 404 for API routes
+// Global handler for SPA Fallback and API 404s (Express 5 Compatible)
 app.use((req, res) => {
-    console.log(`[404] ${req.method} ${req.url}`);
-    res.status(404).json({ error: 'Route not found' });
+    // API Prefixes to exclude from SPA fallback
+    const apiPrefixes = ['/auth', '/customers', '/sms-queue', '/subscription', '/settings', '/templates', '/metrics', '/admin', '/health', '/onboarding', '/gateway', '/restaurants', '/payments'];
+    const isApiRoute = apiPrefixes.some(prefix => req.url.startsWith(prefix));
+
+    if (isApiRoute) {
+        console.log(`[404_API] ${req.method} ${req.url}`);
+        return res.status(404).json({ error: 'API route not found' });
+    }
+
+    // For all other routes, serve index.html if it exists
+    const distPath = path.join(__dirname, '../dist');
+    if (fs.existsSync(distPath)) {
+        return res.sendFile(path.join(distPath, 'index.html'));
+    }
+
+    res.status(404).send('Not Found');
 });
 
 app.listen(PORT, () => {
