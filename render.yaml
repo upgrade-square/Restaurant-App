@@ -7,10 +7,6 @@ services:
     buildCommand: npm install && npm run build && cd backend && npm install
     # Run the backend which now serves the frontend as well
     startCommand: node backend/server.js
-    disk:
-      name: mikrodcap-data
-      mountPath: /opt/render/project/src/backend/data
-      sizeGB: 1
     envVars:
       - key: JWT_SECRET
         generateValue: true
