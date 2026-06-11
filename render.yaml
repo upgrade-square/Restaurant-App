@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: mikrodcap
+    env: node
+    plan: free
+    # Build frontend first, then backend
+    buildCommand: npm install && npm run build && cd backend && npm install
+    # Run the backend which now serves the frontend as well
+    startCommand: node backend/server.js
+    disk:
+      name: mikrodcap-data
+      mountPath: /opt/render/project/src/backend/data
+      sizeGB: 1
+    envVars:
+      - key: JWT_SECRET
+        generateValue: true
+      - key: NODE_VERSION
+        value: 20
+      - key: VITE_API_URL
+        value: https://mikrodcap.onrender.com # Change this to your actual Render URL

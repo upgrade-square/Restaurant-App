@@ -716,9 +716,10 @@ authRouter.post('/login', async (req, res) => {
 
 // Explicitly handle other methods to /login to prevent 405 conflicts
 authRouter.all('/login', (req, res) => {
+    console.warn(`[AUTH_405] Method ${req.method} not allowed on /login`);
     res.status(405).json({
         error: 'Method Not Allowed',
-        message: `Authentication requires POST. Received ${req.method}`
+        message: `Authentication requires POST. Received ${req.method}. Check that you are using HTTPS and no redirects are occurring.`
     });
 });
 
@@ -1344,6 +1345,28 @@ app.get('/restaurants', authenticateToken, (req, res) => {
     } catch (error) {
         res.status(500).json({ error: 'Failed to read restaurants' });
     }
+});
+
+// --- STATIC FRONTEND SERVING (For Render/Production) ---
+const distPath = path.join(__dirname, '../dist');
+if (fs.existsSync(distPath)) {
+    console.log(`[Static] Serving frontend from: ${distPath}`);
+    app.use(express.static(distPath));
+
+    // SPA Routing: Redirect unknown non-API routes to index.html
+    app.get('*', (req, res, next) => {
+        // Skip for API-like paths
+        if (req.url.startsWith('/auth') || req.url.startsWith('/customers') || req.url.startsWith('/sms-queue') || req.url.startsWith('/subscription')) {
+            return next();
+        }
+        res.sendFile(path.join(distPath, 'index.html'));
+    });
+}
+
+// Global 404 for API routes
+app.use((req, res) => {
+    console.log(`[404] ${req.method} ${req.url}`);
+    res.status(404).json({ error: 'Route not found' });
 });
 
 app.listen(PORT, () => {
