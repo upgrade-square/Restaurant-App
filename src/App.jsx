@@ -37,6 +37,7 @@ function App() {
   const [resPayments, setResPayments] = useState([])
   const [modalType, setModalType] = useState(null) // 'view', 'activate', 'trial', 'payments'
   const [toast, setToast] = useState(null)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -380,28 +381,32 @@ function App() {
   return (
     <div className="app-container">
       <nav className="navbar">
-        <div className="logo-area">
+        <div className="logo-area" style={{ flexDirection: 'row', alignItems: 'center', gap: '12px' }}>
+          <button className="menu-toggle mobile-only" onClick={() => setMenuOpen(!menuOpen)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--text-main)', padding: '0' }}>
+            {menuOpen ? '✕' : '☰'}
+          </button>
           <div className="brand">
             <span className="brand-mikrod">Mikrod</span>
             <span className="brand-cap">CAP</span>
           </div>
         </div>
-        <div className="nav-links">
-          <button className={`nav-btn ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>Dashboard</button>
-          <button className={`nav-btn ${activeTab === 'customers' ? 'active' : ''}`} onClick={() => setActiveTab('customers')}>Customers</button>
-          {!isDemoMode && <button className={`nav-btn ${activeTab === 'templates' ? 'active' : ''}`} onClick={() => setActiveTab('templates')}>Templates</button>}
-          <button className={`nav-btn ${activeTab === 'subscription' ? 'active' : ''}`} onClick={() => setActiveTab('subscription')}>Subscription</button>
-          <button className={`nav-btn ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>Settings</button>
-          {isAdmin && <button className={`nav-btn ${activeTab === 'admin' ? 'active' : ''}`} onClick={() => setActiveTab('admin')}>Admin</button>}
+        <div className={`nav-links ${menuOpen ? 'open' : ''}`}>
+          <button className={`nav-btn ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => { setActiveTab('dashboard'); setMenuOpen(false); }}>Dashboard</button>
+          <button className={`nav-btn ${activeTab === 'customers' ? 'active' : ''}`} onClick={() => { setActiveTab('customers'); setMenuOpen(false); }}>Customers</button>
+          {!isDemoMode && <button className={`nav-btn ${activeTab === 'templates' ? 'active' : ''}`} onClick={() => { setActiveTab('templates'); setMenuOpen(false); }}>Templates</button>}
+          <button className={`nav-btn ${activeTab === 'subscription' ? 'active' : ''}`} onClick={() => { setActiveTab('subscription'); setMenuOpen(false); }}>Subscription</button>
+          <button className={`nav-btn ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => { setActiveTab('settings'); setMenuOpen(false); }}>Settings</button>
+          {isAdmin && <button className={`nav-btn ${activeTab === 'admin' ? 'active' : ''}`} onClick={() => { setActiveTab('admin'); setMenuOpen(false); }}>Admin</button>}
 
           <div className="business-info">
-            <div>
+            <div className="desktop-only">
               <div className="business-name">{restaurant?.name}</div>
               <div className="sub-status">{restaurant?.plan} / {restaurant?.subscriptionStatus}</div>
             </div>
-            <button className="nav-btn logout-btn" style={{ color: 'var(--danger)' }} onClick={handleLogout}>Logout</button>
+            <button className="nav-btn logout-btn" style={{ color: 'var(--danger)' }} onClick={() => { handleLogout(); setMenuOpen(false); }}>Logout</button>
           </div>
         </div>
+        {menuOpen && <div className="menu-overlay mobile-only" onClick={() => setMenuOpen(false)}></div>}
       </nav>
 
       <main className="main-content">
@@ -435,12 +440,12 @@ function App() {
               </div>
               <div className="card kpi-card">
                 <div className="kpi-label">Active Subscription</div>
-                <div className="kpi-value" style={{ textTransform: 'capitalize', color: 'var(--success)', fontSize: '1.5rem' }}>{restaurant?.plan || 'Free Trial'}</div>
+                <div className="kpi-value" style={{ textTransform: 'capitalize', color: 'var(--success)', fontSize: '1.25rem' }}>{restaurant?.plan || 'Free Trial'}</div>
               </div>
 
               <div className="card kpi-card">
                 <div className="kpi-label">Customer Appreciation Strategy</div>
-                <div className="kpi-value" style={{ fontSize: '1.2rem' }}>Automated</div>
+                <div className="kpi-value" style={{ fontSize: '1rem' }}>Automated</div>
               </div>
               <div className="card kpi-card">
                 <div className="kpi-label">Gateway Status</div>
@@ -466,10 +471,8 @@ function App() {
             <div className="activity-section">
               <div className="card">
                 <h3>Customer Engagement Activity</h3>
-
-                {/* Desktop View: Table */}
-                <div className="table-container desktop-only" style={{ marginTop: '16px' }}>
-                  <table className="activity-table" style={{ width: '100%', tableLayout: 'fixed' }}>
+                <div className="table-container" style={{ marginTop: '16px' }}>
+                  <table className="activity-table" style={{ width: '100%', tableLayout: 'fixed', minWidth: '800px' }}>
                     <thead>
                       <tr>
                         <th style={{ width: '20%' }}>Created Date</th>
@@ -501,32 +504,6 @@ function App() {
                     </tbody>
                   </table>
                 </div>
-
-                {/* Mobile View: Activity Feed */}
-                <div className="mobile-only activity-feed-mobile" style={{ marginTop: '20px' }}>
-                  {smsHistory.slice(0, 10).map(msg => (
-                    <div key={msg.id} className="activity-item-card">
-                      <div className="activity-top-row">
-                        <div className="activity-name">{msg.customerName}</div>
-                        <StatusBadge status={msg.status} />
-                      </div>
-                      <div className="activity-phone">{msg.phone}</div>
-                      <div className="activity-description">
-                        {msg.message || "Customer added for automated appreciation."}
-                      </div>
-                      <div className="activity-bottom-row">
-                        <div className="activity-time">{formatDateTime(msg.createdAt)}</div>
-                        {msg.status === 'Failed' && (
-                          <button className="resend-btn" style={{ padding: '4px 12px' }} onClick={() => handleResend(msg.id)}>Resend</button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                  {smsHistory.length === 0 && (
-                    <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No recent activity</div>
-                  )}
-                </div>
-
               </div>
             </div>
           </div>
@@ -567,8 +544,8 @@ function App() {
                   </select>
                 </div>
               </div>
-              <div className="table-container desktop-only">
-                <table className="activity-table" style={{ tableLayout: 'fixed' }}>
+              <div className="table-container">
+                <table className="activity-table" style={{ tableLayout: 'fixed', minWidth: '800px' }}>
                   <thead>
                     <tr>
                       <th style={{ width: '20%' }}>Created Date</th>
@@ -610,50 +587,6 @@ function App() {
                     ))}
                   </tbody>
                 </table>
-              </div>
-
-              {/* Mobile View for Customer Directory */}
-              <div className="mobile-only activity-feed-mobile">
-                {smsHistory
-                  .filter(s => (s.customerName.toLowerCase().includes(searchTerm.toLowerCase()) || s.phone.includes(searchTerm)) && (filterStatus === 'All' || s.status === filterStatus))
-                  .map(sms => (
-                    <div key={sms.id} className="activity-item-card">
-                      <div className="activity-top-row">
-                        <div className="activity-name">{sms.customerName}</div>
-                        <StatusBadge status={sms.status} />
-                      </div>
-                      <div className="activity-phone">{sms.phone}</div>
-                      <div className="activity-description">
-                        {sms.message || "Customer directory entry."}
-                      </div>
-                      <div className="activity-bottom-row">
-                        <div className="activity-time">{formatDateTime(sms.createdAt)}</div>
-                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                          {sms.status === 'Failed' && (
-                            <button className="resend-btn" style={{ padding: '4px 12px' }} onClick={() => handleResend(sms.id)}>Retry</button>
-                          )}
-                          <button
-                            style={{ color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}
-                            onClick={async () => {
-                              try {
-                                await fetchWithAuth(`/customers/${sms.customerId}`, { method: 'DELETE' });
-                                await fetchWithAuth(`/sms-queue/${sms.id}`, { method: 'DELETE' });
-                                setCustomers(prev => prev.filter(c => c.id !== sms.customerId));
-                                setSmsHistory(prev => prev.filter(s => s.id !== sms.id));
-                                setMetrics(prev => ({ ...prev, totalCustomers: Math.max(0, prev.totalCustomers - 1) }));
-                                showToast('Customer deleted successfully');
-                                refreshData(true);
-                              } catch (err) {
-                                showToast(err.message, 'danger');
-                              }
-                            }}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
               </div>
             </div>
           </div>
