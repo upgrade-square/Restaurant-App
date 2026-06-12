@@ -52,7 +52,7 @@ if (!fs.existsSync(USERS_FILE)) {
 if (!fs.existsSync(RESTAURANTS_FILE)) {
     const defaultRestaurant = {
         id: DEFAULT_RESTAURANT_ID,
-        name: 'Demo Restaurant',
+        name: 'Demo Business',
         plan: 'Professional',
         subscriptionStatus: 'Active',
         subscriptionExpiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
@@ -66,10 +66,10 @@ if (!fs.existsSync(RESTAURANTS_FILE)) {
 if (!fs.existsSync(SETTINGS_FILE)) {
     const defaultSettings = {
         [DEFAULT_RESTAURANT_ID]: {
-            restaurantName: 'MikrodTech Restaurant',
+            restaurantName: 'MikrodTech Business',
             phone: '',
             address: '',
-            defaultThanks: 'Thank you for dining with us. We appreciate your visit.',
+            defaultThanks: 'Thank you for your payment. We appreciate your support and look forward to serving you again.',
             email: ''
         }
     };
@@ -78,8 +78,8 @@ if (!fs.existsSync(SETTINGS_FILE)) {
 if (!fs.existsSync(TEMPLATES_FILE)) {
     const defaultTemplates = {
         [DEFAULT_RESTAURANT_ID]: {
-            thankYou: 'Hi {{name}}, thank you for dining at {{restaurantName}}. We hope to see you again soon!',
-            reservation: 'Hi {{name}}, this is a reminder for your reservation at {{restaurantName}}.',
+            thankYou: 'Hi {{name}}, thank you for your payment at {{restaurantName}}. We appreciate your support and look forward to serving you again!',
+            reservation: 'Hi {{name}}, your appointment at {{restaurantName}} is confirmed.',
             promotional: 'Hi {{name}}, we have a special offer for you at {{restaurantName}}! Show this message to get 10% off.'
         }
     };
@@ -145,7 +145,7 @@ const checkSubscription = (req, res, next) => {
     const restaurant = restaurants.find(r => r.id === restaurantId);
 
     if (!restaurant) {
-        return res.status(404).json({ error: 'Restaurant not found' });
+        return res.status(404).json({ error: 'Business account not found' });
     }
 
     const now = new Date();
@@ -153,7 +153,7 @@ const checkSubscription = (req, res, next) => {
     const status = restaurant.subscriptionStatus;
 
     if (status === 'Suspended' || status === 'Inactive' || status === 'inactive') {
-        return res.status(403).json({ error: 'Your account has been deactivated. Please contact MikrodTech support.' });
+        return res.status(403).json({ error: 'Your business account has been deactivated. Please contact MikrodTech support.' });
     }
 
     if (status === 'Expired' || (expiry < now && status !== 'Active' && status !== 'Trial')) {
@@ -335,7 +335,7 @@ app.post('/payments/incoming', authenticateToken, (req, res) => {
 
         let message = templates.thankYou || settings.defaultThanks || "Thank you for your payment!";
         message = message.replace('{{name}}', firstName);
-        message = message.replace('{{restaurantName}}', settings.restaurantName || "our restaurant");
+        message = message.replace('{{restaurantName}}', settings.restaurantName || "our business");
 
         // 6. Add to SMS Queue
         console.log(`[PAYMENT] Queuing SMS for ${normalizedPhone}`);
@@ -439,7 +439,7 @@ app.put('/sms-queue/:id', authenticateToken, checkSubscription, (req, res) => {
         const smsIndex = smsQueue.findIndex(sms => sms.id === parseInt(id) && (sms.restaurantId === restaurantId || (!sms.restaurantId && restaurantId === DEFAULT_RESTAURANT_ID)));
 
         if (smsIndex === -1) {
-            return res.status(404).json({ error: 'SMS record not found or access denied' });
+            return res.status(404).json({ error: 'Message record not found or access denied' });
         }
 
         const sms = smsQueue[smsIndex];
@@ -509,19 +509,17 @@ app.delete('/customers/:id', authenticateToken, checkSubscription, (req, res) =>
         const { id } = req.params;
         const restaurantId = req.user.restaurantId;
         let customers = readData(DATA_FILE);
-        const index = customers.findIndex(c => c.id === parseInt(id) && (c.restaurantId === restaurantId || (!c.restaurantId && restaurantId === DEFAULT_RESTAURANT_ID)));
+        const initialLength = customers.length;
+        customers = customers.filter(c => !(c.id === parseInt(id) && (c.restaurantId === restaurantId || (!c.restaurantId && restaurantId === DEFAULT_RESTAURANT_ID))));
 
-        if (index === -1) {
-            return res.json({ message: 'Customer already archived or not found or access denied' });
+        if (customers.length === initialLength) {
+            return res.json({ message: 'Customer already removed or not found or access denied' });
         }
 
-        customers[index].active = false;
-        customers[index].archivedAt = nowUTC();
-
         writeData(DATA_FILE, customers);
-        res.json({ message: 'Customer archived' });
+        res.json({ message: 'Customer deleted' });
     } catch (error) {
-        res.status(500).json({ error: 'Failed to archive customer' });
+        res.status(500).json({ error: 'Failed to delete customer' });
     }
 });
 
@@ -549,7 +547,7 @@ app.get('/sms-queue/history', authenticateToken, checkSubscription, (req, res) =
 });
 
 /**
- * @api {get} /settings Get Restaurant Settings
+ * @api {get} /settings Get Business Settings
  */
 app.get('/settings', authenticateToken, (req, res) => {
     try {
@@ -563,7 +561,7 @@ app.get('/settings', authenticateToken, (req, res) => {
 });
 
 /**
- * @api {post} /settings Update Restaurant Settings
+ * @api {post} /settings Update Business Settings
  */
 app.post('/settings', authenticateToken, checkSubscription, (req, res) => {
     try {
@@ -755,7 +753,7 @@ app.use('/auth', authRouter);
  */
 app.post('/onboarding/register', async (req, res) => {
     try {
-        const { restaurantName, ownerName, email, password } = req.body;
+        const { restaurantName, ownerName, email, password, plan = null, duration = 'Trial' } = req.body;
         if (!restaurantName || !ownerName || !email || !password) {
             return res.status(400).json({ error: 'All fields are required' });
         }
@@ -771,13 +769,17 @@ app.post('/onboarding/register', async (req, res) => {
         const newRestaurant = {
             id: restaurantId,
             name: restaurantName,
-            plan: 'Starter',
+            plan: plan, // Initially null
+            duration: duration,
             subscriptionStatus: 'Trial',
             subscriptionExpiry: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(), // 14-day trial
-            createdAt: nowUTC()
+            createdAt: nowUTC(),
+            onboardingStatus: 'demo_active',
+            demoDataLoaded: true
         };
         restaurants.push(newRestaurant);
         writeData(RESTAURANTS_FILE, restaurants);
+
 
         // 2. Create Owner User
         const salt = await bcrypt.genSalt(10);
@@ -799,22 +801,89 @@ app.post('/onboarding/register', async (req, res) => {
         const allSettings = readData(SETTINGS_FILE);
         allSettings[restaurantId] = {
             restaurantName,
-            defaultThanks: 'Thank you for your visit!',
-            address: '',
-            phone: ''
+            defaultThanks: 'Thank you for dining with us! We appreciate your support and look forward to serving you again.',
+            address: '123 Tech Avenue',
+            phone: '+254 700 000 000'
         };
         writeData(SETTINGS_FILE, allSettings);
 
         // 4. Bootstrap Default Templates
         const allTemplates = readData(TEMPLATES_FILE);
         allTemplates[restaurantId] = {
-            thankYou: 'Hi {{name}}, thank you for dining at ' + restaurantName + '. We hope to see you again soon!',
-            reservation: 'Hi {{name}}, your reservation at ' + restaurantName + ' is confirmed.',
-            promotional: 'Special offer from ' + restaurantName + '! Use code WELCOME for 10% off.'
+            thankYou: 'Hi {{name}}, thank you for your payment at ' + restaurantName + '. We appreciate your support and look forward to serving you again!',
+            reservation: 'Hi {{name}}, your appointment at ' + restaurantName + ' is confirmed.',
+            promotional: 'Hi {{name}}, we have a special offer for you at ' + restaurantName + '! Use code WELCOME for 10% off.'
         };
         writeData(TEMPLATES_FILE, allTemplates);
 
-        // 5. Generate Instant Token
+        // 5. Generate Demo Data
+        console.log(`[ONBOARDING] Generating Demo Data for ${restaurantId}`);
+        const customers = readData(DATA_FILE);
+        const smsQueue = readData(SMS_DATA_FILE);
+        const paymentsPath = path.join(DATA_DIR, 'payments.json');
+        const payments = readData(paymentsPath);
+
+        const demoCustomers = [
+            { name: 'John Doe', phone: '0711222333', amount: 1500 },
+            { name: 'Jane Smith', phone: '0722333444', amount: 2800 },
+            { name: 'David Wilson', phone: '0733444555', amount: 950 }
+        ];
+
+        demoCustomers.forEach((dc, index) => {
+            const customerId = Date.now() - (index * 1000);
+            const createdAt = new Date(Date.now() - (index * 3600000)).toISOString();
+
+            const newCustomer = {
+                id: customerId,
+                restaurantId,
+                name: dc.name,
+                phone: dc.phone,
+                amount: dc.amount,
+                sms_status: index === 0 ? 'Sent' : index === 1 ? 'Pending' : 'Sent',
+                active: true,
+                timestamp: createdAt,
+                created_at: createdAt
+            };
+            customers.push(newCustomer);
+
+            const firstName = dc.name.split(' ')[0];
+            const message = allTemplates[restaurantId].thankYou
+                .replace('{{name}}', firstName)
+                .replace('{{restaurantName}}', restaurantName);
+
+            const newSmsEntry = {
+                id: customerId + 1,
+                restaurantId,
+                customerId: customerId,
+                customerName: dc.name,
+                phone: dc.phone,
+                amount: dc.amount,
+                message: message,
+                status: index === 0 ? 'Sent' : index === 1 ? 'Pending' : 'Sent',
+                retryCount: 0,
+                createdAt: createdAt,
+                sentAt: index === 0 || index === 2 ? new Date(Date.now() - (index * 3000000)).toISOString() : null
+            };
+            smsQueue.push(newSmsEntry);
+
+            if (index === 0 || index === 2) {
+                payments.push({
+                    id: customerId + 2,
+                    restaurantId,
+                    transactionCode: 'DEMO' + Math.random().toString(36).substring(2, 8).toUpperCase(),
+                    name: dc.name,
+                    phone: dc.phone,
+                    smsSent: true,
+                    createdAt: createdAt
+                });
+            }
+        });
+
+        writeData(DATA_FILE, customers);
+        writeData(SMS_DATA_FILE, smsQueue);
+        writeData(paymentsPath, payments);
+
+        // 6. Generate Instant Token
         const token = jwt.sign(
             { userId: newUser.id, restaurantId, role: 'owner', email: newUser.email },
             JWT_SECRET,
@@ -832,6 +901,7 @@ app.post('/onboarding/register', async (req, res) => {
             },
             setupComplete: true
         });
+
     } catch (error) {
         console.error('Onboarding failed', error);
         res.status(500).json({ error: 'Onboarding failed' });
@@ -1039,7 +1109,7 @@ app.post('/admin/restaurants/:id/suspend', authenticateToken, (req, res) => {
 });
 
 /**
- * @api {post} /admin/restaurants/:id/reactivate Reactivate Restaurant
+ * @api {post} /admin/restaurants/:id/reactivate Reactivate Business
  */
 app.post('/admin/restaurants/:id/reactivate', authenticateToken, (req, res) => {
     try {
@@ -1159,7 +1229,7 @@ app.post('/subscription/verify', authenticateToken, (req, res) => {
         writeData(paymentsPath, payments);
 
         res.json({
-            message: 'Subscription updated successfully!',
+            message: 'Business subscription updated successfully!',
             restaurant: restaurants[restaurantIndex]
         });
     } catch (error) {

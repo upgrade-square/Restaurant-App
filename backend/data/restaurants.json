@@ -1,7 +1,7 @@
 [
   {
     "id": "default",
-    "name": "MikrodTech Restaurant",
+    "name": "MikrodTech Business",
     "plan": "Professional",
     "subscriptionStatus": "trial",
     "subscriptionExpiry": "2026-06-14T12:47:55.452Z",
@@ -10,7 +10,7 @@
   },
   {
     "id": "test-restaurant-425",
-    "name": "Test Restaurant",
+    "name": "Test Business",
     "plan": "Starter",
     "subscriptionStatus": "active",
     "subscriptionExpiry": "2026-07-10T13:00:47.000Z",
@@ -39,5 +39,14 @@
     "subscriptionStatus": "Expired",
     "subscriptionExpiry": "2026-06-01T15:39:59Z",
     "createdAt": "2026-06-03T15:39:59.311Z"
+  },
+  {
+    "id": "mikrodcap-598",
+    "name": "MikrodCAP",
+    "plan": "Starter",
+    "subscriptionStatus": "Trial",
+    "subscriptionExpiry": "2026-06-26T12:20:49.427Z",
+    "createdAt": "2026-06-12T12:20:49.427Z",
+    "onboardingStatus": "active"
   }
 ]

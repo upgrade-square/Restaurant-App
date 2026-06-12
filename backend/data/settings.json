@@ -2,7 +2,7 @@
   "restaurantName": "Rahlah",
   "phone": "0705826780",
   "address": "Kenyatta Avenue",
-  "defaultThanks": "Thank you for dining with us. We appreciate your visit.",
+  "defaultThanks": "Thank you for your payment. We appreciate your support and look forward to serving you again.",
   "email": "",
   "restaurantId": "default",
   "test-restaurant-425": {
@@ -25,6 +25,12 @@
   },
   "yendor-551": {
     "restaurantName": "RAHLAH Resort",
+    "defaultThanks": "Thank you for your visit!",
+    "address": "",
+    "phone": ""
+  },
+  "mikrodcap-598": {
+    "restaurantName": "MikrodCAP",
     "defaultThanks": "Thank you for your visit!",
     "address": "",
     "phone": ""

@@ -34,5 +34,14 @@
     "restaurantId": "yendor-551",
     "role": "owner",
     "createdAt": "2026-06-03T15:39:59.413Z"
+  },
+  {
+    "id": 1781266849556,
+    "name": "MikrodTech",
+    "email": "wabwilerodney@gmail.com",
+    "passwordHash": "$2b$10$O4d3hTKWBNk2PpWaWcbwNOU2NVnd4VKShDCzWxVdRENN3Zt7z3l66",
+    "restaurantId": "mikrodcap-598",
+    "role": "owner",
+    "createdAt": "2026-06-12T12:20:49.556Z"
   }
 ]

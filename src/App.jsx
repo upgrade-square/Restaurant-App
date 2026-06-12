@@ -5,6 +5,7 @@ import API_URL from './config/api'
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard')
   const [smsHistory, setSmsHistory] = useState([])
+  const [customers, setCustomers] = useState([])
   const [filterStatus, setFilterStatus] = useState('All')
   const [formData, setFormData] = useState({ name: '', phone: '', amount: '' })
   const [transactionCode, setTransactionCode] = useState('')
@@ -20,6 +21,8 @@ function App() {
   const [user, setUser] = useState(JSON.parse(localStorage.getItem('user') || 'null'))
   const [restaurant, setRestaurant] = useState(JSON.parse(localStorage.getItem('restaurant') || 'null'))
   const [authMode, setAuthMode] = useState('login')
+  const [onboardingStep, setOnboardingStep] = useState(1)
+  const [signupData, setSignupData] = useState({ restaurantName: '', ownerName: '', email: '', password: '', plan: 'Starter', duration: '1 Month' })
 
   const [settings, setSettings] = useState({ restaurantName: '', phone: '', address: '', email: '' })
   const [templates, setTemplates] = useState({ thankYou: '' })
@@ -35,6 +38,8 @@ function App() {
   const [modalType, setModalType] = useState(null) // 'view', 'activate', 'trial', 'payments'
 
   const isAdmin = user?.email === 'admin@test.com' || user?.role === 'admin'
+  const isDemoMode = restaurant?.onboardingStatus === 'demo_active'
+  const [showAdvanced, setShowAdvanced] = useState(false)
 
   const fetchWithAuth = async (endpoint, options = {}) => {
     const headers = { ...options.headers, 'Content-Type': 'application/json' }
@@ -86,6 +91,7 @@ function App() {
       if (!isBackground) setLoading(true)
       const results = await Promise.all([
         fetchWithAuth('/sms-queue/history'),
+        fetchWithAuth('/customers'),
         fetchWithAuth('/settings'),
         fetchWithAuth('/templates'),
         fetchWithAuth('/metrics'),
@@ -94,11 +100,12 @@ function App() {
       ])
 
       setSmsHistory(results[0])
-      setSettings(results[1])
-      setTemplates(results[2])
-      setMetrics(results[3])
-      setGatewayStatus(results[4])
-      setSubscriptionHistory(results[5])
+      setCustomers(results[1])
+      setSettings(results[2])
+      setTemplates(results[3])
+      setMetrics(results[4])
+      setGatewayStatus(results[5])
+      setSubscriptionHistory(results[6])
 
       if (isAdmin) {
         const aMetrics = await fetchWithAuth('/admin/metrics')
@@ -197,40 +204,90 @@ function App() {
             <span className="brand-mikrod">Mikrod</span>
             <span className="brand-cap">CAP</span>
           </div>
-          <p className="tagline" style={{ marginBottom: '32px' }}>Turn Every Payment Into a Thank You</p>
+          <p className="tagline" style={{ marginBottom: '32px' }}>Customer Appreciation Platform for Every Business</p>
 
           {authMode === 'login' ? (
             <>
-              <h2>Restaurant Login</h2>
+              <h2>Account Login</h2>
               {error && <div className="error-banner">{error}</div>}
-              <form className="auth-form" onSubmit={e => { e.preventDefault(); handleLogin(e.target.email.value, e.target.password.value) }}>
+              <form className="auth-form" onSubmit={e => {
+                e.preventDefault(); handleLogin(e.target.email.value, e.target.password.value)
+              }}>
                 <div className="form-group"><label>Email</label><input className="form-control" name="email" type="email" required /></div>
                 <div className="form-group"><label>Password</label><input className="form-control" name="password" type="password" required /></div>
                 <button className="login-btn" type="submit">Login</button>
               </form>
-              <div className="auth-switch">Need an account? <button onClick={() => setAuthMode('register')}>Provision Node</button></div>
+              <div className="auth-switch">
+                <span>Need an account?</span>
+                <button className="secondary-btn" style={{ width: '100%' }} onClick={() => { setAuthMode('register'); setOnboardingStep(1); }}>Create Account</button>
+              </div>
             </>
           ) : (
-            <>
-              <h2>Provision Node</h2>
-              <form className="auth-form" onSubmit={e => {
-                e.preventDefault(); handleRegister({
-                  restaurantName: e.target.resName.value, ownerName: e.target.ownerName.value, email: e.target.email.value, password: e.target.password.value
-                })
-              }}>
-                <div className="form-group"><label>Restaurant Name</label><input className="form-control" name="resName" required /></div>
-                <div className="form-group"><label>Owner Name</label><input className="form-control" name="ownerName" required /></div>
-                <div className="form-group"><label>Email</label><input className="form-control" name="email" type="email" required /></div>
-                <div className="form-group"><label>Password</label><input className="form-control" name="password" type="password" required /></div>
-                <button className="login-btn" type="submit">Onboard</button>
-              </form>
-              <div className="auth-switch">Already onboarded? <button onClick={() => setAuthMode('login')}>Sign In</button></div>
-            </>
+            <div className="onboarding-flow">
+              <div className="progress-stepper">
+                <div className={`step ${onboardingStep >= 1 ? 'active' : ''}`}>1. Create Account</div>
+                <div className={`step ${onboardingStep >= 2 ? 'active' : ''}`}>2. Explore Demo</div>
+              </div>
+
+              {onboardingStep === 1 && (
+                <>
+                  <h2>Get Started with MikrodCAP</h2>
+                  <p style={{ color: 'var(--text-muted)', marginBottom: '20px' }}>Enter your details to create your business account.</p>
+                  <form className="auth-form" onSubmit={e => {
+                    e.preventDefault();
+                    setSignupData({
+                      ...signupData,
+                      restaurantName: e.target.resName.value,
+                      ownerName: e.target.ownerName.value,
+                      email: e.target.email.value,
+                      password: e.target.password.value,
+                      plan: null // Ensure plan is null for simplified onboarding
+                    });
+                    setOnboardingStep(2);
+                  }}>
+                    <div className="form-group"><label>Business Name</label><input className="form-control" name="resName" placeholder="e.g. Acme Retail Shop" defaultValue={signupData.restaurantName} required /></div>
+                    <div className="form-group"><label>Owner Name</label><input className="form-control" name="ownerName" placeholder="Your full name" defaultValue={signupData.ownerName} required /></div>
+                    <div className="form-group"><label>Email Address</label><input className="form-control" name="email" type="email" placeholder="owner@business.com" defaultValue={signupData.email} required /></div>
+                    <div className="form-group"><label>Password</label><input className="form-control" name="password" type="password" placeholder="Min. 8 characters" defaultValue={signupData.password} required /></div>
+                    <button className="login-btn" type="submit">Continue</button>
+                  </form>
+                  <div className="auth-switch">
+                    <span>Already have an account?</span>
+                    <button className="secondary-btn" style={{ width: '100%' }} onClick={() => setAuthMode('login')}>Sign In</button>
+                  </div>
+                </>
+              )}
+
+              {onboardingStep === 2 && (
+                <>
+                  <h2>Ready to Explore?</h2>
+                  <p style={{ color: 'var(--text-muted)', marginBottom: '24px' }}>We've prepared a demo environment so you can explore how automatic customer appreciation works before configuring your business.</p>
+
+                  <div className="activation-card card" style={{ textAlign: 'center', background: '#F0F9FF', border: '1px dashed var(--primary-blue)' }}>
+                    <div style={{ fontSize: '3rem', marginBottom: '16px' }}>🚀</div>
+                    <h4 style={{ marginBottom: '12px', color: 'var(--primary-blue)' }}>Demo Environment Ready</h4>
+                    <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+                      We will pre-populate your dashboard with sample data:
+                      <br />• Demo customers & payment records
+                      <br />• Sample appreciation messages
+                      <br />• Real-world performance metrics
+                    </p>
+                  </div>
+
+                  <button className="login-btn" style={{ width: '100%', marginTop: '24px' }} onClick={() => handleRegister(signupData)} disabled={loading}>
+                    {loading ? 'Generating Demo Data...' : 'Start Exploring MikrodCAP'}
+                  </button>
+                  <button className="admin-action-btn" style={{ width: '100%', marginTop: '12px' }} onClick={() => setOnboardingStep(1)}>Back to Account info</button>
+                </>
+              )}
+            </div>
+
           )}
         </div>
       </div>
     )
   }
+
 
   const StatusBadge = ({ status }) => {
     let s = status?.toLowerCase() || 'pending'
@@ -252,18 +309,49 @@ function App() {
     return `KES ${num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   }
 
-  const formatDateTime = (timestamp) => {
+  const getRelativeTime = (timestamp) => {
     if (!timestamp) return "---";
+    const now = new Date();
+    const date = new Date(timestamp);
+    if (isNaN(date.getTime())) return "---";
 
-    return new Date(timestamp).toLocaleString("en-KE", {
-      timeZone: "Africa/Nairobi",
+    const diffInSeconds = Math.floor((now - date) / 1000);
+
+    // Timezone specific formatting helpers
+    const nairobiOptions = { timeZone: "Africa/Nairobi" };
+    const formatDate = (d, options) => d.toLocaleString("en-KE", { ...nairobiOptions, ...options });
+
+    // Immediate relative buckets
+    if (diffInSeconds < 0) return formatDate(date, { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }); // Future
+    if (diffInSeconds < 60) return "Just now";
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} mins ago`;
+
+    // Calendar day checks
+    const nowParts = formatDate(now, { year: 'numeric', month: 'numeric', day: 'numeric' });
+    const targetParts = formatDate(date, { year: 'numeric', month: 'numeric', day: 'numeric' });
+
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    const yesterdayParts = formatDate(yesterday, { year: 'numeric', month: 'numeric', day: 'numeric' });
+
+    const timeString = formatDate(date, { hour: '2-digit', minute: '2-digit', hour12: false });
+
+    if (nowParts === targetParts) return `Today ${timeString}`;
+    if (yesterdayParts === targetParts) return `Yesterday ${timeString}`;
+
+    // Fallback
+    return formatDate(date, {
       year: "numeric",
       month: "short",
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
-      hour12: true
+      hour12: false
     });
+  };
+
+  const formatDateTime = (timestamp) => {
+    return getRelativeTime(timestamp);
   };
 
   return (
@@ -278,14 +366,14 @@ function App() {
         <div className="nav-links">
           <button className={`nav-btn ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>Dashboard</button>
           <button className={`nav-btn ${activeTab === 'customers' ? 'active' : ''}`} onClick={() => setActiveTab('customers')}>Customers</button>
-          <button className={`nav-btn ${activeTab === 'templates' ? 'active' : ''}`} onClick={() => setActiveTab('templates')}>Templates</button>
+          {!isDemoMode && <button className={`nav-btn ${activeTab === 'templates' ? 'active' : ''}`} onClick={() => setActiveTab('templates')}>Templates</button>}
           <button className={`nav-btn ${activeTab === 'subscription' ? 'active' : ''}`} onClick={() => setActiveTab('subscription')}>Subscription</button>
           <button className={`nav-btn ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>Settings</button>
           {isAdmin && <button className={`nav-btn ${activeTab === 'admin' ? 'active' : ''}`} onClick={() => setActiveTab('admin')}>Admin</button>}
 
-          <div className="restaurant-info">
+          <div className="business-info">
             <div>
-              <div className="res-name">{restaurant?.name}</div>
+              <div className="business-name">{restaurant?.name}</div>
               <div className="sub-status">{restaurant?.plan} / {restaurant?.subscriptionStatus}</div>
             </div>
             <button className="nav-btn logout-btn" style={{ color: 'var(--danger)' }} onClick={handleLogout}>Logout</button>
@@ -296,40 +384,49 @@ function App() {
       <main className="main-content">
         {activeTab === 'dashboard' && (
           <div className="section">
+            {isDemoMode && (
+              <div className="card welcome-banner" style={{ background: 'linear-gradient(135deg, var(--primary-blue), #0056b3)', color: 'white', marginBottom: '24px', padding: '24px', position: 'relative', overflow: 'hidden' }}>
+                <div style={{ position: 'relative', zIndex: 2 }}>
+                  <h2 style={{ margin: 0, marginBottom: '8px' }}>Welcome to MikrodCAP {user?.name}! 👋</h2>
+                  <p style={{ margin: 0, opacity: 0.9, maxWidth: '800px' }}>
+                    We've prepared a demo environment so you can explore how automatic customer appreciation works before configuring your business.
+                    <br /><strong>Explore the dashboard to see how MikrodCAP turns every payment into a thank you.</strong>
+                  </p>
+                </div>
+                <div style={{ position: 'absolute', right: '-20px', bottom: '-20px', fontSize: '10rem', opacity: 0.1, zIndex: 1 }}>🚀</div>
+              </div>
+            )}
             <div className="dashboard-header">
-              <h1>Dashboard</h1>
-              <p className="tagline">Turn Every Payment Into a Thank You</p>
+              <h1>{isDemoMode ? 'Demo Dashboard' : 'Business Overview'}</h1>
+              <p className="tagline">Automatic Customer Appreciation Tracking</p>
             </div>
 
             <div className="kpi-grid">
               <div className="card kpi-card">
-                <div className="kpi-label">Customers Appreciated Today</div>
-                <div className="kpi-value">{metrics.sentToday}</div>
+                <div className="kpi-label">Total Customers</div>
+                <div className="kpi-value">{metrics.totalCustomers || customers.length}</div>
               </div>
               <div className="card kpi-card">
-                <div className="kpi-label">Messages Sent Today</div>
+                <div className="kpi-label">Messages Sent</div>
                 <div className="kpi-value">{metrics.totalSent}</div>
               </div>
               <div className="card kpi-card">
-                <div className="kpi-label">Pending Messages</div>
-                <div className="kpi-value" style={{ color: 'var(--warning)' }}>{metrics.pending || 0}</div>
+                <div className="kpi-label">Active Subscription</div>
+                <div className="kpi-value" style={{ textTransform: 'capitalize', color: 'var(--success)' }}>{restaurant?.plan || 'Free Trial'}</div>
               </div>
+
               <div className="card kpi-card">
-                <div className="kpi-label">Failed Messages</div>
-                <div className="kpi-value" style={{ color: 'var(--danger)' }}>{metrics.failed || 0}</div>
-              </div>
-              <div className="card kpi-card">
-                <div className="kpi-label">Total Customers</div>
-                <div className="kpi-value">{metrics.totalCustomers}</div>
+                <div className="kpi-label">Customer Appreciation Strategy</div>
+                <div className="kpi-value" style={{ fontSize: '1.2rem' }}>Automated</div>
               </div>
               <div className="card kpi-card">
                 <div className="kpi-label">Gateway Status</div>
                 <div className="kpi-value" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '1.25rem', color: gatewayStatus.status === 'Online' ? 'var(--success)' : 'var(--danger)' }}>
-                      {gatewayStatus.status}
+                    <span style={{ fontSize: '1.25rem', color: isDemoMode || gatewayStatus.status === 'Online' ? 'var(--success)' : 'var(--danger)' }}>
+                      {isDemoMode ? 'Demo Online' : gatewayStatus.status}
                     </span>
-                    {gatewayStatus.status === 'Online' && (
+                    {!isDemoMode && gatewayStatus.status === 'Online' && (
                       <span className={`battery-pill ${gatewayStatus.batteryLevel < 30 ? 'critical' : gatewayStatus.batteryLevel < 80 ? 'warning' : 'healthy'}`}>
                         {gatewayStatus.isCharging && <span className="charging-icon">⚡</span>}
                         {gatewayStatus.batteryLevel}%
@@ -337,20 +434,15 @@ function App() {
                     )}
                   </div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 400 }}>
-                    {gatewayStatus.deviceName}
+                    {isDemoMode ? 'Virtual Demo Node' : gatewayStatus.deviceName}
                   </div>
-                  {gatewayStatus.batteryLevel < 20 && gatewayStatus.status === 'Online' && !gatewayStatus.isCharging && (
-                    <div style={{ fontSize: '0.65rem', color: 'var(--danger)', marginTop: '4px', textAlign: 'center', lineHeight: '1.2' }}>
-                      Gateway battery is low.<br />SMS may be interrupted.
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
 
             <div className="activity-section">
               <div className="card">
-                <h3>Recent Message Activity</h3>
+                <h3>Customer Engagement Activity</h3>
                 <div className="table-container" style={{ marginTop: '16px' }}>
                   <table className="activity-table" style={{ width: '100%', tableLayout: 'fixed' }}>
                     <thead>
@@ -392,7 +484,7 @@ function App() {
         {activeTab === 'customers' && (
           <div className="section">
             <div className="card">
-              <h3>Bulk Appreciation Entry</h3>
+              <h3>Manual Appreciation Entry</h3>
               <form onSubmit={e => {
                 e.preventDefault();
                 fetchWithAuth('/customers', { method: 'POST', body: JSON.stringify(formData) })
@@ -438,7 +530,20 @@ function App() {
                         <td><StatusBadge status={sms.status} /></td>
                         <td className="actions">
                           {sms.status === 'Failed' && <button className="resend-btn" onClick={() => handleResend(sms.id)}>Retry</button>}
-                          <button style={{ color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', marginLeft: '12px' }} onClick={() => fetchWithAuth(`/sms-queue/${sms.id}`, { method: 'DELETE' }).then(() => refreshData())}>Delete</button>
+                          <button
+                            style={{ color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', marginLeft: '12px' }}
+                            onClick={async () => {
+                              if (window.confirm('Delete this customer and their history?')) {
+                                await fetchWithAuth(`/customers/${sms.customerId}`, { method: 'DELETE' });
+                                await fetchWithAuth(`/sms-queue/${sms.id}`, { method: 'DELETE' });
+                                setCustomers(prev => prev.filter(c => c.id !== sms.customerId));
+                                setSmsHistory(prev => prev.filter(s => s.id !== sms.id));
+                                refreshData(true);
+                              }
+                            }}
+                          >
+                            Delete
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -452,7 +557,7 @@ function App() {
         {activeTab === 'templates' && (
           <div className="section card">
             <h3>Appreciation Template</h3>
-            <p style={{ color: 'var(--text-muted)', marginBottom: '16px' }}>Use <code>{`{{name}}`}</code> for customer name and <code>{`{{restaurantName}}`}</code> for business name.</p>
+            <p style={{ color: 'var(--text-muted)', marginBottom: '16px' }}>Use <code>{`{{name}}`}</code> for customer name and <code>{`{{businessName}}`}</code> for business name.</p>
             <div className="form-group">
               <textarea className="form-control" style={{ height: '150px' }} value={templates.thankYou} onChange={e => setTemplates({ ...templates, thankYou: e.target.value })} />
             </div>
@@ -473,7 +578,7 @@ function App() {
             </div>
 
             <div className="card" style={{ marginBottom: '24px' }}>
-              <h3>Plan Comparison</h3>
+              <h3>Business Subscription Plans</h3>
               <div className="kpi-grid" style={{ marginTop: '16px' }}>
                 <div className="card" style={{ borderColor: selectedPlan === 'Starter' ? 'var(--primary-orange)' : '' }} onClick={() => setSelectedPlan('Starter')}>
                   <h4>Starter</h4>
@@ -544,15 +649,63 @@ function App() {
         )}
 
         {activeTab === 'settings' && (
-          <div className="section card">
-            <h3>Configuration</h3>
-            <form onSubmit={e => { e.preventDefault(); fetchWithAuth('/settings', { method: 'POST', body: JSON.stringify(settings) }).then(() => alert('Saved')) }} style={{ marginTop: '16px' }}>
-              <div className="form-group"><label>Business Identifier</label><input className="form-control" value={settings.restaurantName} onChange={e => setSettings({ ...settings, restaurantName: e.target.value })} required /></div>
-              <div className="form-group"><label>Contact Phone</label><input className="form-control" type="tel" value={settings.phone} onChange={e => setSettings({ ...settings, phone: e.target.value })} /></div>
-              <div className="form-group"><label>Official Email</label><input className="form-control" type="email" value={settings.email} onChange={e => setSettings({ ...settings, email: e.target.value })} /></div>
-              <div className="form-group"><label>Operating Address</label><input className="form-control" value={settings.address} onChange={e => setSettings({ ...settings, address: e.target.value })} /></div>
-              <button className="login-btn" style={{ width: '200px' }} type="submit">Commit Changes</button>
-            </form>
+          <div className="section">
+            <div className="card">
+              <h3>Configuration</h3>
+              <p className="tagline">Basic business details and contact information.</p>
+              <form onSubmit={e => { e.preventDefault(); fetchWithAuth('/settings', { method: 'POST', body: JSON.stringify(settings) }).then(() => alert('Saved')) }} style={{ marginTop: '16px' }}>
+                <div className="form-group"><label>Business Name</label><input className="form-control" value={settings.restaurantName} onChange={e => setSettings({ ...settings, restaurantName: e.target.value })} required /></div>
+                <div className="form-group"><label>Contact Phone</label><input className="form-control" type="tel" value={settings.phone} onChange={e => setSettings({ ...settings, phone: e.target.value })} /></div>
+                <div className="form-group"><label>Official Email</label><input className="form-control" type="email" value={settings.email} onChange={e => setSettings({ ...settings, email: e.target.value })} /></div>
+                <div className="form-group"><label>Operating Address</label><input className="form-control" value={settings.address} onChange={e => setSettings({ ...settings, address: e.target.value })} /></div>
+                <button className="login-btn" style={{ width: '200px' }} type="submit">Save Changes</button>
+              </form>
+            </div>
+
+            <div className="card" style={{ marginTop: '24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h3>Advanced Configuration</h3>
+                  <p className="tagline">Technical settings, API keys, and system nodes.</p>
+                </div>
+                <button className={`admin-action-btn ${showAdvanced ? 'active' : ''}`} onClick={() => setShowAdvanced(!showAdvanced)}>
+                  {showAdvanced ? 'Hide Advanced' : 'Show Advanced'}
+                </button>
+              </div>
+
+              {showAdvanced ? (
+                <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid var(--border)' }}>
+                  <div className="modal-grid">
+                    <div className="modal-field">
+                      <label>API Configuration</label>
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Status: {isDemoMode ? 'Demo Restricted' : 'Active'}</p>
+                    </div>
+                    <div className="modal-field">
+                      <label>Gateway Node ID</label>
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{isDemoMode ? 'NODE-DEMO-001' : gatewayStatus.deviceId || 'No hardware paired'}</p>
+                    </div>
+                    <div className="modal-field">
+                      <label>Automation Rules</label>
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>M-Pesa Trigger: {isDemoMode ? 'Simulated' : 'Active'}</p>
+                    </div>
+                    <div className="modal-field">
+                      <label>Message Templates</label>
+                      <button className="admin-action-btn" onClick={() => setActiveTab('templates')}>Manage Templates</button>
+                    </div>
+                  </div>
+
+                  {isDemoMode && (
+                    <div className="error-banner" style={{ marginTop: '16px' }}>
+                      Notice: You are currently in Demo Mode. Advanced technical settings are locked until you switch to your real environment in the Dashboard.
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div style={{ marginTop: '16px', padding: '16px', background: '#f8fafc', borderRadius: '8px', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+                  Advanced technical settings are hidden to keep your experience simple. Tap "Show Advanced" if you need to configure gateway nodes or API integrations.
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -562,7 +715,7 @@ function App() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                 <div>
                   <h1 style={{ margin: 0 }}>MikrodCAP Platform Management</h1>
-                  <p className="tagline">Restaurant Subscription & Node Control Center</p>
+                  <p className="tagline">Subscription & Node Control Center</p>
                 </div>
                 <button className="login-btn" style={{ width: 'auto', padding: '10px 20px' }} onClick={() => refreshData()}>
                   Sync Live Data
@@ -571,11 +724,11 @@ function App() {
 
               <div className="card">
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', alignItems: 'center' }}>
-                  <h3>Registered Restaurants</h3>
+                  <h3>Registered Businesses</h3>
                   <input
                     className="form-control"
                     style={{ width: '300px' }}
-                    placeholder="Search restaurants..."
+                    placeholder="Search businesses..."
                     value={adminSearch}
                     onChange={e => setAdminSearch(e.target.value)}
                   />
@@ -585,8 +738,8 @@ function App() {
                   <table className="activity-table" style={{ tableLayout: 'fixed' }}>
                     <thead>
                       <tr>
-                        <th style={{ width: '20%' }}>Restaurant Name</th>
-                        <th style={{ width: '15%' }}>Restaurant ID</th>
+                        <th style={{ width: '20%' }}>Business Name</th>
+                        <th style={{ width: '15%' }}>Business ID</th>
                         <th style={{ width: '10%' }}>Plan</th>
                         <th style={{ width: '10%' }}>Status</th>
                         <th style={{ width: '15%' }}>Expiry Date</th>
@@ -596,13 +749,13 @@ function App() {
                     </thead>
                     <tbody>
                       {adminRestaurants.length === 0 ? (
-                        <tr><td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No registered restaurants found.</td></tr>
+                        <tr><td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No registered businesses found.</td></tr>
                       ) : adminRestaurants
                         .filter(r =>
                           r.name.toLowerCase().includes(adminSearch.toLowerCase()) ||
                           r.id.toLowerCase().includes(adminSearch.toLowerCase())
                         ).length === 0 ? (
-                        <tr><td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No matching restaurants found.</td></tr>
+                        <tr><td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No matching businesses found.</td></tr>
                       ) : (
                         adminRestaurants
                           .filter(r =>
@@ -641,10 +794,10 @@ function App() {
 
               {/* Modals */}
               {modalType === 'view' && selectedRes && (
-                <Modal title="Restaurant Details" onClose={() => setModalType(null)}>
+                <Modal title="Account Details" onClose={() => setModalType(null)}>
                   <div className="modal-grid">
-                    <div className="modal-field"><label>Restaurant Name</label><p>{selectedRes.name}</p></div>
-                    <div className="modal-field"><label>Restaurant ID</label><p>{selectedRes.id}</p></div>
+                    <div className="modal-field"><label>Business Name</label><p>{selectedRes.name}</p></div>
+                    <div className="modal-field"><label>Business ID</label><p>{selectedRes.id}</p></div>
                     <div className="modal-field"><label>Created Date</label><p>{formatDateTime(selectedRes.createdAt)}</p></div>
                     <div className="modal-field"><label>Plan</label><p>{selectedRes.subscriptionPlan}</p></div>
                     <div className="modal-field"><label>Status</label><p><StatusBadge status={selectedRes.subscriptionStatus} /></p></div>
