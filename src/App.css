@@ -441,16 +441,160 @@ h3,
 @media (max-width: 768px) {
   .activity-card-mobile {
     background: white;
-    padding: 16px;
+    padding: 12px;
     border: 1px solid var(--border);
     border-radius: 10px;
     margin-bottom: 12px;
+  }
+
+  .card {
+    padding: 16px;
+  }
+
+  .main-content {
+    padding: 16px;
+  }
+
+  .dashboard-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .tagline {
+    font-size: 0.95rem;
+  }
+
+  /* Visibility Helpers */
+  .desktop-only {
+    display: none !important;
+  }
+
+  .mobile-only {
+    display: block !important;
   }
 
   .activity-card-row {
     display: flex;
     justify-content: space-between;
     margin-bottom: 8px;
+    gap: 10px;
+    align-items: center;
+  }
+
+  /* Activity Feed Design */
+  .activity-feed-mobile {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 4px 0;
+    position: relative;
+  }
+
+  .activity-feed-mobile::before {
+    content: '';
+    position: absolute;
+    left: 20px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #f1f5f9;
+    z-index: 0;
+  }
+
+  .activity-item-card {
+    background: white;
+    border-radius: 16px;
+    padding: 16px;
+    border: 1px solid var(--border);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    position: relative;
+    z-index: 1;
+    margin-left: 40px;
+  }
+
+  .activity-item-card::before {
+    content: '';
+    position: absolute;
+    left: -26px;
+    top: 24px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: white;
+    border: 3px solid var(--primary-blue);
+    box-shadow: 0 0 0 4px #f1f5f9;
+  }
+
+  .activity-top-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 4px;
+  }
+
+  .activity-name {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: var(--text-main);
+  }
+
+  .activity-phone {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  .activity-description {
+    font-size: 0.9rem;
+    color: #475569;
+    line-height: 1.4;
+    background: #f8fafc;
+    padding: 10px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    font-style: italic;
+  }
+
+  .activity-bottom-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 10px;
+    border-top: 1px solid #f1f5f9;
+  }
+
+  .activity-time {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-muted);
+  }
+
+  /* Badge Enhancements for Mobile */
+  .badge {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.65rem;
+    letter-spacing: 0.02em;
+  }
+
+  .activity-section td,
+  .section td {
+    width: 100% !important;
+  }
+
+  .table-container {
+    border: none;
+    background: transparent;
+  }
+}
+
+@media (min-width: 769px) {
+  .mobile-only {
+    display: none !important;
+  }
+
+  .desktop-only {
+    display: block !important;
   }
 }
 
