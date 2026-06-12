@@ -252,6 +252,13 @@ function App() {
     return `KES ${num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   }
 
+  const formatDateTime = (timestamp) => {
+    if (!timestamp) return '---';
+    return new Date(timestamp).toLocaleString("en-KE", {
+      timeZone: "Africa/Nairobi"
+    });
+  };
+
   return (
     <div className="app-container">
       <nav className="navbar">
@@ -352,10 +359,10 @@ function App() {
                     <tbody>
                       {smsHistory.slice(0, 10).map(msg => (
                         <tr key={msg.id}>
-                          <td title={msg.createdAt}>{msg.createdAt}</td>
+                          <td title={formatDateTime(msg.createdAt)}>{formatDateTime(msg.createdAt)}</td>
                           <td style={{ fontWeight: 700 }} title={msg.customerName}>{msg.customerName}</td>
                           <td title={msg.phone}>{msg.phone}</td>
-                          <td title={msg.sentAt || '---'}>{msg.sentAt || '---'}</td>
+                          <td title={formatDateTime(msg.sentAt)}>{formatDateTime(msg.sentAt)}</td>
                           <td><StatusBadge status={msg.status} /></td>
                           <td>
                             {msg.status === 'Failed' && (
@@ -418,7 +425,7 @@ function App() {
                   <tbody>
                     {smsHistory.filter(s => (s.customerName.toLowerCase().includes(searchTerm.toLowerCase()) || s.phone.includes(searchTerm)) && (filterStatus === 'All' || s.status === filterStatus)).map(sms => (
                       <tr key={sms.id}>
-                        <td title={sms.createdAt}>{sms.createdAt}</td>
+                        <td title={formatDateTime(sms.createdAt)}>{formatDateTime(sms.createdAt)}</td>
                         <td style={{ fontWeight: 700 }} title={sms.customerName}>{sms.customerName}</td>
                         <td title={sms.phone}>{sms.phone}</td>
                         <td><StatusBadge status={sms.status} /></td>
@@ -453,7 +460,7 @@ function App() {
               <div className="kpi-grid" style={{ marginTop: '16px' }}>
                 <div className="card"><div className="kpi-label">Current Plan</div><div className="kpi-value">{restaurant?.plan}</div></div>
                 <div className="card"><div className="kpi-label">Status</div><div className="kpi-value" style={{ color: 'var(--success)' }}>{restaurant?.subscriptionStatus}</div></div>
-                <div className="card"><div className="kpi-label">Expiry</div><div className="kpi-value" style={{ fontSize: '1.25rem' }}>{restaurant?.subscriptionExpiry ? new Date(restaurant.subscriptionExpiry).toLocaleDateString() : 'N/A'}</div></div>
+                <div className="card"><div className="kpi-label">Expiry</div><div className="kpi-value" style={{ fontSize: '1.25rem' }}>{restaurant?.subscriptionExpiry ? formatDateTime(restaurant.subscriptionExpiry) : 'N/A'}</div></div>
                 <div className="card"><div className="kpi-label">Days Remaining</div><div className="kpi-value">{getDaysRemaining(restaurant?.subscriptionExpiry)}</div></div>
               </div>
             </div>
@@ -508,7 +515,7 @@ function App() {
                         <td title={pay.plan}>{pay.plan}</td>
                         <td>KES {pay.amount?.toLocaleString()}</td>
                         <td>1 Month</td>
-                        <td title={new Date(pay.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}>{new Date(pay.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                        <td title={formatDateTime(pay.date)}>{formatDateTime(pay.date)}</td>
                         <td><span className="badge badge-sent">Processed</span></td>
                       </tr>
                     ))}
@@ -601,8 +608,8 @@ function App() {
                               <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{res.id}</td>
                               <td>{res.subscriptionPlan}</td>
                               <td><StatusBadge status={res.subscriptionStatus} /></td>
-                              <td>{res.subscriptionExpiryDate ? new Date(res.subscriptionExpiryDate).toLocaleDateString() : 'N/A'}</td>
-                              <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{new Date(res.createdAt).toLocaleDateString()}</td>
+                              <td>{res.subscriptionExpiryDate ? formatDateTime(res.subscriptionExpiryDate) : 'N/A'}</td>
+                              <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{formatDateTime(res.createdAt)}</td>
                               <td className="actions">
                                 <div style={{ display: 'flex', gap: '4px' }}>
                                   <button className="admin-action-btn" onClick={() => fetchResDetails(res.id)}>View Details</button>
@@ -631,10 +638,10 @@ function App() {
                   <div className="modal-grid">
                     <div className="modal-field"><label>Restaurant Name</label><p>{selectedRes.name}</p></div>
                     <div className="modal-field"><label>Restaurant ID</label><p>{selectedRes.id}</p></div>
-                    <div className="modal-field"><label>Created Date</label><p>{new Date(selectedRes.createdAt).toLocaleString()}</p></div>
+                    <div className="modal-field"><label>Created Date</label><p>{formatDateTime(selectedRes.createdAt)}</p></div>
                     <div className="modal-field"><label>Plan</label><p>{selectedRes.subscriptionPlan}</p></div>
                     <div className="modal-field"><label>Status</label><p><StatusBadge status={selectedRes.subscriptionStatus} /></p></div>
-                    <div className="modal-field"><label>Expiry Date</label><p>{new Date(selectedRes.subscriptionExpiryDate).toLocaleString()}</p></div>
+                    <div className="modal-field"><label>Expiry Date</label><p>{formatDateTime(selectedRes.subscriptionExpiryDate)}</p></div>
                   </div>
                 </Modal>
               )}
