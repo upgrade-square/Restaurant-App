@@ -36,6 +36,12 @@ function App() {
   const [selectedRes, setSelectedRes] = useState(null)
   const [resPayments, setResPayments] = useState([])
   const [modalType, setModalType] = useState(null) // 'view', 'activate', 'trial', 'payments'
+  const [toast, setToast] = useState(null)
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   const isAdmin = user?.email === 'admin@test.com' || user?.role === 'admin'
   const isDemoMode = restaurant?.onboardingStatus === 'demo_active'
@@ -205,6 +211,23 @@ function App() {
             <span className="brand-cap">CAP</span>
           </div>
           <p className="tagline" style={{ marginBottom: '32px' }}>Customer Appreciation Platform for Every Business</p>
+
+          {toast && (
+            <div style={{
+              position: 'fixed',
+              top: '20px',
+              right: '20px',
+              backgroundColor: toast.type === 'danger' ? 'var(--danger)' : 'var(--success)',
+              color: 'white',
+              padding: '12px 24px',
+              borderRadius: '8px',
+              zIndex: 3000,
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              animation: 'slideInRight 0.3s ease-out'
+            }}>
+              {toast.message}
+            </div>
+          )}
 
           {authMode === 'login' ? (
             <>
@@ -404,7 +427,7 @@ function App() {
             <div className="kpi-grid">
               <div className="card kpi-card">
                 <div className="kpi-label">Total Customers</div>
-                <div className="kpi-value">{metrics.totalCustomers || customers.length}</div>
+                <div className="kpi-value">{customers.length}</div>
               </div>
               <div className="card kpi-card">
                 <div className="kpi-label">Messages Sent</div>
@@ -412,7 +435,7 @@ function App() {
               </div>
               <div className="card kpi-card">
                 <div className="kpi-label">Active Subscription</div>
-                <div className="kpi-value" style={{ textTransform: 'capitalize', color: 'var(--success)' }}>{restaurant?.plan || 'Free Trial'}</div>
+                <div className="kpi-value" style={{ textTransform: 'capitalize', color: 'var(--success)', fontSize: '1.5rem' }}>{restaurant?.plan || 'Free Trial'}</div>
               </div>
 
               <div className="card kpi-card">
@@ -488,7 +511,13 @@ function App() {
               <form onSubmit={e => {
                 e.preventDefault();
                 fetchWithAuth('/customers', { method: 'POST', body: JSON.stringify(formData) })
-                  .then(() => { setFormData({ name: '', phone: '', amount: '' }); refreshData(); alert('Appreciation Sent'); });
+                  .then((data) => {
+                    setFormData({ name: '', phone: '', amount: '' });
+                    setCustomers(prev => [...prev, data]);
+                    setMetrics(prev => ({ ...prev, totalCustomers: prev.totalCustomers + 1 }));
+                    showToast('Appreciation Sent');
+                    refreshData(true);
+                  });
               }} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginTop: '16px' }}>
                 <div className="form-group"><label>Customer Name</label><input className="form-control" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} required /></div>
                 <div className="form-group"><label>Phone Number</label><input className="form-control" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} required /></div>
@@ -533,12 +562,16 @@ function App() {
                           <button
                             style={{ color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', marginLeft: '12px' }}
                             onClick={async () => {
-                              if (window.confirm('Delete this customer and their history?')) {
+                              try {
                                 await fetchWithAuth(`/customers/${sms.customerId}`, { method: 'DELETE' });
                                 await fetchWithAuth(`/sms-queue/${sms.id}`, { method: 'DELETE' });
                                 setCustomers(prev => prev.filter(c => c.id !== sms.customerId));
                                 setSmsHistory(prev => prev.filter(s => s.id !== sms.id));
+                                setMetrics(prev => ({ ...prev, totalCustomers: Math.max(0, prev.totalCustomers - 1) }));
+                                showToast('Customer deleted successfully');
                                 refreshData(true);
+                              } catch (err) {
+                                showToast(err.message, 'danger');
                               }
                             }}
                           >
@@ -561,7 +594,7 @@ function App() {
             <div className="form-group">
               <textarea className="form-control" style={{ height: '150px' }} value={templates.thankYou} onChange={e => setTemplates({ ...templates, thankYou: e.target.value })} />
             </div>
-            <button className="login-btn" style={{ width: '200px' }} onClick={() => fetchWithAuth('/templates', { method: 'POST', body: JSON.stringify(templates) }).then(() => alert('Saved'))}>Save Changes</button>
+            <button className="login-btn" style={{ width: '200px' }} onClick={() => fetchWithAuth('/templates', { method: 'POST', body: JSON.stringify(templates) }).then(() => showToast('Templates saved'))}>Save Changes</button>
           </div>
         )}
 
@@ -570,7 +603,7 @@ function App() {
             <div className="card" style={{ marginBottom: '24px' }}>
               <h3>Current Subscription Status</h3>
               <div className="kpi-grid" style={{ marginTop: '16px' }}>
-                <div className="card"><div className="kpi-label">Current Plan</div><div className="kpi-value">{restaurant?.plan}</div></div>
+                <div className="card"><div className="kpi-label">Current Plan</div><div className="kpi-value" style={{ fontSize: '1.5rem' }}>{restaurant?.plan || 'Free Trial'}</div></div>
                 <div className="card"><div className="kpi-label">Status</div><div className="kpi-value" style={{ color: 'var(--success)' }}>{restaurant?.subscriptionStatus}</div></div>
                 <div className="card"><div className="kpi-label">Expiry</div><div className="kpi-value" style={{ fontSize: '1.25rem' }}>{restaurant?.subscriptionExpiry ? formatDateTime(restaurant.subscriptionExpiry) : 'N/A'}</div></div>
                 <div className="card"><div className="kpi-label">Days Remaining</div><div className="kpi-value">{getDaysRemaining(restaurant?.subscriptionExpiry)}</div></div>
@@ -653,7 +686,7 @@ function App() {
             <div className="card">
               <h3>Configuration</h3>
               <p className="tagline">Basic business details and contact information.</p>
-              <form onSubmit={e => { e.preventDefault(); fetchWithAuth('/settings', { method: 'POST', body: JSON.stringify(settings) }).then(() => alert('Saved')) }} style={{ marginTop: '16px' }}>
+              <form onSubmit={e => { e.preventDefault(); fetchWithAuth('/settings', { method: 'POST', body: JSON.stringify(settings) }).then(() => showToast('Settings saved')) }} style={{ marginTop: '16px' }}>
                 <div className="form-group"><label>Business Name</label><input className="form-control" value={settings.restaurantName} onChange={e => setSettings({ ...settings, restaurantName: e.target.value })} required /></div>
                 <div className="form-group"><label>Contact Phone</label><input className="form-control" type="tel" value={settings.phone} onChange={e => setSettings({ ...settings, phone: e.target.value })} /></div>
                 <div className="form-group"><label>Official Email</label><input className="form-control" type="email" value={settings.email} onChange={e => setSettings({ ...settings, email: e.target.value })} /></div>
