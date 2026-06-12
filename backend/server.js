@@ -11,6 +11,9 @@ const JWT_SECRET = process.env.JWT_SECRET || 'restaurant-sms-saas-secret-key-202
 const app = express();
 const PORT = process.env.PORT || 5000;
 const DATA_DIR = path.join(__dirname, 'data');
+
+// Timezone Utility: Force UTC ISO-8601 for all storage
+const nowUTC = () => new Date().toISOString();
 const DATA_FILE = path.join(DATA_DIR, 'customers.json');
 const SMS_DATA_FILE = path.join(DATA_DIR, 'sms_queue.json');
 const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
@@ -55,8 +58,8 @@ if (!fs.existsSync(RESTAURANTS_FILE)) {
         subscriptionExpiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
         phone: '',
         address: '',
-        createdAt: new Date().toLocaleString(),
-        updatedAt: new Date().toLocaleString()
+        createdAt: nowUTC(),
+        updatedAt: nowUTC()
     };
     fs.writeFileSync(RESTAURANTS_FILE, JSON.stringify([defaultRestaurant]));
 }
@@ -215,7 +218,7 @@ app.post('/customers', authenticateToken, checkSubscription, (req, res) => {
         const templates = allTemplates[restaurantId] || (allTemplates.thankYou ? allTemplates : allTemplates[DEFAULT_RESTAURANT_ID]);
 
         const customerId = Date.now();
-        const createdAt = new Date().toLocaleString();
+        const createdAt = nowUTC();
         const newCustomer = {
             id: customerId,
             restaurantId,
@@ -244,7 +247,7 @@ app.post('/customers', authenticateToken, checkSubscription, (req, res) => {
             message: message,
             status: 'Pending',
             retryCount: 0,
-            createdAt: new Date().toLocaleString(),
+            createdAt: nowUTC(),
             sentAt: null
         };
 
@@ -316,7 +319,7 @@ app.post('/payments/incoming', authenticateToken, (req, res) => {
                 amount: amount,
                 sms_status: 'Pending',
                 active: true,
-                createdAt: new Date().toISOString()
+                createdAt: nowUTC()
             };
             customers.push(customer);
             writeData(DATA_FILE, customers);
@@ -347,7 +350,7 @@ app.post('/payments/incoming', authenticateToken, (req, res) => {
             message: message,
             status: 'Pending',
             retryCount: 0,
-            createdAt: new Date().toLocaleString(),
+            createdAt: nowUTC(),
             sentAt: null
         };
         smsQueue.push(newSmsEntry);
@@ -363,7 +366,7 @@ app.post('/payments/incoming', authenticateToken, (req, res) => {
             name: customerName,
             phone: normalizedPhone,
             smsSent: false,
-            createdAt: new Date().toISOString()
+            createdAt: nowUTC()
         });
         writeData(paymentsPath, payments);
         console.log(`[PAYMENT_SUCCESS] ${transactionCode}`);
@@ -441,10 +444,10 @@ app.put('/sms-queue/:id', authenticateToken, checkSubscription, (req, res) => {
 
         const sms = smsQueue[smsIndex];
         sms.status = status;
-        sms.updatedAt = new Date().toLocaleString();
+        sms.updatedAt = nowUTC();
 
         if (status === 'Sent') {
-            sms.sentAt = new Date().toLocaleString();
+            sms.sentAt = nowUTC();
         } else if (status === 'Failed') {
             sms.retryCount = (sms.retryCount || 0) + 1;
             // If retry limit not reached, set back to Pending for automatic retry
@@ -513,7 +516,7 @@ app.delete('/customers/:id', authenticateToken, checkSubscription, (req, res) =>
         }
 
         customers[index].active = false;
-        customers[index].archivedAt = new Date().toLocaleString();
+        customers[index].archivedAt = nowUTC();
 
         writeData(DATA_FILE, customers);
         res.json({ message: 'Customer archived' });
@@ -617,12 +620,12 @@ app.get('/metrics', authenticateToken, checkSubscription, (req, res) => {
         });
         const smsQueue = readData(SMS_DATA_FILE).filter(s => s.restaurantId === restaurantId || (!s.restaurantId && restaurantId === DEFAULT_RESTAURANT_ID));
 
-        const today = new Date().toLocaleDateString();
+        const todayStr = nowUTC().split('T')[0];
 
         const metrics = {
             totalCustomers: customers.length,
             totalSent: smsQueue.filter(s => s.status === 'Sent').length,
-            sentToday: smsQueue.filter(s => s.status === 'Sent' && new Date(s.sentAt).toLocaleDateString() === today).length,
+            sentToday: smsQueue.filter(s => s.status === 'Sent' && s.sentAt && s.sentAt.startsWith(todayStr)).length,
             failed: smsQueue.filter(s => s.status === 'Failed').length,
             pending: smsQueue.filter(s => s.status === 'Pending').length
         };
@@ -660,7 +663,7 @@ authRouter.post('/register', async (req, res) => {
             passwordHash,
             restaurantId,
             role,
-            createdAt: new Date().toISOString()
+            createdAt: nowUTC()
         };
 
         users.push(newUser);
@@ -771,7 +774,7 @@ app.post('/onboarding/register', async (req, res) => {
             plan: 'Starter',
             subscriptionStatus: 'Trial',
             subscriptionExpiry: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(), // 14-day trial
-            createdAt: new Date().toISOString()
+            createdAt: nowUTC()
         };
         restaurants.push(newRestaurant);
         writeData(RESTAURANTS_FILE, restaurants);
@@ -786,7 +789,7 @@ app.post('/onboarding/register', async (req, res) => {
             passwordHash,
             restaurantId,
             role: 'owner',
-            createdAt: new Date().toISOString()
+            createdAt: nowUTC()
         };
         users = readData(USERS_FILE);
         users.push(newUser);
@@ -1151,7 +1154,7 @@ app.post('/subscription/verify', authenticateToken, (req, res) => {
             transactionCode,
             plan,
             amount,
-            date: new Date().toISOString()
+            date: nowUTC()
         });
         writeData(paymentsPath, payments);
 
@@ -1199,7 +1202,7 @@ app.post('/gateway/register', authenticateToken, (req, res) => {
             restaurantId,
             deviceName: deviceName || 'Android Gateway',
             appVersion: appVersion || '1.0.0',
-            lastSeen: new Date().toISOString(),
+            lastSeen: nowUTC(),
             batteryLevel: req.body.batteryLevel || 100,
             status: 'Online',
             isPrimary: true
@@ -1246,7 +1249,7 @@ app.post('/gateway/heartbeat', authenticateToken, (req, res) => {
         }
 
         console.log(`[Heartbeat] Received from device ${deviceId} (Restaurant: ${restaurantId}) Battery: ${batteryLevel}% Charging: ${isCharging}`);
-        devices[index].lastSeen = new Date().toISOString();
+        devices[index].lastSeen = nowUTC();
         if (batteryLevel !== undefined) devices[index].batteryLevel = batteryLevel;
         if (appVersion !== undefined) devices[index].appVersion = appVersion;
         if (isCharging !== undefined) devices[index].isCharging = isCharging;
@@ -1280,7 +1283,7 @@ app.post('/gateway/unregister', authenticateToken, (req, res) => {
 
         devices[index].restaurantId = null;
         devices[index].status = 'Offline';
-        devices[index].lastSeen = new Date().toISOString();
+        devices[index].lastSeen = nowUTC();
 
         writeData(GATEWAY_FILE, devices);
         console.log(`[Unregister Success] Device ${deviceId} released`);

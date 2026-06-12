@@ -105,7 +105,7 @@ const prismaService = {
                 id: BigInt(id),
                 restaurantId
             },
-            data: { active: false, archivedAt: new Date() }
+            data: { active: false, archivedAt: new Date().toISOString() }
         });
     },
 
