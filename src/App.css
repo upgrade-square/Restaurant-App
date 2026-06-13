@@ -408,8 +408,8 @@ h4 {
   text-align: left;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  margin-top: 32px;
+  gap: 20px;
+  margin-top: 24px;
 }
 
 .form-group label {
@@ -432,6 +432,42 @@ h4 {
 .form-control:focus {
   outline: none;
   border-color: var(--primary-blue);
+}
+
+.password-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-input-wrapper .form-control {
+  padding-right: 44px;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+  z-index: 5;
+}
+
+.password-toggle:hover {
+  color: var(--primary-blue);
+  background: #f1f5f9;
+}
+
+.password-toggle svg {
+  width: 20px;
+  height: 20px;
 }
 
 .login-btn {

@@ -18,7 +18,7 @@
   },
   {
     "id": "upgrade-square-210",
-    "name": "Upgrade Square",
+    "name": "DENIM & DIAMOND",
     "plan": "Professional",
     "subscriptionStatus": "Active",
     "subscriptionExpiry": "2026-07-03T13:02:21Z",
@@ -47,6 +47,26 @@
     "subscriptionStatus": "Trial",
     "subscriptionExpiry": "2026-06-26T12:20:49.427Z",
     "createdAt": "2026-06-12T12:20:49.427Z",
+    "onboardingStatus": "active"
+  },
+  {
+    "id": "yyy-419",
+    "name": "yyy",
+    "plan": null,
+    "duration": "0 Days",
+    "subscriptionStatus": "Not Activated",
+    "subscriptionExpiry": null,
+    "createdAt": "2026-06-13T13:53:11.075Z",
+    "onboardingStatus": "active"
+  },
+  {
+    "id": "hello-861",
+    "name": "Hello",
+    "plan": null,
+    "duration": "0 Days",
+    "subscriptionStatus": "Not Activated",
+    "subscriptionExpiry": null,
+    "createdAt": "2026-06-13T17:25:17.668Z",
     "onboardingStatus": "active"
   }
 ]

@@ -226,32 +226,6 @@
     "updatedAt": "6/3/2026, 11:53:56 AM"
   },
   {
-    "id": 1780491767724,
-    "restaurantId": "upgrade-square-210",
-    "customerId": 1780491767723,
-    "customerName": "Rodney Mike",
-    "phone": "0769329029",
-    "message": "Hi Rodney Mike, thank you for dining at Upgrade Square. We hope to see you again soon!",
-    "status": "Sent",
-    "retryCount": 0,
-    "createdAt": "6/3/2026, 4:02:47 PM",
-    "sentAt": "6/3/2026, 4:47:51 PM",
-    "updatedAt": "6/3/2026, 4:47:51 PM"
-  },
-  {
-    "id": 1780491832075,
-    "restaurantId": "upgrade-square-210",
-    "customerId": 1780491832073,
-    "customerName": "Rodney Mike",
-    "phone": "0769329029",
-    "message": "Hi Rodney Mike, thank you for dining at Upgrade Square. We hope to see you again soon!",
-    "status": "Sent",
-    "retryCount": 0,
-    "createdAt": "6/3/2026, 4:03:52 PM",
-    "sentAt": "6/3/2026, 4:47:51 PM",
-    "updatedAt": "6/3/2026, 4:47:51 PM"
-  },
-  {
     "id": 1780494608154,
     "restaurantId": "rahlah-691",
     "customerId": 1780494608153,
@@ -263,32 +237,6 @@
     "createdAt": "6/3/2026, 4:50:08 PM",
     "sentAt": "6/3/2026, 4:50:27 PM",
     "updatedAt": "6/3/2026, 4:50:27 PM"
-  },
-  {
-    "id": 1780494771841,
-    "restaurantId": "upgrade-square-210",
-    "customerId": 1780494771840,
-    "customerName": "Leroy",
-    "phone": "0705826780",
-    "message": "Hi Leroy, thank you for dining at Upgrade Square. We hope to see you again soon!",
-    "status": "Sent",
-    "retryCount": 0,
-    "createdAt": "6/3/2026, 4:52:51 PM",
-    "sentAt": "6/3/2026, 4:55:11 PM",
-    "updatedAt": "6/3/2026, 4:55:11 PM"
-  },
-  {
-    "id": 1780495427975,
-    "restaurantId": "upgrade-square-210",
-    "customerId": 1780495427974,
-    "customerName": "John",
-    "phone": "0769329029",
-    "message": "Hi John, thank you for dining at Upgrade Square. We hope to see you again soon!",
-    "status": "Sent",
-    "retryCount": 0,
-    "createdAt": "6/3/2026, 5:03:47 PM",
-    "sentAt": "6/3/2026, 5:05:32 PM",
-    "updatedAt": "6/3/2026, 5:05:32 PM"
   },
   {
     "id": 1780501230105,
@@ -354,32 +302,6 @@
     "createdAt": "6/3/2026, 10:06:01 PM",
     "sentAt": "6/3/2026, 10:14:34 PM",
     "updatedAt": "6/3/2026, 10:14:34 PM"
-  },
-  {
-    "id": 1780516581297,
-    "restaurantId": "upgrade-square-210",
-    "customerId": 1780516581296,
-    "customerName": "Waromi",
-    "phone": "0769329029",
-    "message": "Hi Waromi, thank you for dining at Upgrade Square. We hope to see you again soon!",
-    "status": "Sent",
-    "retryCount": 0,
-    "createdAt": "6/3/2026, 10:56:21 PM",
-    "sentAt": "6/3/2026, 10:56:37 PM",
-    "updatedAt": "6/3/2026, 10:56:37 PM"
-  },
-  {
-    "id": 1780516673286,
-    "restaurantId": "upgrade-square-210",
-    "customerId": 1780516673285,
-    "customerName": "Wafula",
-    "phone": "0769329029",
-    "message": "Hi Wafula, thank you for dining at Upgrade Square. We hope to see you again soon!",
-    "status": "Sent",
-    "retryCount": 0,
-    "createdAt": "6/3/2026, 10:57:53 PM",
-    "sentAt": "6/3/2026, 10:57:56 PM",
-    "updatedAt": "6/3/2026, 10:57:56 PM"
   },
   {
     "id": 1780782862655,

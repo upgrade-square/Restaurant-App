@@ -16,6 +16,7 @@ const DATA_DIR = path.join(__dirname, 'data');
 const nowUTC = () => new Date().toISOString();
 const DATA_FILE = path.join(DATA_DIR, 'customers.json');
 const SMS_DATA_FILE = path.join(DATA_DIR, 'sms_queue.json');
+const ACTIVITY_LOG_FILE = path.join(DATA_DIR, 'activity_log.json');
 const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json');
 const TEMPLATES_FILE = path.join(DATA_DIR, 'templates.json');
 const RESTAURANTS_FILE = path.join(DATA_DIR, 'restaurants.json');
@@ -49,10 +50,13 @@ if (!fs.existsSync(GATEWAY_FILE)) {
 if (!fs.existsSync(USERS_FILE)) {
     fs.writeFileSync(USERS_FILE, JSON.stringify([]));
 }
+if (!fs.existsSync(ACTIVITY_LOG_FILE)) {
+    fs.writeFileSync(ACTIVITY_LOG_FILE, JSON.stringify([]));
+}
 if (!fs.existsSync(RESTAURANTS_FILE)) {
     const defaultRestaurant = {
         id: DEFAULT_RESTAURANT_ID,
-        name: 'Demo Business',
+        name: 'MikrodCAP Business',
         plan: 'Professional',
         subscriptionStatus: 'Active',
         subscriptionExpiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
@@ -100,6 +104,36 @@ const readData = (file) => {
 // Helper to write data
 const writeData = (file, data) => {
     fs.writeFileSync(file, JSON.stringify(data, null, 2));
+};
+
+// Template Processor: Dynamic Business Name Injection
+const normalizeMessage = (template, data, settings) => {
+    if (!template) return "";
+    let msg = template;
+    const bizName = settings.restaurantName || "our business";
+
+    // Support multiple placeholder formats and aliases
+    const placeholders = {
+        name: data.firstName || data.name?.split(' ')[0] || "Customer",
+        customer_name: data.name || "Customer",
+        customerName: data.name || "Customer",
+        business_name: bizName,
+        businessName: bizName,
+        restaurant_name: bizName,
+        restaurantName: bizName,
+        company_name: bizName,
+        companyName: bizName
+    };
+
+    Object.keys(placeholders).forEach(key => {
+        const value = placeholders[key];
+        // Handle {{placeholder}}
+        msg = msg.replace(new RegExp(`{{${key}}}`, 'g'), value);
+        // Handle {placeholder}
+        msg = msg.replace(new RegExp(`{${key}}`, 'g'), value);
+    });
+
+    return msg;
 };
 
 // Admin Role Migration
@@ -202,47 +236,61 @@ app.get('/customers', authenticateToken, checkSubscription, (req, res) => {
  */
 app.post('/customers', authenticateToken, checkSubscription, (req, res) => {
     try {
-        const { name, phone, amount, timestamp } = req.body;
+        const { name, phone, amount } = req.body;
         const restaurantId = req.user.restaurantId;
         if (!name || !phone || !amount) {
             return res.status(400).json({ error: 'Missing required fields' });
         }
 
+        // Normalize Phone
+        let normalizedPhone = phone;
+        if (normalizedPhone.startsWith('254')) {
+            normalizedPhone = '0' + normalizedPhone.slice(3);
+        }
+
         const customers = readData(DATA_FILE);
         const smsQueue = readData(SMS_DATA_FILE);
+        const activityLog = readData(ACTIVITY_LOG_FILE);
         const allSettings = readData(SETTINGS_FILE);
         const allTemplates = readData(TEMPLATES_FILE);
 
-        // Security Enforcement: ALWAYS use restaurantId from token
         const settings = allSettings[restaurantId] || (allSettings.restaurantName ? allSettings : allSettings[DEFAULT_RESTAURANT_ID]);
         const templates = allTemplates[restaurantId] || (allTemplates.thankYou ? allTemplates : allTemplates[DEFAULT_RESTAURANT_ID]);
 
-        const customerId = Date.now();
-        const createdAt = nowUTC();
-        const newCustomer = {
-            id: customerId,
-            restaurantId,
-            name,
-            phone,
-            amount,
-            sms_status: 'Pending',
-            active: true,
-            timestamp: timestamp || createdAt,
-            created_at: createdAt
-        };
+        // 1. Create/Update Customer (Phone is Unique Identifier)
+        let customer = customers.find(c => c.phone === normalizedPhone && (c.restaurantId === restaurantId || !c.restaurantId));
 
-        // Prepare message using template (use first name for greeting)
+        if (!customer) {
+            customer = {
+                id: Date.now(),
+                restaurantId,
+                name,
+                phone: normalizedPhone,
+                visitCount: 1,
+                lastSeen: nowUTC(),
+                active: true,
+                createdAt: nowUTC()
+            };
+            customers.push(customer);
+        } else {
+            customer.name = name; // Update name if changed
+            customer.visitCount = (customer.visitCount || 1) + 1;
+            customer.lastSeen = nowUTC();
+            customer.active = true; // Ensure active
+        }
+
+        // 2. Prepare message using standardized template engine
         const firstName = name.split(' ')[0];
-        let message = templates.thankYou || settings.defaultThanks;
-        message = message.replace('{{name}}', firstName);
-        message = message.replace('{{restaurantName}}', settings.restaurantName);
+        let template = templates.thankYou || settings.defaultThanks || "Thank you {{name}} for your payment to {{businessName}}!";
+        const message = normalizeMessage(template, { name, firstName }, settings);
 
+        // 3. Create SMS Queue Entry
         const newSmsEntry = {
             id: Date.now() + 1,
             restaurantId,
-            customerId: customerId,
+            customerId: customer.id,
             customerName: name,
-            phone: phone,
+            phone: normalizedPhone,
             amount: amount,
             message: message,
             status: 'Pending',
@@ -251,16 +299,26 @@ app.post('/customers', authenticateToken, checkSubscription, (req, res) => {
             sentAt: null
         };
 
-        customers.push(newCustomer);
+        // 4. Log Appreciation Event for Historical Metrics
+        const logEntry = {
+            id: Date.now() + 2,
+            type: 'appreciation',
+            restaurantId,
+            customerId: customer.id,
+            timestamp: nowUTC()
+        };
+
         smsQueue.push(newSmsEntry);
+        activityLog.push(logEntry);
 
         writeData(DATA_FILE, customers);
         writeData(SMS_DATA_FILE, smsQueue);
+        writeData(ACTIVITY_LOG_FILE, activityLog);
 
-        res.status(201).json(newCustomer);
+        res.status(201).json(customer);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Failed to save data' });
+        res.status(500).json({ error: 'Failed to save customer data' });
     }
 });
 
@@ -305,9 +363,8 @@ app.post('/payments/incoming', authenticateToken, (req, res) => {
         // 3. First Name Logic
         const firstName = customerName.split(' ')[0];
 
-        // 4. Create/Update Customer
+        // 4. Create/Update Customer (Phone is Unique Identifier)
         const customers = readData(DATA_FILE);
-        let customerCreated = false;
         let customer = customers.find(c => c.phone === normalizedPhone && (c.restaurantId === restaurantId || !c.restaurantId));
 
         if (!customer) {
@@ -316,26 +373,31 @@ app.post('/payments/incoming', authenticateToken, (req, res) => {
                 restaurantId,
                 name: customerName,
                 phone: normalizedPhone,
-                amount: amount,
-                sms_status: 'Pending',
+                visitCount: 1,
+                lastSeen: nowUTC(),
                 active: true,
                 createdAt: nowUTC()
             };
             customers.push(customer);
-            writeData(DATA_FILE, customers);
-            customerCreated = true;
             console.log(`[PAYMENT_CUSTOMER_CREATED] ${customer.id}`);
+        } else {
+            customer.visitCount = (customer.visitCount || 1) + 1;
+            customer.lastSeen = nowUTC();
+            // Optional: Update name if provided
+            if (customerName) customer.name = customerName;
+            customer.active = true;
+            console.log(`[PAYMENT_CUSTOMER_UPDATED] ${customer.id} | Visits: ${customer.visitCount}`);
         }
+        writeData(DATA_FILE, customers);
 
-        // 5. Generate SMS using Template
+        // 5. Generate SMS using standardized template engine
         const allTemplates = readData(TEMPLATES_FILE);
         const allSettings = readData(SETTINGS_FILE);
         const settings = allSettings[restaurantId] || allSettings[DEFAULT_RESTAURANT_ID] || {};
         const templates = allTemplates[restaurantId] || allTemplates[DEFAULT_RESTAURANT_ID] || {};
 
-        let message = templates.thankYou || settings.defaultThanks || "Thank you for your payment!";
-        message = message.replace('{{name}}', firstName);
-        message = message.replace('{{restaurantName}}', settings.restaurantName || "our business");
+        const template = templates.thankYou || settings.defaultThanks || "Thank you {{name}} for your payment to {{businessName}}!";
+        const message = normalizeMessage(template, { name: customerName, firstName }, settings);
 
         // 6. Add to SMS Queue
         console.log(`[PAYMENT] Queuing SMS for ${normalizedPhone}`);
@@ -357,7 +419,18 @@ app.post('/payments/incoming', authenticateToken, (req, res) => {
         writeData(SMS_DATA_FILE, smsQueue);
         console.log(`[PAYMENT_SMS_QUEUED] ${newSmsEntry.id}`);
 
-        // 7. Save Payment Record
+        // 7. Log Appreciation Event for Historical Metrics
+        const activityLog = readData(ACTIVITY_LOG_FILE);
+        activityLog.push({
+            id: Date.now() + 3,
+            type: 'appreciation',
+            restaurantId,
+            customerId: customer.id,
+            timestamp: nowUTC()
+        });
+        writeData(ACTIVITY_LOG_FILE, activityLog);
+
+        // 8. Save Payment Record (Audit)
         console.log(`[PAYMENT] Saving audit record: ${transactionCode}`);
         payments.push({
             id: Date.now(),
@@ -373,7 +446,7 @@ app.post('/payments/incoming', authenticateToken, (req, res) => {
 
         res.json({
             success: true,
-            customerCreated,
+            customerId: customer.id,
             queued: true
         });
     } catch (error) {
@@ -448,6 +521,16 @@ app.put('/sms-queue/:id', authenticateToken, checkSubscription, (req, res) => {
 
         if (status === 'Sent') {
             sms.sentAt = nowUTC();
+            // Log successful SMS for historical "Sent Today" metrics
+            const activityLog = readData(ACTIVITY_LOG_FILE);
+            activityLog.push({
+                id: Date.now() + 4,
+                type: 'sms_sent',
+                restaurantId,
+                customerId: sms.customerId,
+                timestamp: nowUTC()
+            });
+            writeData(ACTIVITY_LOG_FILE, activityLog);
         } else if (status === 'Failed') {
             sms.retryCount = (sms.retryCount || 0) + 1;
             // If retry limit not reached, set back to Pending for automatic retry
@@ -570,7 +653,22 @@ app.post('/settings', authenticateToken, checkSubscription, (req, res) => {
         const allSettings = readData(SETTINGS_FILE);
         allSettings[restaurantId] = settings;
         writeData(SETTINGS_FILE, allSettings);
-        res.json({ message: 'Settings updated' });
+
+        // Sync Business Name to Restaurants list for Profile/Header synchronization
+        const restaurants = readData(RESTAURANTS_FILE);
+        const rIndex = restaurants.findIndex(r => r.id === restaurantId);
+        let updatedRestaurant = null;
+        if (rIndex > -1) {
+            restaurants[rIndex].name = settings.restaurantName;
+            updatedRestaurant = restaurants[rIndex];
+            writeData(RESTAURANTS_FILE, restaurants);
+        }
+
+        res.json({
+            message: 'Settings saved',
+            name: settings.restaurantName,
+            restaurant: updatedRestaurant
+        });
     } catch (error) {
         res.status(500).json({ error: 'Failed to save settings' });
     }
@@ -617,19 +715,46 @@ app.get('/metrics', authenticateToken, checkSubscription, (req, res) => {
             return isMatch && c.active !== false;
         });
         const smsQueue = readData(SMS_DATA_FILE).filter(s => s.restaurantId === restaurantId || (!s.restaurantId && restaurantId === DEFAULT_RESTAURANT_ID));
+        const activityLog = readData(ACTIVITY_LOG_FILE).filter(a => a.restaurantId === restaurantId);
 
-        const todayStr = nowUTC().split('T')[0];
+        // Timezone-aware date calculations (Africa/Nairobi - UTC+3)
+        const getEATDate = (dateOrStr) => {
+            const date = dateOrStr ? new Date(dateOrStr) : new Date();
+            return new Date(date.getTime() + (3 * 60 * 60 * 1000));
+        };
+
+        const nowEAT = getEATDate();
+        const startOfTodayEAT = new Date(nowEAT);
+        startOfTodayEAT.setUTCHours(0, 0, 0, 0);
+
+        const startOfWeekEAT = new Date(startOfTodayEAT);
+        const dayOfWeek = nowEAT.getUTCDay();
+        startOfWeekEAT.setUTCDate(startOfTodayEAT.getUTCDate() - dayOfWeek);
 
         const metrics = {
-            totalCustomers: customers.length,
-            totalSent: smsQueue.filter(s => s.status === 'Sent').length,
-            sentToday: smsQueue.filter(s => s.status === 'Sent' && s.sentAt && s.sentAt.startsWith(todayStr)).length,
-            failed: smsQueue.filter(s => s.status === 'Failed').length,
-            pending: smsQueue.filter(s => s.status === 'Pending').length
+            // "Customers Appreciated This Week" from permanent activity log
+            weeklyCustomers: activityLog.filter(a => {
+                const logDateEAT = getEATDate(a.timestamp);
+                return a.type === 'appreciation' && logDateEAT >= startOfWeekEAT;
+            }).length,
+            // "Messages Sent Today" from permanent activity log
+            sentToday: activityLog.filter(a => {
+                const logDateEAT = getEATDate(a.timestamp);
+                return a.type === 'sms_sent' && logDateEAT >= startOfTodayEAT;
+            }).length,
+            totalSent: activityLog.filter(a => a.type === 'sms_sent').length,
+            failedToday: smsQueue.filter(s => {
+                if (s.status !== 'Failed' || !s.updatedAt) return false;
+                const failDateEAT = getEATDate(s.updatedAt);
+                return failDateEAT >= startOfTodayEAT;
+            }).length,
+            pending: smsQueue.filter(s => s.status === 'Pending').length,
+            totalCustomers: customers.length
         };
 
         res.json(metrics);
     } catch (error) {
+        console.error('Metrics calculation failed', error);
         res.status(500).json({ error: 'Failed to calculate metrics' });
     }
 });
@@ -769,13 +894,12 @@ app.post('/onboarding/register', async (req, res) => {
         const newRestaurant = {
             id: restaurantId,
             name: restaurantName,
-            plan: plan, // Initially null
-            duration: duration,
-            subscriptionStatus: 'Trial',
-            subscriptionExpiry: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(), // 14-day trial
+            plan: null,
+            duration: '0 Days',
+            subscriptionStatus: 'Not Activated',
+            subscriptionExpiry: null,
             createdAt: nowUTC(),
-            onboardingStatus: 'demo_active',
-            demoDataLoaded: true
+            onboardingStatus: 'active'
         };
         restaurants.push(newRestaurant);
         writeData(RESTAURANTS_FILE, restaurants);
@@ -801,89 +925,18 @@ app.post('/onboarding/register', async (req, res) => {
         const allSettings = readData(SETTINGS_FILE);
         allSettings[restaurantId] = {
             restaurantName,
-            defaultThanks: 'Thank you for dining with us! We appreciate your support and look forward to serving you again.',
-            address: '123 Tech Avenue',
-            phone: '+254 700 000 000'
+            defaultThanks: 'Thank you for your payment. We appreciate your support and look forward to serving you again.',
+            address: '',
+            phone: ''
         };
         writeData(SETTINGS_FILE, allSettings);
 
         // 4. Bootstrap Default Templates
         const allTemplates = readData(TEMPLATES_FILE);
-        allTemplates[restaurantId] = {
-            thankYou: 'Hi {{name}}, thank you for your payment at ' + restaurantName + '. We appreciate your support and look forward to serving you again!',
-            reservation: 'Hi {{name}}, your appointment at ' + restaurantName + ' is confirmed.',
-            promotional: 'Hi {{name}}, we have a special offer for you at ' + restaurantName + '! Use code WELCOME for 10% off.'
-        };
+        allTemplates[restaurantId] = {};
         writeData(TEMPLATES_FILE, allTemplates);
 
-        // 5. Generate Demo Data
-        console.log(`[ONBOARDING] Generating Demo Data for ${restaurantId}`);
-        const customers = readData(DATA_FILE);
-        const smsQueue = readData(SMS_DATA_FILE);
-        const paymentsPath = path.join(DATA_DIR, 'payments.json');
-        const payments = readData(paymentsPath);
-
-        const demoCustomers = [
-            { name: 'John Doe', phone: '0711222333', amount: 1500 },
-            { name: 'Jane Smith', phone: '0722333444', amount: 2800 },
-            { name: 'David Wilson', phone: '0733444555', amount: 950 }
-        ];
-
-        demoCustomers.forEach((dc, index) => {
-            const customerId = Date.now() - (index * 1000);
-            const createdAt = new Date(Date.now() - (index * 3600000)).toISOString();
-
-            const newCustomer = {
-                id: customerId,
-                restaurantId,
-                name: dc.name,
-                phone: dc.phone,
-                amount: dc.amount,
-                sms_status: index === 0 ? 'Sent' : index === 1 ? 'Pending' : 'Sent',
-                active: true,
-                timestamp: createdAt,
-                created_at: createdAt
-            };
-            customers.push(newCustomer);
-
-            const firstName = dc.name.split(' ')[0];
-            const message = allTemplates[restaurantId].thankYou
-                .replace('{{name}}', firstName)
-                .replace('{{restaurantName}}', restaurantName);
-
-            const newSmsEntry = {
-                id: customerId + 1,
-                restaurantId,
-                customerId: customerId,
-                customerName: dc.name,
-                phone: dc.phone,
-                amount: dc.amount,
-                message: message,
-                status: index === 0 ? 'Sent' : index === 1 ? 'Pending' : 'Sent',
-                retryCount: 0,
-                createdAt: createdAt,
-                sentAt: index === 0 || index === 2 ? new Date(Date.now() - (index * 3000000)).toISOString() : null
-            };
-            smsQueue.push(newSmsEntry);
-
-            if (index === 0 || index === 2) {
-                payments.push({
-                    id: customerId + 2,
-                    restaurantId,
-                    transactionCode: 'DEMO' + Math.random().toString(36).substring(2, 8).toUpperCase(),
-                    name: dc.name,
-                    phone: dc.phone,
-                    smsSent: true,
-                    createdAt: createdAt
-                });
-            }
-        });
-
-        writeData(DATA_FILE, customers);
-        writeData(SMS_DATA_FILE, smsQueue);
-        writeData(paymentsPath, payments);
-
-        // 6. Generate Instant Token
+        // 5. Generate Instant Token
         const token = jwt.sign(
             { userId: newUser.id, restaurantId, role: 'owner', email: newUser.email },
             JWT_SECRET,
@@ -1151,6 +1204,30 @@ app.post('/admin/restaurants/:id/reactivate', authenticateToken, (req, res) => {
 });
 
 /**
+ * @api {delete} /sms-queue/:id Soft-delete activity record
+ */
+app.delete('/sms-queue/:id', authenticateToken, (req, res) => {
+    try {
+        const { id } = req.params;
+        const restaurantId = req.user.restaurantId;
+        const smsQueue = readData(SMS_DATA_FILE);
+        const index = smsQueue.findIndex(s => s.id.toString() === id && (s.restaurantId === restaurantId || !s.restaurantId));
+
+        if (index > -1) {
+            // Soft delete: keep in DB for metrics, but hide from UI
+            smsQueue[index].hidden = true;
+            writeData(SMS_DATA_FILE, smsQueue);
+            res.json({ message: 'Activity record removed' });
+        } else {
+            res.status(404).json({ error: 'Record not found' });
+        }
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to remove activity' });
+    }
+});
+
+
+/**
  * @api {get} /admin/restaurants/:id/payments Get Restaurant Payment History
  */
 app.get('/admin/restaurants/:id/payments', authenticateToken, (req, res) => {
@@ -1189,9 +1266,9 @@ app.post('/subscription/verify', authenticateToken, (req, res) => {
 
         // Logic for tiered pricing
         const pricing = {
-            'Starter': 2500,
-            'Professional': 5000,
-            'Enterprise': 10000
+            'Starter': 1250,
+            'Professional': 2500,
+            'Enterprise': 5000
         };
 
         const amount = pricing[plan] || 0;
@@ -1260,7 +1337,7 @@ app.get('/subscription/history', authenticateToken, (req, res) => {
  */
 app.post('/gateway/register', authenticateToken, (req, res) => {
     try {
-        const { deviceId, deviceName, appVersion } = req.body;
+        const { deviceId, deviceName, appVersion, batteryLevel, isCharging } = req.body;
         const restaurantId = req.user.restaurantId;
         if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
 
@@ -1273,9 +1350,10 @@ app.post('/gateway/register', authenticateToken, (req, res) => {
             deviceName: deviceName || 'Android Gateway',
             appVersion: appVersion || '1.0.0',
             lastSeen: nowUTC(),
-            batteryLevel: req.body.batteryLevel || 100,
+            batteryLevel: batteryLevel !== undefined ? batteryLevel : 100,
+            isCharging: isCharging || false,
             status: 'Online',
-            isPrimary: true
+            isPrimary: false // Explicitly false for account-bound devices
         };
 
         if (index > -1) {
@@ -1379,10 +1457,10 @@ app.get('/gateway/status', authenticateToken, (req, res) => {
         let selectedDevice = allDevices.find(d => d.restaurantId === restaurantId);
         let reason = "Owned device found";
 
-        // 2. If no owned device, look for an unowned/available device
+        // 2. If no owned device, there is NO fallback.
         if (!selectedDevice) {
-            selectedDevice = allDevices.find(d => d.restaurantId === null);
-            reason = selectedDevice ? "Available (unowned) device found" : "No matching device found";
+            console.log(`[Status Result] Result: No Gateway for restaurant ${restaurantId}`);
+            return res.json({ status: 'No Gateway', message: 'No devices paired to this account' });
         }
 
         if (!selectedDevice) {

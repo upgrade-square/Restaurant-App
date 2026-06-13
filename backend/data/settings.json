@@ -12,7 +12,7 @@
     "phone": ""
   },
   "upgrade-square-210": {
-    "restaurantName": "Upgrade Square",
+    "restaurantName": "DENIM & DIAMOND",
     "defaultThanks": "Thank you for your visit!",
     "address": "",
     "phone": ""
@@ -32,6 +32,18 @@
   "mikrodcap-598": {
     "restaurantName": "MikrodCAP",
     "defaultThanks": "Thank you for your visit!",
+    "address": "",
+    "phone": ""
+  },
+  "yyy-419": {
+    "restaurantName": "yyy",
+    "defaultThanks": "Thank you for your payment. We appreciate your support and look forward to serving you again.",
+    "address": "",
+    "phone": ""
+  },
+  "hello-861": {
+    "restaurantName": "Hello",
+    "defaultThanks": "Thank you for your payment. We appreciate your support and look forward to serving you again.",
     "address": "",
     "phone": ""
   }

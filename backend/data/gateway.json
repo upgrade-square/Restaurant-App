@@ -3,11 +3,11 @@
     "deviceId": "a5aeb17e8adeb1a9",
     "deviceName": "SM-A155F",
     "appVersion": "1.0",
-    "lastSeen": "2026-06-07T22:06:48.877Z",
-    "batteryLevel": 98,
+    "lastSeen": "2026-06-13T21:09:36.964Z",
+    "batteryLevel": 68,
     "status": "Online",
-    "restaurantId": "rahlah-691",
-    "isPrimary": true,
-    "isCharging": false
+    "restaurantId": "upgrade-square-210",
+    "isPrimary": false,
+    "isCharging": true
   }
 ]

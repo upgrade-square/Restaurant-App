@@ -43,5 +43,23 @@
     "restaurantId": "mikrodcap-598",
     "role": "owner",
     "createdAt": "2026-06-12T12:20:49.556Z"
+  },
+  {
+    "id": 1781358791193,
+    "name": "gyyuy",
+    "email": "yyy@hyuhhh",
+    "passwordHash": "$2b$10$gf2VsymAuHK4I14t1OQMRuD/17TbtiY1xa8XiFe0/DC03Gn4xdBQK",
+    "restaurantId": "yyy-419",
+    "role": "owner",
+    "createdAt": "2026-06-13T13:53:11.193Z"
+  },
+  {
+    "id": 1781371517777,
+    "name": "WAROMI",
+    "email": "wash@gmail.com",
+    "passwordHash": "$2b$10$blkTFECc7S1mZyw3ymy9uOoj76cSJeBFGIdtBzvKH3IW1V1rG7hii",
+    "restaurantId": "hello-861",
+    "role": "owner",
+    "createdAt": "2026-06-13T17:25:17.777Z"
   }
 ]

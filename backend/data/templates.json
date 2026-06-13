@@ -26,5 +26,7 @@
     "thankYou": "Hi {{name}}, thank you for your payment at MikrodCAP. We hope to see you again soon!",
     "reservation": "Hi {{name}}, your appointment at MikrodCAP is confirmed.",
     "promotional": "Special offer from MikrodCAP! Use code WELCOME for 10% off."
-  }
+  },
+  "yyy-419": {},
+  "hello-861": {}
 }
