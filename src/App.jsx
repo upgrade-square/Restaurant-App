@@ -483,14 +483,14 @@ function App() {
                     <span style={{ fontSize: '1.25rem', color: (gatewayStatus.status === 'Online' || gatewayStatus.status === 'Connected') ? 'var(--success)' : 'var(--danger)' }}>
                       {(gatewayStatus.status === 'Online' || gatewayStatus.status === 'Connected') ? 'Online' : 'Offline'}
                     </span>
-                    {gatewayStatus.deviceId && (
+                    {(gatewayStatus.status === 'Online' || gatewayStatus.status === 'Connected') && gatewayStatus.deviceId && (
                       <span className={`battery-pill ${gatewayStatus.batteryLevel < 30 ? 'critical' : gatewayStatus.batteryLevel < 80 ? 'warning' : 'healthy'}`}>
                         {gatewayStatus.isCharging && <span className="charging-icon">⚡</span>}
                         {gatewayStatus.batteryLevel || 0}%
                       </span>
                     )}
                   </div>
-                  {gatewayStatus.deviceId && (
+                  {(gatewayStatus.status === 'Online' || gatewayStatus.status === 'Connected') && gatewayStatus.deviceId && (
                     <div style={{ textAlign: 'center', marginTop: '4px' }}>
                       <div style={{ fontSize: '0.85rem', color: 'var(--text-main)', fontWeight: 600 }}>
                         {gatewayStatus.deviceName || 'Android Gateway'}
