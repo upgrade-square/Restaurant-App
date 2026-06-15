@@ -44,22 +44,38 @@ const transporter = nodemailer.createTransport({
 });
 
 const validateEmailConfig = () => {
-    console.log(`[STARTUP] Configuring Email Service: ${process.env.SMTP_HOST || 'NOT_CONFIGURED'}`);
+    const host = process.env.SMTP_HOST || 'NOT_CONFIGURED';
+    const port = process.env.SMTP_PORT || 'N/A';
+    const user = process.env.SMTP_USER || 'N/A';
+    const from = process.env.SMTP_FROM || 'N/A';
+
+    // Mask sensitive values
+    const mask = (val) => val.length > 5 ? val.substring(0, 3) + '***' + val.substring(val.length - 2) : '***';
+
+    console.log(`[STARTUP] Configuring Email Service:`);
+    console.log(`  - Host: ${host}`);
+    console.log(`  - Port: ${port}`);
+    console.log(`  - User: ${mask(user)}`);
+    console.log(`  - Sender: ${from}`);
+
     const required = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'SMTP_FROM'];
     const missing = required.filter(key => !process.env[key]);
 
     if (missing.length > 0) {
-        const errorMsg = `CRITICAL_ERROR: Missing Email Configuration: ${missing.join(', ')}`;
-        console.error(errorMsg);
         return { valid: false, missing };
     }
 
-    // Basic verification of SMTP_FROM format
-    if (!process.env.SMTP_FROM.includes('@') || !process.env.SMTP_FROM.includes('<')) {
-        console.warn('[EMAIL_CONFIG_WARN] SMTP_FROM should be in "Name <email@domain.com>" format');
-    }
-
     return { valid: true };
+};
+
+const mapErrorToCode = (error) => {
+    const msg = error.message || '';
+    if (msg.includes('Invalid login') || msg.includes('authentication failed')) return 'SMTP_AUTH_FAILED';
+    if (msg.includes('ENOTFOUND')) return 'SMTP_HOST_NOT_FOUND';
+    if (msg.includes('ETIMEDOUT') || msg.includes('Greeting never')) return 'SMTP_CONNECTION_TIMEOUT';
+    if (msg.includes('Sender address rejected') || msg.includes('Invalid sender')) return 'SMTP_SENDER_REJECTED';
+    if (msg.includes('rate limit')) return 'SMTP_RATE_LIMITED';
+    return 'SMTP_UNKNOWN_ERROR';
 };
 
 const testEmailConnection = async () => {
@@ -165,7 +181,13 @@ const sendOTPEmail = async (email, otp) => {
         action: 'OTP_DELIVERY'
     });
 
-    return { success: false, error: `Email delivery failed after ${MAX_RETRIES} attempts: ${lastError.message}` };
+    const errorCode = mapErrorToCode(lastError);
+    return {
+        success: false,
+        error: `Email delivery failed after ${MAX_RETRIES} attempts`,
+        errorCode,
+        details: process.env.NODE_ENV !== 'production' ? lastError.message : undefined
+    };
 };
 
 module.exports = {

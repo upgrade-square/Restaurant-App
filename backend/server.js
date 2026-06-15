@@ -1061,11 +1061,14 @@ authRouter.post('/request-otp', async (req, res) => {
         logSecurityEvent(null, 'OTP_GENERATED', { email });
 
         // Send Email
+        console.log(`[OTP_WORKFLOW] Initiating send to: ${email}`);
         const emailResult = await sendOTPEmail(email, otp);
         if (!emailResult.success) {
-            logSecurityEvent(null, 'OTP_DELIVERY_FAILURE', { email, error: emailResult.error });
+            console.error(`[OTP_WORKFLOW_FAILED] ErrorCode: ${emailResult.errorCode} | Detail: ${emailResult.error}`);
+            logSecurityEvent(null, 'OTP_DELIVERY_FAILURE', { email, errorCode: emailResult.errorCode, error: emailResult.error });
             return res.status(500).json({
                 error: 'Unable to send verification code. Please try again.',
+                errorCode: emailResult.errorCode,
                 details: process.env.NODE_ENV !== 'production' ? emailResult.error : undefined
             });
         }
