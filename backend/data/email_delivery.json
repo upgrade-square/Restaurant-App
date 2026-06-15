@@ -76,5 +76,47 @@
     "status": "ATTEMPT_FAILURE",
     "attempt": 3,
     "error": "getaddrinfo ENOTFOUND mail.mikrodtech.co.ke"
+  },
+  {
+    "timestamp": "2026-06-15T20:15:01.778Z",
+    "email": "rodneymike69@gmail.com",
+    "status": "SENDING_ATTEMPT",
+    "attempt": 1,
+    "otp_generated": true
+  },
+  {
+    "timestamp": "2026-06-15T20:15:08.862Z",
+    "email": "rodneymike69@gmail.com",
+    "status": "ATTEMPT_FAILURE",
+    "attempt": 1,
+    "error": "Invalid login: 535 Authentication Failed"
+  },
+  {
+    "timestamp": "2026-06-15T20:15:10.865Z",
+    "email": "rodneymike69@gmail.com",
+    "status": "SENDING_ATTEMPT",
+    "attempt": 2,
+    "otp_generated": true
+  },
+  {
+    "timestamp": "2026-06-15T20:15:13.655Z",
+    "email": "rodneymike69@gmail.com",
+    "status": "ATTEMPT_FAILURE",
+    "attempt": 2,
+    "error": "Invalid login: 535 Authentication Failed"
+  },
+  {
+    "timestamp": "2026-06-15T20:15:17.656Z",
+    "email": "rodneymike69@gmail.com",
+    "status": "SENDING_ATTEMPT",
+    "attempt": 3,
+    "otp_generated": true
+  },
+  {
+    "timestamp": "2026-06-15T20:15:20.005Z",
+    "email": "rodneymike69@gmail.com",
+    "status": "ATTEMPT_FAILURE",
+    "attempt": 3,
+    "error": "Invalid login: 535 Authentication Failed"
   }
 ]

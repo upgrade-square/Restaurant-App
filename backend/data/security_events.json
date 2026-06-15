@@ -112,5 +112,58 @@
       "error": "Email delivery failed after 3 attempts: getaddrinfo ENOTFOUND mail.mikrodtech.co.ke"
     },
     "timestamp": "2026-06-15T19:01:53.172Z"
+  },
+  {
+    "id": 1781554478476,
+    "userId": null,
+    "restaurantId": null,
+    "type": "LOGIN_FAILURE",
+    "details": {
+      "email": "mikrodcap@gmail.com",
+      "reason": "user_not_found"
+    },
+    "timestamp": "2026-06-15T20:14:38.476Z"
+  },
+  {
+    "id": 1781554482045,
+    "userId": null,
+    "restaurantId": null,
+    "type": "LOGIN_FAILURE",
+    "details": {
+      "email": "mikrodcap@gmail.com",
+      "reason": "user_not_found"
+    },
+    "timestamp": "2026-06-15T20:14:42.045Z"
+  },
+  {
+    "id": 1781554501777,
+    "userId": null,
+    "restaurantId": null,
+    "type": "OTP_GENERATED",
+    "details": {
+      "email": "rodneymike69@gmail.com"
+    },
+    "timestamp": "2026-06-15T20:15:01.777Z"
+  },
+  {
+    "timestamp": "2026-06-15T20:15:20.006Z",
+    "type": "EMAIL_SYSTEM_FAILURE",
+    "details": {
+      "email": "rodneymike69@gmail.com",
+      "totalAttempts": 3,
+      "lastError": "Invalid login: 535 Authentication Failed",
+      "action": "OTP_DELIVERY"
+    }
+  },
+  {
+    "id": 1781554520006,
+    "userId": null,
+    "restaurantId": null,
+    "type": "OTP_DELIVERY_FAILURE",
+    "details": {
+      "email": "rodneymike69@gmail.com",
+      "error": "Email delivery failed after 3 attempts: Invalid login: 535 Authentication Failed"
+    },
+    "timestamp": "2026-06-15T20:15:20.006Z"
   }
 ]

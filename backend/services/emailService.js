@@ -44,6 +44,7 @@ const transporter = nodemailer.createTransport({
 });
 
 const validateEmailConfig = () => {
+    console.log(`[STARTUP] Configuring Email Service: ${process.env.SMTP_HOST || 'NOT_CONFIGURED'}`);
     const required = ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'SMTP_FROM'];
     const missing = required.filter(key => !process.env[key]);
 
@@ -106,7 +107,7 @@ const sendOTPEmail = async (email, otp) => {
     }
 
     const mailOptions = {
-        from: process.env.SMTP_FROM || 'MikrodTech <info@mikrodtech.co.ke>',
+        from: process.env.SMTP_FROM,
         to: email,
         subject: 'Your MikrodCAP Verification Code',
         text: `Your verification code is: ${otp}. It will expire in 10 minutes.`,

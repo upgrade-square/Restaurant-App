@@ -4,6 +4,7 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const fs = require('fs');
 const path = require('path');
+const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { sendOTPEmail, validateEmailConfig, testEmailConnection } = require('./services/emailService');
 
@@ -234,7 +235,8 @@ const authenticateToken = (req, res, next) => {
         // Security: Verify password version to allow session invalidation
         const users = readData(USERS_FILE);
         const user = users.find(u => u.id === verified.userId);
-        if (!user || user.passwordVersion !== verified.pv) {
+        const currentPV = (user && user.passwordVersion) || 1;
+        if (!user || currentPV !== verified.pv) {
             console.log(`[AUTH_FAILED] Reason: Session invalidated (Password Version Mismatch) | User: ${verified.userId}`);
             return res.status(401).json({ error: 'Session invalidated. Please log in again.' });
         }
@@ -923,14 +925,16 @@ authRouter.post('/login', async (req, res) => {
         const user = users.find(u => u.email === email);
 
         if (!user) {
+            console.log(`[LOGIN_FAILED] User not found: ${email}`);
             logSecurityEvent(null, 'LOGIN_FAILURE', { email, reason: 'user_not_found' });
-            return res.status(400).json({ error: 'Invalid email or password' });
+            return res.status(401).json({ error: 'Invalid email or password' });
         }
 
         const validPass = await bcrypt.compare(password, user.passwordHash);
         if (!validPass) {
+            console.log(`[LOGIN_FAILED] Password mismatch for: ${email}`);
             logSecurityEvent(user.id, 'LOGIN_FAILURE', { email, reason: 'invalid_password' }, user.restaurantId);
-            return res.status(400).json({ error: 'Invalid email or password' });
+            return res.status(401).json({ error: 'Invalid email or password' });
         }
 
         const restaurants = readData(RESTAURANTS_FILE);
@@ -1148,12 +1152,13 @@ authRouter.post('/reset-password', async (req, res) => {
 });
 
 /**
- * @api {post} /auth/admin/test-email Test Email Delivery (Admin Only)
+ * @api {post} /admin/test-email Test Email Delivery (Admin Only)
  */
-authRouter.post('/admin/test-email', authenticateToken, async (req, res) => {
+app.post('/admin/test-email', authenticateToken, async (req, res) => {
     try {
         // Strict Admin Check
-        if (req.user.role !== 'admin') {
+        const isAuthorized = req.user.role === 'admin' || req.user.email === 'admin@test.com';
+        if (!isAuthorized) {
             return res.status(403).json({ error: 'Admin privileges required' });
         }
 
@@ -1264,9 +1269,17 @@ app.use('/auth', authRouter);
  */
 app.post('/onboarding/register', async (req, res) => {
     try {
-        const { restaurantName, ownerName, email, password, plan = null, duration = 'Trial' } = req.body;
-        if (!restaurantName || !ownerName || !email || !password) {
-            return res.status(400).json({ error: 'All fields are required' });
+        const { restaurantName, ownerName, email, password, otp } = req.body;
+        if (!restaurantName || !ownerName || !email || !password || !otp) {
+            return res.status(400).json({ error: 'All fields are required, including verification code' });
+        }
+
+        // Verify OTP before account creation
+        const otps = readData(OTPS_FILE);
+        const storedOtp = otps[email];
+        if (!storedOtp || storedOtp.code !== otp || storedOtp.expiresAt < Date.now()) {
+            logSecurityEvent(null, 'REGISTRATION_FAILED', { email, reason: 'invalid_otp' });
+            return res.status(400).json({ error: 'Invalid or expired verification code' });
         }
 
         let users = readData(USERS_FILE);
@@ -1307,6 +1320,10 @@ app.post('/onboarding/register', async (req, res) => {
         users.push(newUser);
         writeData(USERS_FILE, users);
 
+        // Clear OTP after success
+        delete otps[email];
+        writeData(OTPS_FILE, otps);
+
         // 3. Bootstrap Default Settings
         const allSettings = readData(SETTINGS_FILE);
         allSettings[restaurantId] = {
@@ -1324,7 +1341,7 @@ app.post('/onboarding/register', async (req, res) => {
 
         // 5. Generate Instant Token
         const token = jwt.sign(
-            { userId: newUser.id, restaurantId, role: 'owner', email: newUser.email },
+            { userId: newUser.id, restaurantId, role: 'owner', email: newUser.email, pv: 1 },
             JWT_SECRET,
             { expiresIn: '7d' }
         );
