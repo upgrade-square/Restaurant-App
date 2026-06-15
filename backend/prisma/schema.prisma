@@ -51,6 +51,8 @@ model Customer {
   archivedAt   DateTime?
   
   smsEntries   SmsQueue[]
+
+  @@unique([phone])
 }
 
 model SmsQueue {

@@ -6,7 +6,8 @@
     "passwordHash": "$2b$10$XbRHt1tGTXuCZnoJv8OBK.Fmp.oaofP3wBwKag3yEcd3gKwojXY5m",
     "restaurantId": "test-restaurant-425",
     "role": "admin",
-    "createdAt": "2026-06-03T13:00:47.541Z"
+    "createdAt": "2026-06-03T13:00:47.541Z",
+    "passwordVersion": 1
   },
   {
     "id": 1780491742098,
@@ -15,7 +16,8 @@
     "passwordHash": "$2b$10$SW0OikYM2haT61lH4iqYAumGdTCIG5yfouCieMXE.WdDYEpfEb9r2",
     "restaurantId": "upgrade-square-210",
     "role": "owner",
-    "createdAt": "2026-06-03T13:02:22.098Z"
+    "createdAt": "2026-06-03T13:02:22.098Z",
+    "passwordVersion": 1
   },
   {
     "id": 1780494557796,
@@ -24,7 +26,8 @@
     "passwordHash": "$2b$10$/6DUkReFbck/yDy2uWjfBu8xMR63dSX4k8AkiSxS6lr5qPN7MZtdu",
     "restaurantId": "rahlah-691",
     "role": "owner",
-    "createdAt": "2026-06-03T13:49:17.796Z"
+    "createdAt": "2026-06-03T13:49:17.796Z",
+    "passwordVersion": 1
   },
   {
     "id": 1780501199413,
@@ -33,7 +36,8 @@
     "passwordHash": "$2b$10$fflK5hg0q/hipFurhhK4Au3SIabtJth6Y8PI7yxkFgPwbPte.tHIe",
     "restaurantId": "yendor-551",
     "role": "owner",
-    "createdAt": "2026-06-03T15:39:59.413Z"
+    "createdAt": "2026-06-03T15:39:59.413Z",
+    "passwordVersion": 1
   },
   {
     "id": 1781266849556,
@@ -42,7 +46,8 @@
     "passwordHash": "$2b$10$O4d3hTKWBNk2PpWaWcbwNOU2NVnd4VKShDCzWxVdRENN3Zt7z3l66",
     "restaurantId": "mikrodcap-598",
     "role": "owner",
-    "createdAt": "2026-06-12T12:20:49.556Z"
+    "createdAt": "2026-06-12T12:20:49.556Z",
+    "passwordVersion": 1
   },
   {
     "id": 1781358791193,
@@ -51,7 +56,8 @@
     "passwordHash": "$2b$10$gf2VsymAuHK4I14t1OQMRuD/17TbtiY1xa8XiFe0/DC03Gn4xdBQK",
     "restaurantId": "yyy-419",
     "role": "owner",
-    "createdAt": "2026-06-13T13:53:11.193Z"
+    "createdAt": "2026-06-13T13:53:11.193Z",
+    "passwordVersion": 1
   },
   {
     "id": 1781371517777,
@@ -60,6 +66,7 @@
     "passwordHash": "$2b$10$blkTFECc7S1mZyw3ymy9uOoj76cSJeBFGIdtBzvKH3IW1V1rG7hii",
     "restaurantId": "hello-861",
     "role": "owner",
-    "createdAt": "2026-06-13T17:25:17.777Z"
+    "createdAt": "2026-06-13T17:25:17.777Z",
+    "passwordVersion": 1
   }
 ]

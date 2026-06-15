@@ -13,7 +13,7 @@
     "promotional": "Special offer from Upgrade Square! Use code WELCOME for 10% off."
   },
   "rahlah-691": {
-    "thankYou": "Hi {{name}}, thank you for your payment at RAHLAH. We hope to see you again soon! Karibu tena.",
+    "thankYou": "Hi {{name}}, thank you for your payment at {{businessName}}. We hope to see you again soon! Karibu tena.",
     "reservation": "Hi {{name}}, your appointment at RAHLAH is confirmed.",
     "promotional": "Special offer from RAHLAH! Use code WELCOME for 10% off."
   },

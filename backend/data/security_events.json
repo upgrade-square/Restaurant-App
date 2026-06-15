@@ -1,0 +1,116 @@
+[
+  {
+    "id": 1781538404557,
+    "userId": null,
+    "restaurantId": null,
+    "type": "OTP_REQUESTED",
+    "details": {
+      "email": "mikrodtech@gmail.com"
+    },
+    "timestamp": "2026-06-15T15:46:44.557Z"
+  },
+  {
+    "id": 1781542286630,
+    "userId": null,
+    "restaurantId": null,
+    "type": "OTP_REQUESTED",
+    "details": {
+      "email": "mikrodtech@gmail.com"
+    },
+    "timestamp": "2026-06-15T16:51:26.630Z"
+  },
+  {
+    "id": 1781542864407,
+    "userId": null,
+    "restaurantId": null,
+    "type": "OTP_GENERATED",
+    "details": {
+      "email": "mikrodtech@gmail.com"
+    },
+    "timestamp": "2026-06-15T17:01:04.407Z"
+  },
+  {
+    "id": 1781542865763,
+    "userId": null,
+    "restaurantId": null,
+    "type": "OTP_DELIVERY_FAILURE",
+    "details": {
+      "email": "mikrodtech@gmail.com",
+      "error": "Invalid login: 535-5.7.8 Username and Password not accepted. For more information, go to\n535 5.7.8  https://support.google.com/mail/?p=BadCredentials 5b1f17b1804b1-4922fa47179sm6034435e9.6 - gsmtp"
+    },
+    "timestamp": "2026-06-15T17:01:05.763Z"
+  },
+  {
+    "id": 1781544356748,
+    "userId": null,
+    "restaurantId": null,
+    "type": "OTP_GENERATED",
+    "details": {
+      "email": "mikrodtech@gmail.com"
+    },
+    "timestamp": "2026-06-15T17:25:56.748Z"
+  },
+  {
+    "id": 1781544364071,
+    "userId": null,
+    "restaurantId": null,
+    "type": "OTP_DELIVERY_FAILURE",
+    "details": {
+      "email": "mikrodtech@gmail.com",
+      "error": "Invalid login: 535-5.7.8 Username and Password not accepted. For more information, go to\n535 5.7.8  https://support.google.com/mail/?p=BadCredentials 5b1f17b1804b1-4922f9cd140sm8053195e9.0 - gsmtp"
+    },
+    "timestamp": "2026-06-15T17:26:04.071Z"
+  },
+  {
+    "id": 1781549631331,
+    "userId": null,
+    "restaurantId": null,
+    "type": "OTP_GENERATED",
+    "details": {
+      "email": "mikrodtech@gmail.com"
+    },
+    "timestamp": "2026-06-15T18:53:51.331Z"
+  },
+  {
+    "id": 1781549632622,
+    "userId": null,
+    "restaurantId": null,
+    "type": "OTP_DELIVERY_FAILURE",
+    "details": {
+      "email": "mikrodtech@gmail.com",
+      "error": "Invalid login: 535-5.7.8 Username and Password not accepted. For more information, go to\n535 5.7.8  https://support.google.com/mail/?p=BadCredentials 5b1f17b1804b1-4922fa5b079sm16040555e9.12 - gsmtp"
+    },
+    "timestamp": "2026-06-15T18:53:52.622Z"
+  },
+  {
+    "id": 1781550106738,
+    "userId": null,
+    "restaurantId": null,
+    "type": "OTP_GENERATED",
+    "details": {
+      "email": "mikrodtech@gmail.com"
+    },
+    "timestamp": "2026-06-15T19:01:46.738Z"
+  },
+  {
+    "timestamp": "2026-06-15T19:01:53.172Z",
+    "type": "EMAIL_SYSTEM_FAILURE",
+    "details": {
+      "email": "mikrodtech@gmail.com",
+      "totalAttempts": 3,
+      "lastError": "getaddrinfo ENOTFOUND mail.mikrodtech.co.ke",
+      "action": "OTP_DELIVERY"
+    }
+  },
+  {
+    "id": 1781550113172,
+    "userId": null,
+    "restaurantId": null,
+    "type": "OTP_DELIVERY_FAILURE",
+    "details": {
+      "email": "mikrodtech@gmail.com",
+      "error": "Email delivery failed after 3 attempts: getaddrinfo ENOTFOUND mail.mikrodtech.co.ke"
+    },
+    "timestamp": "2026-06-15T19:01:53.172Z"
+  }
+]

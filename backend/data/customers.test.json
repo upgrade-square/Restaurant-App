@@ -1,0 +1,18 @@
+[
+  {
+    "id": 1,
+    "restaurantId": "test",
+    "name": "John Doe",
+    "phone": "+254712345678",
+    "visitCount": 1,
+    "createdAt": "2026-06-01T10:00:00Z"
+  },
+  {
+    "id": 2,
+    "restaurantId": "test",
+    "name": "J. Doe",
+    "phone": "0712345678",
+    "visitCount": 2,
+    "createdAt": "2026-06-02T10:00:00Z"
+  }
+]

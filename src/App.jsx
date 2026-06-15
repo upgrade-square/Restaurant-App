@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import './App.css'
 import API_URL from './config/api'
+import ErrorBoundary from './components/ErrorBoundary'
 
 const EyeIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -12,6 +13,12 @@ const EyeIcon = () => (
 const EyeSlashIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+  </svg>
+)
+
+const CopyIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" style={{ width: '16px', height: '16px' }}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 01-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 011.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 00-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 01-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5a1.125 1.125 0 01-1.125-1.125v-1.5a3.375 3.375 0 00-3.375-3.375H9.75" />
   </svg>
 )
 
@@ -61,22 +68,60 @@ function App() {
   };
 
   const isAdmin = user?.email === 'admin@test.com' || user?.role === 'admin'
+  const isProfessional = restaurant?.plan === 'Professional' || restaurant?.plan === 'Enterprise' || isAdmin;
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState(null); // 'saving', 'saved'
+
+  // Advanced Security State
+  const [passwordData, setPasswordData] = useState({ current: '', new: '', confirm: '' });
+  const [resetData, setResetData] = useState({ password: '', confirmed: false });
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+
+  // Recovery State
+  const [forgotStep, setForgotStep] = useState(1);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [showRecoveryPassword, setShowRecoveryPassword] = useState(false);
+
+  // Verification & OTP State
+  const [securityOTP, setSecurityOTP] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCooldown, setOtpCooldown] = useState(0);
+  const [registrationOTP, setRegistrationOTP] = useState('');
+  const [showOTPStep, setShowOTPStep] = useState(false);
+  const [requestingOTP, setRequestingOTP] = useState(false);
+  const [otpExpiry, setOtpExpiry] = useState(0); // seconds remaining
 
   const fetchWithAuth = async (endpoint, options = {}) => {
     const headers = { ...options.headers, 'Content-Type': 'application/json' }
     if (token) headers['Authorization'] = `Bearer ${token}`
     try {
       const response = await fetch(`${API_URL}${endpoint}`, { ...options, headers })
-      if (response.status === 401) { handleLogout(); throw new Error('Session expired') }
+
+      if (response.status === 401) {
+        const errorData = await response.json().catch(() => ({}));
+        const isSecurityMismatch = errorData.error && errorData.error.includes('Session invalidated');
+
+        handleLogout(isSecurityMismatch
+          ? 'Your session has expired because your account security settings changed. Please sign in again.'
+          : 'Your session has expired. Please sign in again.'
+        );
+        throw new Error(errorData.error || 'Session expired');
+      }
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
         throw new Error(errorData.error || `Error ${response.status}`)
       }
       return await response.json()
-    } catch (err) { throw err }
+    } catch (err) {
+      console.error(`[API_ERROR] ${endpoint}:`, err.message);
+      throw err;
+    }
   }
 
   const handleLogin = async (email, password) => {
@@ -105,38 +150,214 @@ function App() {
     setRestaurant(data.restaurant)
   }
 
-  const handleLogout = () => {
-    localStorage.clear()
-    setToken(null); setUser(null); setRestaurant(null);
-  }
+  const handlePasswordChange = async () => {
+    try {
+      if (passwordData.new !== passwordData.confirm) {
+        showToast('New passwords do not match', 'danger');
+        return;
+      }
+      if (passwordData.new.length < 6) {
+        showToast('Password must be at least 6 characters', 'danger');
+        return;
+      }
+      const data = await fetchWithAuth('/auth/change-password', {
+        method: 'POST',
+        body: JSON.stringify({
+          currentPassword: passwordData.current,
+          newPassword: passwordData.new,
+          confirmPassword: passwordData.confirm
+        })
+      });
+      showToast(data.message);
+      setPasswordData({ current: '', new: '', confirm: '' });
+    } catch (err) {
+      showToast(err.message, 'danger');
+    }
+  };
+
+  const handleAccountReset = async () => {
+    try {
+      if (!confirm('FINAL WARNING: This will permanently delete all your application data. This cannot be undone.')) return;
+
+      const data = await fetchWithAuth('/auth/reset-account', {
+        method: 'POST',
+        body: JSON.stringify({ otp: securityOTP })
+      });
+
+      showToast(data.message);
+      setSecurityOTP('');
+      setResetData({ password: '', confirmed: false });
+      setShowResetConfirm(false);
+
+      // Force refresh of all data
+      refreshData();
+      setActiveTab('dashboard');
+    } catch (err) {
+      setSecurityOTP('');
+      showToast(err.message, 'danger');
+    }
+  };
+
+  useEffect(() => {
+    let timer;
+    if (otpCooldown > 0) {
+      timer = setInterval(() => setOtpCooldown(prev => prev - 1), 1000);
+    }
+    return () => clearInterval(timer);
+  }, [otpCooldown]);
+
+  useEffect(() => {
+    let timer;
+    if (otpExpiry > 0) {
+      timer = setInterval(() => setOtpExpiry(prev => prev - 1), 1000);
+    }
+    return () => clearInterval(timer);
+  }, [otpExpiry]);
+
+  const handleRequestOTP = async (email) => {
+    if (!email) {
+      showToast('Email address is required', 'danger');
+      return false;
+    }
+    console.log(`[OTP] Requesting code for: ${email}`);
+    try {
+      setRequestingOTP(true);
+      const data = await fetchWithAuth('/auth/request-otp', {
+        method: 'POST',
+        body: JSON.stringify({ email })
+      });
+      console.log(`[OTP] Success: ${data.message}`);
+      showToast('Verification code sent successfully. Please check your email inbox.');
+      setOtpSent(true);
+      setOtpCooldown(60);
+      setOtpExpiry(600); // 10 minutes
+      return true;
+    } catch (err) {
+      console.error(`[OTP] Failed: ${err.message}`);
+      showToast(err.message || 'Unable to send verification code. Please try again.', 'danger');
+      return false;
+    } finally {
+      setRequestingOTP(false);
+    }
+  };
+
+  const handlePasswordChangeOTP = async () => {
+    try {
+      if (passwordData.new !== passwordData.confirm) {
+        showToast('New passwords do not match', 'danger');
+        return;
+      }
+      const data = await fetchWithAuth('/auth/change-password', {
+        method: 'POST',
+        body: JSON.stringify({
+          otp: securityOTP,
+          newPassword: passwordData.new,
+          confirmPassword: passwordData.confirm
+        })
+      });
+      showToast(data.message);
+      setPasswordData({ current: '', new: '', confirm: '' });
+      setSecurityOTP('');
+      setOtpSent(false);
+    } catch (err) {
+      showToast(err.message, 'danger');
+    }
+  };
+
+  const handleLogout = (reason = null) => {
+    console.log('[AUTH] Logging out user...', reason ? `Reason: ${reason}` : '');
+    localStorage.clear();
+    setToken(null);
+    setUser(null);
+    setRestaurant(null);
+    setActiveTab('dashboard');
+    if (reason) {
+      showToast(reason, 'danger');
+    }
+  };
+
+  const handleForgotPassword = async (email) => {
+    try {
+      setLoading(true);
+      const data = await fetchWithAuth('/auth/forgot-password', {
+        method: 'POST',
+        body: JSON.stringify({ email })
+      });
+      showToast(data.message);
+      setForgotEmail(email);
+      setForgotStep(2);
+    } catch (err) {
+      showToast(err.message, 'danger');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (email, token, newPassword) => {
+    try {
+      setLoading(true);
+      const data = await fetchWithAuth('/auth/reset-password', {
+        method: 'POST',
+        body: JSON.stringify({ email, token, newPassword })
+      });
+      showToast(data.message);
+      setAuthMode('login');
+      setForgotStep(1);
+    } catch (err) {
+      showToast(err.message, 'danger');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const refreshData = async (isBackground = false) => {
+    // If it's a background refresh and we're not on dashboard, stop here.
+    // This ensures no automatic background updates happen on Settings/Templates/etc.
+    if (isBackground && activeTab !== 'dashboard') return;
+
     try {
       if (!isBackground) setLoading(true)
-      const results = await Promise.all([
-        fetchWithAuth('/sms-queue/history'),
-        fetchWithAuth('/customers'),
-        fetchWithAuth('/settings'),
-        fetchWithAuth('/templates'),
-        fetchWithAuth('/metrics'),
-        fetchWithAuth('/gateway/status'),
-        fetchWithAuth('/subscription/history')
-      ])
 
+      const isDashboardHeartbeat = isBackground && activeTab === 'dashboard';
+
+      // Define endpoints based on whether this is a full sync or a targeted dashboard heartbeat
+      const baseEndpoints = [
+        '/sms-queue/history', // 0
+        '/metrics',           // 1
+        '/gateway/status'     // 2
+      ];
+
+      const extraEndpoints = [
+        '/customers',             // 3
+        '/settings',              // 4
+        '/templates',             // 5
+        '/subscription/history'   // 6
+      ];
+
+      const endpointsToFetch = isDashboardHeartbeat ? baseEndpoints : [...baseEndpoints, ...extraEndpoints];
+      const results = await Promise.all(endpointsToFetch.map(endpoint => fetchWithAuth(endpoint)));
+
+      // Always update dashboard components (they are in the base endpoints)
       setSmsHistory(results[0])
-      setCustomers(results[1])
-      setSettings(results[2])
-      setTemplates(results[3])
-      setMetrics(results[4])
-      setGatewayStatus(results[5])
-      setSubscriptionHistory(results[6])
+      setMetrics(results[1])
+      setGatewayStatus(results[2])
 
-      if (isAdmin) {
-        const aMetrics = await fetchWithAuth('/admin/metrics')
-        const aRes = await fetchWithAuth('/admin/restaurants')
-        setAdminMetrics(aMetrics)
-        setAdminRestaurants(aRes)
+      // Only update form-based pages if it's NOT a background heartbeat
+      // This prevents overwriting unsaved user data in Settings, Templates, etc.
+      if (!isDashboardHeartbeat) {
+        setCustomers(results[3])
+        setSettings(results[4])
+        setTemplates(results[5])
+        setSubscriptionHistory(results[6])
+
+        if (isAdmin) {
+          const aMetrics = await fetchWithAuth('/admin/metrics')
+          const aRes = await fetchWithAuth('/admin/restaurants')
+          setAdminMetrics(aMetrics)
+          setAdminRestaurants(aRes)
+        }
       }
+
       setError(null)
     } catch (err) {
       if (!isBackground) setError(err.message)
@@ -145,15 +366,30 @@ function App() {
     }
   }
 
+  // Initial full data load on login/app start
   useEffect(() => {
     if (token) {
       refreshData()
-      const interval = setInterval(() => refreshData(true), 15000)
-      return () => clearInterval(interval)
     } else {
       setLoading(false)
     }
   }, [token])
+
+  // Route-aware heartbeat: only active when on the Dashboard tab
+  useEffect(() => {
+    let interval;
+    if (token && activeTab === 'dashboard') {
+      // Trigger immediate targeted refresh when switching back to dashboard
+      refreshData(true);
+
+      // Setup heartbeat for dashboard only
+      interval = setInterval(() => refreshData(true), 15000);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [token, activeTab])
 
   const handleResend = async (id) => {
     try {
@@ -256,7 +492,10 @@ function App() {
               }}>
                 <div className="form-group"><label>Email</label><input className="form-control" name="email" type="email" required /></div>
                 <div className="form-group">
-                  <label>Password</label>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <label>Password</label>
+                    <button type="button" className="link-btn" style={{ fontSize: '0.8rem', padding: 0 }} onClick={() => setAuthMode('forgot-password')}>Forgot Password?</button>
+                  </div>
                   <div className="password-input-wrapper">
                     <input className="form-control" name="password" type={showLoginPassword ? 'text' : 'password'} required />
                     <button type="button" className="password-toggle" onClick={() => setShowLoginPassword(!showLoginPassword)} aria-label={showLoginPassword ? 'Hide password' : 'Show password'}>
@@ -271,6 +510,60 @@ function App() {
                 <button className="secondary-btn" style={{ width: '100%' }} onClick={() => { setAuthMode('register'); setOnboardingStep(1); }}>Create Account</button>
               </div>
             </>
+          ) : authMode === 'forgot-password' ? (
+            <div className="onboarding-flow">
+              {forgotStep === 1 && (
+                <>
+                  <h2>Reset Password</h2>
+                  <p style={{ color: 'var(--text-muted)', marginBottom: '20px' }}>Enter your email address to receive a recovery code.</p>
+                  <form className="auth-form" onSubmit={e => {
+                    e.preventDefault(); handleForgotPassword(e.target.email.value);
+                  }}>
+                    <div className="form-group">
+                      <label>Email Address</label>
+                      <input className="form-control" name="email" type="email" placeholder="owner@business.com" required />
+                    </div>
+                    <button className="login-btn" type="submit" disabled={loading}>
+                      {loading ? 'Sending Code...' : 'Send Recovery Code'}
+                    </button>
+                  </form>
+                  <div className="auth-switch">
+                    <button className="secondary-btn" style={{ width: '100%' }} onClick={() => setAuthMode('login')}>Back to Login</button>
+                  </div>
+                </>
+              )}
+
+              {forgotStep === 2 && (
+                <>
+                  <h2>Reset Password</h2>
+                  <p style={{ color: 'var(--text-muted)', marginBottom: '20px' }}>Enter the 6-character recovery code sent to your email.</p>
+                  <form className="auth-form" onSubmit={e => {
+                    e.preventDefault();
+                    handleResetPassword(forgotEmail, e.target.token.value, e.target.newPassword.value);
+                  }}>
+                    <div className="form-group">
+                      <label>Recovery Code</label>
+                      <input className="form-control" name="token" style={{ letterSpacing: '4px', textAlign: 'center', fontWeight: 'bold' }} maxLength={6} placeholder="XXXXXX" required />
+                    </div>
+                    <div className="form-group">
+                      <label>New Password</label>
+                      <div className="password-input-wrapper">
+                        <input className="form-control" name="newPassword" type={showRecoveryPassword ? 'text' : 'password'} placeholder="Min. 8 characters" required />
+                        <button type="button" className="password-toggle" onClick={() => setShowRecoveryPassword(!showRecoveryPassword)}>
+                          {showRecoveryPassword ? <EyeSlashIcon /> : <EyeIcon />}
+                        </button>
+                      </div>
+                    </div>
+                    <button className="login-btn" type="submit" disabled={loading}>
+                      {loading ? 'Updating Password...' : 'Reset Password'}
+                    </button>
+                  </form>
+                  <div className="auth-switch">
+                    <button className="secondary-btn" style={{ width: '100%' }} onClick={() => setForgotStep(1)}>Resend Code</button>
+                  </div>
+                </>
+              )}
+            </div>
           ) : (
             <div className="onboarding-flow">
               <div className="progress-stepper">
@@ -278,7 +571,7 @@ function App() {
                 <div className={`step ${onboardingStep >= 2 ? 'active' : ''}`}>2. Complete Registration</div>
               </div>
 
-              {onboardingStep === 1 && (
+              {onboardingStep === 1 && !showOTPStep && (
                 <>
                   <h2>Get Started with MikrodCAP</h2>
                   <p style={{ color: 'var(--text-muted)', marginBottom: '20px' }}>Enter your details to create your business account.</p>
@@ -288,15 +581,18 @@ function App() {
                       showToast('Passwords do not match', 'danger');
                       return;
                     }
+                    const email = e.target.email.value;
                     setSignupData({
                       ...signupData,
                       restaurantName: e.target.resName.value,
                       ownerName: e.target.ownerName.value,
-                      email: e.target.email.value,
+                      email: email,
                       password: e.target.password.value,
-                      plan: null // Ensure plan is null for simplified onboarding
+                      plan: null
                     });
-                    setOnboardingStep(2);
+                    handleRequestOTP(email).then(success => {
+                      if (success) setShowOTPStep(true);
+                    });
                   }}>
                     <div className="form-group"><label>Business Name</label><input className="form-control" name="resName" placeholder="e.g. Acme Retail Shop" defaultValue={signupData.restaurantName} required /></div>
                     <div className="form-group"><label>Owner Name</label><input className="form-control" name="ownerName" placeholder="Your full name" defaultValue={signupData.ownerName} required /></div>
@@ -319,11 +615,54 @@ function App() {
                         </button>
                       </div>
                     </div>
-                    <button className="login-btn" type="submit">Continue</button>
+                    <button className="login-btn" type="submit">Verify Email & Continue</button>
                   </form>
                   <div className="auth-switch">
                     <span>Already have an account?</span>
                     <button className="secondary-btn" style={{ width: '100%' }} onClick={() => setAuthMode('login')}>Sign In</button>
+                  </div>
+                </>
+              )}
+
+              {onboardingStep === 1 && showOTPStep && (
+                <>
+                  <h2>Verify Your Email</h2>
+                  <p style={{ color: 'var(--text-muted)', marginBottom: '20px' }}>Enter the 6-digit code sent to <strong>{signupData.email}</strong> to activate your account.</p>
+                  <form className="auth-form" onSubmit={e => {
+                    e.preventDefault();
+                    handleRegister({ ...signupData, otp: registrationOTP });
+                  }}>
+                    <div style={{ marginBottom: '16px', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                      Code expires in: <span style={{ fontWeight: 600, color: otpExpiry < 60 ? 'var(--danger)' : 'inherit' }}>
+                        {Math.floor(otpExpiry / 60)}:{(otpExpiry % 60).toString().padStart(2, '0')}
+                      </span>
+                    </div>
+                    <div className="form-group">
+                      <label>Verification Code</label>
+                      <input
+                        className="form-control"
+                        value={registrationOTP}
+                        onChange={e => setRegistrationOTP(e.target.value)}
+                        maxLength={6}
+                        placeholder="XXXXXX"
+                        style={{ textAlign: 'center', letterSpacing: '8px', fontWeight: 'bold', fontSize: '1.2rem' }}
+                        required
+                      />
+                    </div>
+                    <button className="login-btn" type="submit" disabled={loading}>
+                      {loading ? 'Verifying...' : 'Verify & Create Account'}
+                    </button>
+                  </form>
+                  <div className="auth-switch">
+                    <button className="secondary-btn" style={{ width: '100%' }} onClick={() => { setShowOTPStep(false); setRegistrationOTP(''); }}>Back to Details</button>
+                    <button
+                      className="link-btn"
+                      style={{ marginTop: '16px' }}
+                      onClick={() => handleRequestOTP(signupData.email)}
+                      disabled={otpCooldown > 0 || requestingOTP}
+                    >
+                      {requestingOTP ? 'Sending code...' : otpCooldown > 0 ? `Resend code in ${otpCooldown}s` : 'Resend Verification Code'}
+                    </button>
                   </div>
                 </>
               )}
@@ -421,539 +760,699 @@ function App() {
   };
 
   return (
-    <div className="app-container">
-      <nav className="navbar">
-        <div className="logo-area" style={{ flexDirection: 'row', alignItems: 'center', gap: '12px' }}>
-          <button className="menu-toggle mobile-only" onClick={() => setMenuOpen(!menuOpen)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--text-main)', padding: '0' }}>
-            {menuOpen ? '✕' : '☰'}
-          </button>
-          <div className="brand">
-            <span className="brand-mikrod">Mikrod</span>
-            <span className="brand-cap">CAP</span>
-          </div>
-        </div>
-        <div className={`nav-links ${menuOpen ? 'open' : ''}`}>
-          <button className={`nav-btn ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => { setActiveTab('dashboard'); setMenuOpen(false); }}>Dashboard</button>
-          <button className={`nav-btn ${activeTab === 'customers' ? 'active' : ''}`} onClick={() => { setActiveTab('customers'); setMenuOpen(false); }}>Customers</button>
-          <button className={`nav-btn ${activeTab === 'templates' ? 'active' : ''}`} onClick={() => { setActiveTab('templates'); setMenuOpen(false); }}>Templates</button>
-          <button className={`nav-btn ${activeTab === 'subscription' ? 'active' : ''}`} onClick={() => { setActiveTab('subscription'); setMenuOpen(false); }}>Subscription</button>
-          <button className={`nav-btn ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => { setActiveTab('settings'); setMenuOpen(false); }}>Settings</button>
-          {isAdmin && <button className={`nav-btn ${activeTab === 'admin' ? 'active' : ''}`} onClick={() => { setActiveTab('admin'); setMenuOpen(false); }}>Admin</button>}
-
-          <div className="business-info">
-            <div className="desktop-only">
-              <div className="business-name">{settings?.restaurantName || restaurant?.name}</div>
-              <div className="sub-status">{restaurant?.plan} / {restaurant?.subscriptionStatus}</div>
+    <ErrorBoundary>
+      <div className="app-container">
+        <nav className="navbar">
+          <div className="logo-area" style={{ flexDirection: 'row', alignItems: 'center', gap: '12px' }}>
+            <button className="menu-toggle mobile-only" onClick={() => setMenuOpen(!menuOpen)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--text-main)', padding: '0' }}>
+              {menuOpen ? '✕' : '☰'}
+            </button>
+            <div className="brand">
+              <span className="brand-mikrod">Mikrod</span>
+              <span className="brand-cap">CAP</span>
             </div>
-            <button className="nav-btn logout-btn" style={{ color: 'var(--danger)' }} onClick={() => { handleLogout(); setMenuOpen(false); }}>Logout</button>
           </div>
-        </div>
-        {menuOpen && <div className="menu-overlay mobile-only" onClick={() => setMenuOpen(false)}></div>}
-      </nav>
+          <div className={`nav-links ${menuOpen ? 'open' : ''}`}>
+            <button className={`nav-btn ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => { setActiveTab('dashboard'); setMenuOpen(false); }}>Dashboard</button>
+            <button className={`nav-btn ${activeTab === 'customers' ? 'active' : ''}`} onClick={() => { setActiveTab('customers'); setMenuOpen(false); }}>Customers</button>
+            <button className={`nav-btn ${activeTab === 'templates' ? 'active' : ''}`} onClick={() => { setActiveTab('templates'); setMenuOpen(false); }}>Templates</button>
+            <button className={`nav-btn ${activeTab === 'subscription' ? 'active' : ''}`} onClick={() => { setActiveTab('subscription'); setMenuOpen(false); }}>Subscription</button>
+            <button className={`nav-btn ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => { setActiveTab('settings'); setMenuOpen(false); }}>Settings</button>
+            {isAdmin && <button className={`nav-btn ${activeTab === 'admin' ? 'active' : ''}`} onClick={() => { setActiveTab('admin'); setMenuOpen(false); }}>Admin</button>}
 
-      <main className="main-content">
-        {activeTab === 'dashboard' && (
-          <div className="section">
-            <div className="dashboard-header">
-              <h1>Business Overview</h1>
-              <p className="tagline">Automatic Customer Appreciation Tracking</p>
+            <div className="business-info">
+              <div className="desktop-only">
+                <div className="business-name">{settings?.restaurantName || restaurant?.name || 'Business Account'}</div>
+              </div>
+              <button className="nav-btn logout-btn" style={{ color: 'var(--danger)' }} onClick={() => { handleLogout(); setMenuOpen(false); }}>Logout</button>
             </div>
+          </div>
+          {menuOpen && <div className="menu-overlay mobile-only" onClick={() => setMenuOpen(false)}></div>}
+        </nav>
 
-            <div className="kpi-grid">
-              <div className="card kpi-card">
-                <div className="kpi-label">Customers Served This Week</div>
-                <div className="kpi-value">{metrics.weeklyCustomers || 0}</div>
+        <main className="main-content">
+          {activeTab === 'dashboard' && (
+            <div className="section">
+              <div className="dashboard-header">
+                <h1>Business Overview</h1>
+                <p className="tagline">Automatic Customer Appreciation Tracking</p>
               </div>
-              <div className="card kpi-card">
-                <div className="kpi-label">Messages Sent Today</div>
-                <div className="kpi-value">{metrics.sentToday || 0}</div>
-              </div>
-              <div className="card kpi-card">
-                <div className="kpi-label">Pending Messages</div>
-                <div className="kpi-value">{metrics.pending || 0}</div>
-              </div>
-              <div className="card kpi-card">
-                <div className="kpi-label">Failed Today</div>
-                <div className="kpi-value" style={{ color: (metrics.failedToday || 0) > 0 ? 'var(--danger)' : 'inherit' }}>{metrics.failedToday || 0}</div>
-              </div>
-              <div className="card kpi-card">
-                <div className="kpi-label">Gateway Status</div>
-                <div className="kpi-value" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '1.25rem', color: (gatewayStatus.status === 'Online' || gatewayStatus.status === 'Connected') ? 'var(--success)' : 'var(--danger)' }}>
-                      {(gatewayStatus.status === 'Online' || gatewayStatus.status === 'Connected') ? 'Online' : 'Offline'}
-                    </span>
-                    {(gatewayStatus.status === 'Online' || gatewayStatus.status === 'Connected') && gatewayStatus.deviceId && (
-                      <span className={`battery-pill ${gatewayStatus.batteryLevel < 30 ? 'critical' : gatewayStatus.batteryLevel < 80 ? 'warning' : 'healthy'}`}>
-                        {gatewayStatus.isCharging && <span className="charging-icon">⚡</span>}
-                        {gatewayStatus.batteryLevel || 0}%
+
+              <div className="kpi-grid">
+                <div className="card kpi-card">
+                  <div className="kpi-label">Customers Served This Week</div>
+                  <div className="kpi-value">{metrics.weeklyCustomers || 0}</div>
+                </div>
+                <div className="card kpi-card">
+                  <div className="kpi-label">Messages Sent Today</div>
+                  <div className="kpi-value">{metrics.sentToday || 0}</div>
+                </div>
+                <div className="card kpi-card">
+                  <div className="kpi-label">Pending Messages</div>
+                  <div className="kpi-value">{metrics.pending || 0}</div>
+                </div>
+                <div className="card kpi-card">
+                  <div className="kpi-label">Failed Today</div>
+                  <div className="kpi-value" style={{ color: (metrics.failedToday || 0) > 0 ? 'var(--danger)' : 'inherit' }}>{metrics.failedToday || 0}</div>
+                </div>
+                <div className="card kpi-card">
+                  <div className="kpi-label">Gateway Status</div>
+                  <div className="kpi-value" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '1.25rem', color: (gatewayStatus.status === 'Online' || gatewayStatus.status === 'Connected') ? 'var(--success)' : 'var(--danger)' }}>
+                        {(gatewayStatus.status === 'Online' || gatewayStatus.status === 'Connected') ? 'Online' : 'Offline'}
                       </span>
+                      {(gatewayStatus.status === 'Online' || gatewayStatus.status === 'Connected') && gatewayStatus.deviceId && (
+                        <span className={`battery-pill ${gatewayStatus.batteryLevel < 30 ? 'critical' : gatewayStatus.batteryLevel < 80 ? 'warning' : 'healthy'}`}>
+                          {gatewayStatus.isCharging && <span className="charging-icon">⚡</span>}
+                          {gatewayStatus.batteryLevel || 0}%
+                        </span>
+                      )}
+                    </div>
+                    {(gatewayStatus.status === 'Online' || gatewayStatus.status === 'Connected') && gatewayStatus.deviceId && (
+                      <div style={{ textAlign: 'center', marginTop: '4px' }}>
+                        <div style={{ fontSize: '0.85rem', color: 'var(--text-main)', fontWeight: 600 }}>
+                          {gatewayStatus.deviceName || 'Android Gateway'}
+                        </div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                          Last seen: {gatewayStatus.lastSeen ? getRelativeTime(gatewayStatus.lastSeen) : 'Never'}
+                        </div>
+                      </div>
                     )}
                   </div>
-                  {(gatewayStatus.status === 'Online' || gatewayStatus.status === 'Connected') && gatewayStatus.deviceId && (
-                    <div style={{ textAlign: 'center', marginTop: '4px' }}>
-                      <div style={{ fontSize: '0.85rem', color: 'var(--text-main)', fontWeight: 600 }}>
-                        {gatewayStatus.deviceName || 'Android Gateway'}
-                      </div>
-                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                        Last seen: {gatewayStatus.lastSeen ? getRelativeTime(gatewayStatus.lastSeen) : 'Never'}
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
-            </div>
 
-            <div className="activity-section">
-              <div className="card">
-                <h3>Customer Engagement Activity</h3>
-                <div className="table-container" style={{ marginTop: '16px' }}>
-                  <table className="activity-table" style={{ width: '100%', tableLayout: 'fixed', minWidth: '800px' }}>
-                    <thead>
-                      <tr>
-                        <th style={{ width: '20%' }}>Created Date</th>
-                        <th style={{ width: '25%' }}>Customer Name</th>
-                        <th style={{ width: '15%' }}>Phone Number</th>
-                        <th style={{ width: '20%' }}>SMS Sent Time</th>
-                        <th style={{ width: '10%' }}>Status</th>
-                        <th style={{ width: '10%' }}>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {smsHistory.slice(0, 10).map(msg => (
-                        <tr key={msg.id}>
-                          <td title={formatDateTime(msg.createdAt)}>{formatDateTime(msg.createdAt)}</td>
-                          <td style={{ fontWeight: 700 }} title={msg.customerName}>{msg.customerName}</td>
-                          <td title={msg.phone}>{msg.phone}</td>
-                          <td title={formatDateTime(msg.sentAt)}>{formatDateTime(msg.sentAt)}</td>
-                          <td><StatusBadge status={msg.status} /></td>
-                          <td>
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                              {msg.status === 'Failed' && (
-                                <button className="resend-btn" onClick={() => handleResend(msg.id)}>Resend</button>
-                              )}
-                              <button
-                                style={{ color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px' }}
-                                onClick={async () => {
-                                  if (confirm('Delete this activity record?')) {
-                                    try {
-                                      await fetchWithAuth(`/sms-queue/${msg.id}`, { method: 'DELETE' });
-                                      setSmsHistory(prev => prev.filter(s => s.id !== msg.id));
-                                      showToast('Activity record deleted');
-                                      refreshData(true);
-                                    } catch (err) { showToast(err.message, 'danger'); }
-                                  }
-                                }}
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </td>
+              <div className="activity-section">
+                <div className="card">
+                  <h3>Customer Engagement Activity</h3>
+                  <div className="table-container" style={{ marginTop: '16px' }}>
+                    <table className="activity-table" style={{ width: '100%', tableLayout: 'fixed', minWidth: '800px' }}>
+                      <thead>
+                        <tr>
+                          <th style={{ width: '20%' }}>Created Date</th>
+                          <th style={{ width: '25%' }}>Customer Name</th>
+                          <th style={{ width: '15%' }}>Phone Number</th>
+                          <th style={{ width: '20%' }}>SMS Sent Time</th>
+                          <th style={{ width: '10%' }}>Status</th>
+                          <th style={{ width: '10%' }}>Action</th>
                         </tr>
-                      ))}
-                      {smsHistory.length === 0 && (
-                        <tr><td colSpan="6" style={{ textAlign: 'center', padding: '40px' }}>No recent activity</td></tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
-        )
-        }
-
-        {
-          activeTab === 'customers' && (
-            <div className="section">
-              <div className="card">
-                <h3>Manual Appreciation Entry</h3>
-                <form onSubmit={e => {
-                  e.preventDefault();
-                  fetchWithAuth('/customers', { method: 'POST', body: JSON.stringify(formData) })
-                    .then((data) => {
-                      setFormData({ name: '', phone: '', amount: '' });
-                      setCustomers(prev => [...prev, data]);
-                      setMetrics(prev => ({ ...prev, totalCustomers: prev.totalCustomers + 1 }));
-                      showToast('Appreciation Sent');
-                      refreshData(true);
-                    });
-                }} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginTop: '16px' }}>
-                  <div className="form-group"><label>Customer Name</label><input className="form-control" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} required /></div>
-                  <div className="form-group"><label>Phone Number</label><input className="form-control" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} required /></div>
-                  <div className="form-group"><label>Bill Amount (KES)</label><input className="form-control" type="number" value={formData.amount} onChange={e => setFormData({ ...formData, amount: e.target.value })} required /></div>
-                  <div className="form-group" style={{ display: 'flex', alignItems: 'flex-end' }}><button className="login-btn" style={{ width: '100%', marginTop: 0 }} type="submit">Submit Entry</button></div>
-                </form>
-              </div>
-
-              <div className="card" style={{ marginTop: '24px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', alignItems: 'center' }}>
-                  <h3>Customer Directory</h3>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <input className="form-control" placeholder="Search customers..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{ width: '250px' }} />
-                  </div>
-                </div>
-                <div className="table-container">
-                  <table className="activity-table" style={{ tableLayout: 'fixed', minWidth: '800px' }}>
-                    <thead>
-                      <tr>
-                        <th style={{ width: '20%' }}>Date</th>
-                        <th style={{ width: '30%' }}>Customer Name</th>
-                        <th style={{ width: '20%' }}>Phone Number</th>
-                        <th style={{ width: '15%' }}>Visit Count</th>
-                        <th style={{ width: '15%' }}>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {customers
-                        .filter(c => (c.name.toLowerCase().includes(searchTerm.toLowerCase()) || c.phone.includes(searchTerm)))
-                        .map(customer => (
-                          <tr key={customer.id}>
-                            <td title={formatDateTime(customer.createdAt || customer.created_at)}>{formatDateTime(customer.createdAt || customer.created_at)}</td>
-                            <td style={{ fontWeight: 700 }} title={customer.name}>{customer.name}</td>
-                            <td title={customer.phone}>{customer.phone}</td>
-                            <td style={{ textAlign: 'center' }}>{customer.visitCount || 1}</td>
-                            <td className="actions">
-                              <button
-                                style={{ color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer' }}
-                                onClick={async () => {
-                                  if (confirm('Delete this customer? This will remove their record but keep historical metrics.')) {
-                                    try {
-                                      await fetchWithAuth(`/customers/${customer.id}`, { method: 'DELETE' });
-                                      setCustomers(prev => prev.filter(c => c.id !== customer.id));
-                                      showToast('Customer deleted');
-                                      refreshData(true);
-                                    } catch (err) {
-                                      showToast(err.message, 'danger');
+                      </thead>
+                      <tbody>
+                        {smsHistory.slice(0, 10).map(msg => (
+                          <tr key={msg.id}>
+                            <td title={formatDateTime(msg.createdAt || msg.id)}>{formatDateTime(msg.createdAt || msg.id)}</td>
+                            <td style={{ fontWeight: 700 }} title={msg.customerName}>{msg.customerName}</td>
+                            <td title={msg.phone}>{msg.phone}</td>
+                            <td title={formatDateTime(msg.sentAt)}>{formatDateTime(msg.sentAt)}</td>
+                            <td><StatusBadge status={msg.status} /></td>
+                            <td>
+                              <div style={{ display: 'flex', gap: '8px' }}>
+                                {msg.status === 'Failed' && (
+                                  <button className="resend-btn" onClick={() => handleResend(msg.id)}>Resend</button>
+                                )}
+                                <button
+                                  style={{ color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px' }}
+                                  onClick={async () => {
+                                    if (confirm('Delete this activity record?')) {
+                                      try {
+                                        await fetchWithAuth(`/sms-queue/${msg.id}`, { method: 'DELETE' });
+                                        setSmsHistory(prev => prev.filter(s => s.id !== msg.id));
+                                        showToast('Activity record deleted');
+                                        refreshData(true);
+                                      } catch (err) { showToast(err.message, 'danger'); }
                                     }
-                                  }
-                                }}
-                              >
-                                Delete
-                              </button>
+                                  }}
+                                >
+                                  Delete
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         ))}
-                      {customers.length === 0 && (
-                        <tr><td colSpan="5" style={{ textAlign: 'center', padding: '40px' }}>No customers found</td></tr>
-                      )}
-                    </tbody>
-                  </table>
+                        {smsHistory.length === 0 && (
+                          <tr><td colSpan="6" style={{ textAlign: 'center', padding: '40px' }}>No recent activity</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             </div>
           )
-        }
+          }
 
-        {
-          activeTab === 'templates' && (
-            <div className="section card">
-              <h3>Appreciation Template</h3>
-              <p style={{ color: 'var(--text-muted)', marginBottom: '16px' }}>Use <code>{`{{name}}`}</code> for customer name and <code>{`{{businessName}}`}</code> for business name.</p>
-              <div className="form-group">
-                <textarea className="form-control" style={{ height: '150px' }} value={templates.thankYou} onChange={e => setTemplates({ ...templates, thankYou: e.target.value })} />
+          {
+            activeTab === 'customers' && (
+              <div className="section">
+                <div className="card">
+                  <h3>Manual Appreciation Entry</h3>
+                  <form onSubmit={e => {
+                    e.preventDefault();
+                    fetchWithAuth('/customers', { method: 'POST', body: JSON.stringify(formData) })
+                      .then((data) => {
+                        setFormData({ name: '', phone: '', amount: '' });
+                        setCustomers(prev => {
+                          const exists = prev.find(c => c.id === data.id);
+                          if (exists) return prev.map(c => c.id === data.id ? data : c);
+                          return [...prev, data];
+                        });
+                        setMetrics(prev => {
+                          const customerExists = customers.find(c => c.id === data.id);
+                          if (customerExists) return prev;
+                          return { ...prev, totalCustomers: prev.totalCustomers + 1 };
+                        });
+                        showToast('Appreciation Sent');
+                        refreshData(true);
+                      });
+                  }} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginTop: '16px' }}>
+                    <div className="form-group"><label>Customer Name</label><input className="form-control" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} required /></div>
+                    <div className="form-group"><label>Phone Number</label><input className="form-control" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} required /></div>
+                    {isProfessional && (
+                      <div className="form-group"><label>Bill Amount (KES)</label><input className="form-control" type="number" value={formData.amount} onChange={e => setFormData({ ...formData, amount: e.target.value })} required={isProfessional} /></div>
+                    )}
+                    <div className="form-group" style={{ display: 'flex', alignItems: 'flex-end' }}><button className="login-btn" style={{ width: '100%', marginTop: 0 }} type="submit">Submit Entry</button></div>
+                  </form>
+                </div>
+
+                <div className="card" style={{ marginTop: '24px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', alignItems: 'center' }}>
+                    <h3>Customer Directory</h3>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <input className="form-control" placeholder="Search customers..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{ width: '250px' }} />
+                    </div>
+                  </div>
+                  <div className="table-container">
+                    <table className="activity-table" style={{ tableLayout: 'fixed', minWidth: '800px' }}>
+                      <thead>
+                        <tr>
+                          <th style={{ width: '20%' }}>Created Date</th>
+                          <th style={{ width: '30%' }}>Customer Name</th>
+                          <th style={{ width: '20%' }}>Phone Number</th>
+                          <th style={{ width: '15%' }}>Visit Count</th>
+                          <th style={{ width: '15%' }}>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {customers
+                          .filter(c => (c.name.toLowerCase().includes(searchTerm.toLowerCase()) || c.phone.includes(searchTerm)))
+                          .map(customer => (
+                            <tr key={customer.id}>
+                              <td title={formatDateTime(customer.createdAt || customer.created_at || customer.timestamp || customer.id)}>{formatDateTime(customer.createdAt || customer.created_at || customer.timestamp || customer.id)}</td>
+                              <td style={{ fontWeight: 700 }} title={customer.name}>{customer.name}</td>
+                              <td title={customer.phone}>{customer.phone}</td>
+                              <td style={{ textAlign: 'center' }}>{customer.visitCount || 1}</td>
+                              <td className="actions">
+                                <button
+                                  style={{ color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer' }}
+                                  onClick={async () => {
+                                    if (confirm('Delete this customer? This will remove their record but keep historical metrics.')) {
+                                      try {
+                                        await fetchWithAuth(`/customers/${customer.id}`, { method: 'DELETE' });
+                                        setCustomers(prev => prev.filter(c => c.id !== customer.id));
+                                        showToast('Customer deleted');
+                                        refreshData(true);
+                                      } catch (err) {
+                                        showToast(err.message, 'danger');
+                                      }
+                                    }
+                                  }}
+                                >
+                                  Delete
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        {customers.length === 0 && (
+                          <tr><td colSpan="5" style={{ textAlign: 'center', padding: '40px' }}>No customers found</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
-              <button
-                className="login-btn"
-                style={{ width: '200px' }}
-                disabled={isSaving}
-                onClick={() => {
-                  setIsSaving(true);
-                  fetchWithAuth('/templates', { method: 'POST', body: JSON.stringify(templates) })
-                    .then(() => {
-                      showToast('Templates saved');
-                      setSaveStatus('saved');
-                      setTimeout(() => setSaveStatus(null), 3000);
-                    })
-                    .finally(() => setIsSaving(false));
-                }}
-              >
-                {isSaving ? 'Saving...' : saveStatus === 'saved' ? 'Saved ✓' : 'Save Changes'}
-              </button>
-            </div>
-          )
-        }
+            )
+          }
 
-        {
-          activeTab === 'subscription' && (
-            <div className="section">
-              <div className="card" style={{ marginBottom: '24px' }}>
-                <h3>Current Subscription Status</h3>
-                <div className="kpi-grid" style={{ marginTop: '16px' }}>
-                  <div className="card"><div className="kpi-label">Current Plan</div><div className="kpi-value" style={{ fontSize: '1.5rem' }}>{restaurant?.plan || 'None'}</div></div>
-                  <div className="card"><div className="kpi-label">Status</div><div className="kpi-value" style={{ color: restaurant?.subscriptionStatus === 'Active' ? 'var(--success)' : 'var(--danger)' }}>{restaurant?.subscriptionStatus || 'Not Activated'}</div></div>
-                  {restaurant?.subscriptionStatus === 'Active' && (
-                    <>
-                      <div className="card"><div className="kpi-label">Expiry</div><div className="kpi-value" style={{ fontSize: '1.25rem' }}>{restaurant?.subscriptionExpiry ? formatDateTime(restaurant.subscriptionExpiry) : 'N/A'}</div></div>
-                      <div className="card"><div className="kpi-label">Days Remaining</div><div className="kpi-value">{getDaysRemaining(restaurant?.subscriptionExpiry)}</div></div>
-                    </>
+          {
+            activeTab === 'templates' && (
+              <div className="section card">
+                <h3>Appreciation Template</h3>
+                <p style={{ color: 'var(--text-muted)', marginBottom: '16px' }}>Use <code>{`{{name}}`}</code> for customer name and <code>{`{{businessName}}`}</code> for business name.</p>
+                <div className="form-group">
+                  <textarea className="form-control" style={{ height: '150px' }} value={templates.thankYou} onChange={e => setTemplates({ ...templates, thankYou: e.target.value })} />
+                </div>
+                <button
+                  className="login-btn"
+                  style={{ width: '200px' }}
+                  disabled={isSaving}
+                  onClick={() => {
+                    setIsSaving(true);
+                    fetchWithAuth('/templates', { method: 'POST', body: JSON.stringify(templates) })
+                      .then(() => {
+                        showToast('Templates saved');
+                        setSaveStatus('saved');
+                        setTimeout(() => setSaveStatus(null), 3000);
+                      })
+                      .finally(() => setIsSaving(false));
+                  }}
+                >
+                  {isSaving ? 'Saving...' : saveStatus === 'saved' ? 'Saved ✓' : 'Save Changes'}
+                </button>
+              </div>
+            )
+          }
+
+          {
+            activeTab === 'subscription' && (
+              <div className="section">
+                <div className="card" style={{ marginBottom: '24px' }}>
+                  <h3>Current Subscription Status</h3>
+                  <div className="kpi-grid" style={{ marginTop: '16px' }}>
+                    <div className="card"><div className="kpi-label">Current Plan</div><div className="kpi-value" style={{ fontSize: '1.5rem' }}>{restaurant?.plan || 'None'}</div></div>
+                    <div className="card"><div className="kpi-label">Status</div><div className="kpi-value" style={{ color: restaurant?.subscriptionStatus === 'Active' ? 'var(--success)' : 'var(--danger)' }}>{restaurant?.subscriptionStatus || 'Not Activated'}</div></div>
+                    {restaurant?.subscriptionStatus === 'Active' && (
+                      <>
+                        <div className="card"><div className="kpi-label">Expiry</div><div className="kpi-value" style={{ fontSize: '1.25rem' }}>{restaurant?.subscriptionExpiry ? formatDateTime(restaurant.subscriptionExpiry) : 'N/A'}</div></div>
+                        <div className="card"><div className="kpi-label">Days Remaining</div><div className="kpi-value">{getDaysRemaining(restaurant?.subscriptionExpiry)}</div></div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="card" style={{ marginBottom: '24px' }}>
+                  <h3>Business Subscription Plans</h3>
+                  <div className="kpi-grid" style={{ marginTop: '16px' }}>
+                    <div className="card" style={{ borderColor: selectedPlan === 'Starter' ? 'var(--primary-orange)' : '' }} onClick={() => setSelectedPlan('Starter')}>
+                      <h4>Starter</h4>
+                      <div className="price" style={{ fontSize: '1.5rem', fontWeight: 800, margin: '10px 0' }}>KES 1,250/mo</div>
+                      <button className="nav-btn" style={{ width: '100%', background: selectedPlan === 'Starter' ? 'var(--primary-blue)' : '#f1f5f9', color: selectedPlan === 'Starter' ? 'white' : '' }}>Select</button>
+                    </div>
+                    <div className="card" style={{ borderColor: selectedPlan === 'Professional' ? 'var(--primary-orange)' : '' }} onClick={() => setSelectedPlan('Professional')}>
+                      <h4 style={{ color: 'var(--primary-orange)' }}>Professional</h4>
+                      <div className="price" style={{ fontSize: '1.5rem', fontWeight: 800, margin: '10px 0' }}>KES 2,500/mo</div>
+                      <button className="nav-btn" style={{ width: '100%', background: selectedPlan === 'Professional' ? 'var(--primary-blue)' : '#f1f5f9', color: selectedPlan === 'Professional' ? 'white' : '' }}>Select</button>
+                    </div>
+                    <div className="card" style={{ borderColor: selectedPlan === 'Enterprise' ? 'var(--primary-orange)' : '' }} onClick={() => setSelectedPlan('Enterprise')}>
+                      <h4>Enterprise</h4>
+                      <div className="price" style={{ fontSize: '1.5rem', fontWeight: 800, margin: '10px 0' }}>KES 5,000/mo</div>
+                      <button className="nav-btn" style={{ width: '100%', background: selectedPlan === 'Enterprise' ? 'var(--primary-blue)' : '#f1f5f9', color: selectedPlan === 'Enterprise' ? 'white' : '' }}>Select</button>
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: '32px' }}>
+                    <h4>Payment Instructions (Paybill 400200 / Account {restaurant?.id})</h4>
+                    <form onSubmit={handleVerifyPayment} style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
+                      <input className="form-control" style={{ flex: 1 }} placeholder="Enter Transaction Code" value={transactionCode} onChange={e => setTransactionCode(e.target.value)} required />
+                      <button className="login-btn" style={{ marginTop: 0, padding: '0 32px' }} type="submit">Verify</button>
+                    </form>
+                  </div>
+                </div>
+
+                <div className="card">
+                  <h3>Payment History</h3>
+                  <div className="table-container" style={{ marginTop: '16px' }}>
+                    <table className="activity-table" style={{ width: '100%', tableLayout: 'fixed' }}>
+                      <thead>
+                        <tr>
+                          <th style={{ width: '25%' }}>Transaction Code</th>
+                          <th style={{ width: '20%' }}>Plan Purchased</th>
+                          <th style={{ width: '15%' }}>Amount</th>
+                          <th style={{ width: '15%' }}>Duration</th>
+                          <th style={{ width: '15%' }}>Date</th>
+                          <th style={{ width: '10%' }}>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {subscriptionHistory.map(pay => (
+                          <tr key={pay.id}>
+                            <td style={{ fontWeight: 700 }} title={pay.transactionCode}>{pay.transactionCode}</td>
+                            <td title={pay.plan}>{pay.plan}</td>
+                            <td>KES {pay.amount?.toLocaleString()}</td>
+                            <td>1 Month</td>
+                            <td title={formatDateTime(pay.date)}>{formatDateTime(pay.date)}</td>
+                            <td><span className="badge badge-sent">Processed</span></td>
+                          </tr>
+                        ))}
+                        {subscriptionHistory.length === 0 && (
+                          <tr>
+                            <td colSpan="6" style={{ textAlign: 'center', padding: '60px' }}>
+                              <div style={{ color: 'var(--text-muted)' }}>
+                                <div style={{ fontSize: '2rem', marginBottom: '16px' }}>💳</div>
+                                <p>No subscription payments found yet.</p>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )
+          }
+
+          {
+            activeTab === 'settings' && (
+              <div className="section">
+                <div className="card">
+                  <h3>Configuration</h3>
+                  <p className="tagline">Basic business details and contact information.</p>
+                  <form onSubmit={e => {
+                    e.preventDefault();
+                    setIsSaving(true);
+                    fetchWithAuth('/settings', { method: 'POST', body: JSON.stringify(settings) })
+                      .then((data) => {
+                        showToast('Settings saved');
+                        setSaveStatus('saved');
+                        if (data.restaurant) {
+                          localStorage.setItem('restaurant', JSON.stringify(data.restaurant));
+                          setRestaurant(data.restaurant);
+                        }
+                        setTimeout(() => setSaveStatus(null), 3000);
+                        refreshData(true);
+                      })
+                      .finally(() => setIsSaving(false));
+                  }} style={{ marginTop: '16px' }}>
+                    <div className="form-group"><label>Business Name</label><input className="form-control" value={settings.restaurantName} onChange={e => setSettings({ ...settings, restaurantName: e.target.value })} required /></div>
+                    <div className="form-group"><label>Contact Phone</label><input className="form-control" type="tel" value={settings.phone} onChange={e => setSettings({ ...settings, phone: e.target.value })} /></div>
+                    <div className="form-group"><label>Official Email</label><input className="form-control" type="email" value={settings.email} onChange={e => setSettings({ ...settings, email: e.target.value })} /></div>
+                    <div className="form-group"><label>Operating Address</label><input className="form-control" value={settings.address} onChange={e => setSettings({ ...settings, address: e.target.value })} /></div>
+                    <button className="login-btn" style={{ width: '200px' }} type="submit" disabled={isSaving}>
+                      {isSaving ? 'Saving...' : saveStatus === 'saved' ? 'Saved ✓' : 'Save Changes'}
+                    </button>
+                  </form>
+                </div>
+
+                <div className="card" style={{ marginTop: '24px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h3>System Settings</h3>
+                    <button className="admin-action-btn" onClick={() => setShowAdvanced(!showAdvanced)}>
+                      {showAdvanced ? 'Hide Advanced' : 'Show Advanced'}
+                    </button>
+                  </div>
+
+                  {showAdvanced ? (
+                    <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid var(--border)' }}>
+                      <div className="settings-section">
+                        <h4>Advanced Configuration</h4>
+
+                        <div className="form-group">
+                          <label>Gateway Backend URL</label>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <input className="form-control" value={API_URL} readOnly style={{ background: '#f1f5f9' }} />
+                            <button
+                              className="admin-action-btn"
+                              type="button"
+                              onClick={() => { navigator.clipboard.writeText(API_URL); showToast('URL copied to clipboard'); }}
+                              title="Copy to clipboard"
+                            >
+                              <CopyIcon />
+                            </button>
+                          </div>
+                          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>Use this URL in your Android Gateway app settings.</p>
+                        </div>
+                      </div>
+
+                      <div className="settings-section" style={{ marginTop: '32px', paddingTop: '24px', borderTop: '1px solid var(--border)' }}>
+                        <h4>Account Information</h4>
+                        <div className="form-group">
+                          <label>Logged-in Email</label>
+                          <input className="form-control" value={user?.email || 'N/A'} readOnly style={{ background: '#f1f5f9' }} />
+                        </div>
+                      </div>
+
+                      <div className="settings-section" style={{ marginTop: '32px', paddingTop: '24px', borderTop: '1px solid var(--border)' }}>
+                        <h4>Security Management</h4>
+
+                        {!otpSent ? (
+                          <div style={{ padding: '16px', background: '#f8fafc', borderRadius: '8px' }}>
+                            <button
+                              className="admin-action-btn"
+                              type="button"
+                              onClick={() => handleRequestOTP(user.email)}
+                              disabled={otpCooldown > 0 || requestingOTP}
+                            >
+                              {requestingOTP ? 'Sending Verification Code...' : otpCooldown > 0 ? `Resend code in ${otpCooldown}s` : 'Send Verification Code'}
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="card" style={{ padding: '20px', background: '#f0f9ff', border: '1px solid #bae6fd' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                              <h5 style={{ margin: 0, color: 'var(--primary-blue)' }}>Security Verification</h5>
+                              <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                Expires: <span style={{ fontWeight: 600 }}>{Math.floor(otpExpiry / 60)}:{(otpExpiry % 60).toString().padStart(2, '0')}</span>
+                              </div>
+                            </div>
+                            <p style={{ fontSize: '0.85rem', marginBottom: '20px' }}>Enter the 6-digit verification code sent to your email address.</p>
+                            <div className="form-group">
+                              <label>Verification Code</label>
+                              <input
+                                className="form-control"
+                                value={securityOTP}
+                                onChange={e => setSecurityOTP(e.target.value)}
+                                placeholder="Enter 6-digit code"
+                                maxLength={6}
+                                style={{ letterSpacing: '4px', fontWeight: 'bold', textAlign: 'center', fontSize: '1.1rem' }}
+                              />
+                            </div>
+                            <div className="modal-grid" style={{ marginTop: '16px' }}>
+                              <div className="form-group">
+                                <label>New Password</label>
+                                <div style={{ position: 'relative' }}>
+                                  <input
+                                    className="form-control"
+                                    type={showNewPassword ? 'text' : 'password'}
+                                    value={passwordData.new}
+                                    onChange={e => setPasswordData({ ...passwordData, new: e.target.value })}
+                                    autoComplete="new-password"
+                                  />
+                                  <span className="password-toggle" onClick={() => setShowNewPassword(!showNewPassword)}>
+                                    {showNewPassword ? <EyeSlashIcon /> : <EyeIcon />}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="form-group">
+                                <label>Confirm New Password</label>
+                                <div style={{ position: 'relative' }}>
+                                  <input
+                                    className="form-control"
+                                    type={showConfirmNewPassword ? 'text' : 'password'}
+                                    value={passwordData.confirm}
+                                    onChange={e => setPasswordData({ ...passwordData, confirm: e.target.value })}
+                                    autoComplete="new-password"
+                                  />
+                                  <span className="password-toggle" onClick={() => setShowConfirmNewPassword(!showConfirmNewPassword)}>
+                                    {showConfirmNewPassword ? <EyeSlashIcon /> : <EyeIcon />}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
+                              <button
+                                className="admin-action-btn"
+                                type="button"
+                                onClick={handlePasswordChangeOTP}
+                                disabled={securityOTP.length < 6 || !passwordData.new}
+                              >
+                                Update Password
+                              </button>
+                              <button className="link-btn" onClick={() => setOtpSent(false)}>Cancel</button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="settings-section" style={{ marginTop: '48px', paddingTop: '32px', borderTop: '2px solid #fee2e2' }}>
+                        <h4 style={{ color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ display: 'inline-block', width: '8px', height: '8px', background: 'var(--danger)', borderRadius: '50%' }}></span>
+                          Danger Zone
+                        </h4>
+                        <div className="form-group" style={{ marginTop: '16px' }}>
+                          <label>Perform Account Data Reset</label>
+
+                          {!showResetConfirm ? (
+                            <button className="admin-action-btn danger" type="button" onClick={() => setShowResetConfirm(true)}>
+                              Reset All Business Data
+                            </button>
+                          ) : (
+                            <div className="card" style={{ background: '#fff1f1', border: '1px solid #fee2e2', padding: '20px' }}>
+                              <p style={{ fontWeight: 700, color: 'var(--danger)', marginBottom: '16px' }}>Ownership Verification Required</p>
+
+                              {!otpSent ? (
+                                <button
+                                  className="login-btn danger"
+                                  style={{ width: 'auto', padding: '10px 20px', background: 'var(--danger)' }}
+                                  onClick={() => handleRequestOTP(user.email)}
+                                  disabled={otpCooldown > 0 || requestingOTP}
+                                >
+                                  {requestingOTP ? 'Sending code...' : otpCooldown > 0 ? `Resend in ${otpCooldown}s` : 'Send Verification Code'}
+                                </button>
+                              ) : (
+                                <>
+                                  <div style={{ marginBottom: '16px', fontSize: '0.85rem', color: 'var(--danger)', fontWeight: 600 }}>
+                                    Verification code expires in: {Math.floor(otpExpiry / 60)}:{(otpExpiry % 60).toString().padStart(2, '0')}
+                                  </div>
+                                  <div className="form-group">
+                                    <label>Enter 6-Digit Code</label>
+                                    <input
+                                      className="form-control"
+                                      value={securityOTP}
+                                      onChange={e => setSecurityOTP(e.target.value)}
+                                      placeholder="XXXXXX"
+                                      maxLength={6}
+                                      style={{ letterSpacing: '4px', fontWeight: 'bold', textAlign: 'center' }}
+                                    />
+                                  </div>
+                                  <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
+                                    <button
+                                      className="login-btn danger"
+                                      type="button"
+                                      style={{ width: 'auto', padding: '10px 24px', background: 'var(--danger)', fontWeight: 600 }}
+                                      onClick={handleAccountReset}
+                                      disabled={securityOTP.length < 6}
+                                    >
+                                      Confirm Permanent Reset
+                                    </button>
+                                    <button className="admin-action-btn" type="button" onClick={() => { setShowResetConfirm(false); setOtpSent(false); setSecurityOTP(''); }}>
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ marginTop: '16px', padding: '16px', background: '#f8fafc', borderRadius: '8px', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+                      Advanced technical settings are hidden to keep your experience simple. Tap "Show Advanced" if you need to configure gateway nodes or API integrations.
+                    </div>
                   )}
                 </div>
               </div>
+            )
+          }
 
-              <div className="card" style={{ marginBottom: '24px' }}>
-                <h3>Business Subscription Plans</h3>
-                <div className="kpi-grid" style={{ marginTop: '16px' }}>
-                  <div className="card" style={{ borderColor: selectedPlan === 'Starter' ? 'var(--primary-orange)' : '' }} onClick={() => setSelectedPlan('Starter')}>
-                    <h4>Starter</h4>
-                    <div className="price" style={{ fontSize: '1.5rem', fontWeight: 800, margin: '10px 0' }}>KES 1,250/mo</div>
-                    <button className="nav-btn" style={{ width: '100%', background: selectedPlan === 'Starter' ? 'var(--primary-blue)' : '#f1f5f9', color: selectedPlan === 'Starter' ? 'white' : '' }}>Select</button>
-                  </div>
-                  <div className="card" style={{ borderColor: selectedPlan === 'Professional' ? 'var(--primary-orange)' : '' }} onClick={() => setSelectedPlan('Professional')}>
-                    <h4 style={{ color: 'var(--primary-orange)' }}>Professional</h4>
-                    <div className="price" style={{ fontSize: '1.5rem', fontWeight: 800, margin: '10px 0' }}>KES 2,500/mo</div>
-                    <button className="nav-btn" style={{ width: '100%', background: selectedPlan === 'Professional' ? 'var(--primary-blue)' : '#f1f5f9', color: selectedPlan === 'Professional' ? 'white' : '' }}>Select</button>
-                  </div>
-                  <div className="card" style={{ borderColor: selectedPlan === 'Enterprise' ? 'var(--primary-orange)' : '' }} onClick={() => setSelectedPlan('Enterprise')}>
-                    <h4>Enterprise</h4>
-                    <div className="price" style={{ fontSize: '1.5rem', fontWeight: 800, margin: '10px 0' }}>KES 5,000/mo</div>
-                    <button className="nav-btn" style={{ width: '100%', background: selectedPlan === 'Enterprise' ? 'var(--primary-blue)' : '#f1f5f9', color: selectedPlan === 'Enterprise' ? 'white' : '' }}>Select</button>
-                  </div>
-                </div>
-
-                <div style={{ marginTop: '32px' }}>
-                  <h4>Payment Instructions (Paybill 400200 / Account {restaurant?.id})</h4>
-                  <form onSubmit={handleVerifyPayment} style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
-                    <input className="form-control" style={{ flex: 1 }} placeholder="Enter Transaction Code" value={transactionCode} onChange={e => setTransactionCode(e.target.value)} required />
-                    <button className="login-btn" style={{ marginTop: 0, padding: '0 32px' }} type="submit">Verify</button>
-                  </form>
-                </div>
-              </div>
-
-              <div className="card">
-                <h3>Payment History</h3>
-                <div className="table-container" style={{ marginTop: '16px' }}>
-                  <table className="activity-table" style={{ width: '100%', tableLayout: 'fixed' }}>
-                    <thead>
-                      <tr>
-                        <th style={{ width: '25%' }}>Transaction Code</th>
-                        <th style={{ width: '20%' }}>Plan Purchased</th>
-                        <th style={{ width: '15%' }}>Amount</th>
-                        <th style={{ width: '15%' }}>Duration</th>
-                        <th style={{ width: '15%' }}>Date</th>
-                        <th style={{ width: '10%' }}>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {subscriptionHistory.map(pay => (
-                        <tr key={pay.id}>
-                          <td style={{ fontWeight: 700 }} title={pay.transactionCode}>{pay.transactionCode}</td>
-                          <td title={pay.plan}>{pay.plan}</td>
-                          <td>KES {pay.amount?.toLocaleString()}</td>
-                          <td>1 Month</td>
-                          <td title={formatDateTime(pay.date)}>{formatDateTime(pay.date)}</td>
-                          <td><span className="badge badge-sent">Processed</span></td>
-                        </tr>
-                      ))}
-                      {subscriptionHistory.length === 0 && (
-                        <tr>
-                          <td colSpan="6" style={{ textAlign: 'center', padding: '60px' }}>
-                            <div style={{ color: 'var(--text-muted)' }}>
-                              <div style={{ fontSize: '2rem', marginBottom: '16px' }}>💳</div>
-                              <p>No subscription payments found yet.</p>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )
-        }
-
-        {
-          activeTab === 'settings' && (
-            <div className="section">
-              <div className="card">
-                <h3>Configuration</h3>
-                <p className="tagline">Basic business details and contact information.</p>
-                <form onSubmit={e => {
-                  e.preventDefault();
-                  setIsSaving(true);
-                  fetchWithAuth('/settings', { method: 'POST', body: JSON.stringify(settings) })
-                    .then((data) => {
-                      showToast('Settings saved');
-                      setSaveStatus('saved');
-                      if (data.restaurant) {
-                        localStorage.setItem('restaurant', JSON.stringify(data.restaurant));
-                        setRestaurant(data.restaurant);
-                      }
-                      setTimeout(() => setSaveStatus(null), 3000);
-                      refreshData(true);
-                    })
-                    .finally(() => setIsSaving(false));
-                }} style={{ marginTop: '16px' }}>
-                  <div className="form-group"><label>Business Name</label><input className="form-control" value={settings.restaurantName} onChange={e => setSettings({ ...settings, restaurantName: e.target.value })} required /></div>
-                  <div className="form-group"><label>Contact Phone</label><input className="form-control" type="tel" value={settings.phone} onChange={e => setSettings({ ...settings, phone: e.target.value })} /></div>
-                  <div className="form-group"><label>Official Email</label><input className="form-control" type="email" value={settings.email} onChange={e => setSettings({ ...settings, email: e.target.value })} /></div>
-                  <div className="form-group"><label>Operating Address</label><input className="form-control" value={settings.address} onChange={e => setSettings({ ...settings, address: e.target.value })} /></div>
-                  <button className="login-btn" style={{ width: '200px' }} type="submit" disabled={isSaving}>
-                    {isSaving ? 'Saving...' : saveStatus === 'saved' ? 'Saved ✓' : 'Save Changes'}
-                  </button>
-                </form>
-              </div>
-
-              <div className="card" style={{ marginTop: '24px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          {
+            activeTab === 'admin' && isAdmin && (
+              <div className="section">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                   <div>
-                    <h3>Advanced Configuration</h3>
-                    <p className="tagline">Technical settings, API keys, and system nodes.</p>
+                    <h1 style={{ margin: 0 }}>MikrodCAP Platform Management</h1>
+                    <p className="tagline">Subscription & Node Control Center</p>
                   </div>
-                  <button className={`admin-action-btn ${showAdvanced ? 'active' : ''}`} onClick={() => setShowAdvanced(!showAdvanced)}>
-                    {showAdvanced ? 'Hide Advanced' : 'Show Advanced'}
+                  <button className="login-btn" style={{ width: 'auto', padding: '10px 20px' }} onClick={() => refreshData()}>
+                    Sync Live Data
                   </button>
                 </div>
 
-                {showAdvanced ? (
-                  <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid var(--border)' }}>
-                    <div className="modal-grid">
-                      <div className="modal-field">
-                        <label>API Configuration</label>
-                        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Status: Active</p>
-                      </div>
-                      <div className="modal-field">
-                        <label>Gateway Node ID</label>
-                        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{gatewayStatus.deviceId || 'No hardware paired'}</p>
-                      </div>
-                      <div className="modal-field">
-                        <label>Automation Rules</label>
-                        <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>M-Pesa Trigger: Active</p>
-                      </div>
-                      <div className="modal-field">
-                        <label>Message Templates</label>
-                        <button className="admin-action-btn" onClick={() => setActiveTab('templates')}>Manage Templates</button>
-                      </div>
-                    </div>
+                <div className="card">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', alignItems: 'center' }}>
+                    <h3>Registered Businesses</h3>
+                    <input
+                      className="form-control"
+                      style={{ width: '300px' }}
+                      placeholder="Search businesses..."
+                      value={adminSearch}
+                      onChange={e => setAdminSearch(e.target.value)}
+                    />
                   </div>
-                ) : (
-                  <div style={{ marginTop: '16px', padding: '16px', background: '#f8fafc', borderRadius: '8px', fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-                    Advanced technical settings are hidden to keep your experience simple. Tap "Show Advanced" if you need to configure gateway nodes or API integrations.
-                  </div>
-                )}
-              </div>
-            </div>
-          )
-        }
 
-        {
-          activeTab === 'admin' && isAdmin && (
-            <div className="section">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-                <div>
-                  <h1 style={{ margin: 0 }}>MikrodCAP Platform Management</h1>
-                  <p className="tagline">Subscription & Node Control Center</p>
-                </div>
-                <button className="login-btn" style={{ width: 'auto', padding: '10px 20px' }} onClick={() => refreshData()}>
-                  Sync Live Data
-                </button>
-              </div>
-
-              <div className="card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px', alignItems: 'center' }}>
-                  <h3>Registered Businesses</h3>
-                  <input
-                    className="form-control"
-                    style={{ width: '300px' }}
-                    placeholder="Search businesses..."
-                    value={adminSearch}
-                    onChange={e => setAdminSearch(e.target.value)}
-                  />
-                </div>
-
-                <div className="table-container">
-                  <table className="activity-table" style={{ tableLayout: 'fixed' }}>
-                    <thead>
-                      <tr>
-                        <th style={{ width: '20%' }}>Business Name</th>
-                        <th style={{ width: '15%' }}>Business ID</th>
-                        <th style={{ width: '10%' }}>Plan</th>
-                        <th style={{ width: '10%' }}>Status</th>
-                        <th style={{ width: '15%' }}>Expiry Date</th>
-                        <th style={{ width: '15%' }}>Created Date</th>
-                        <th style={{ width: '15%' }}>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {adminRestaurants.length === 0 ? (
-                        <tr><td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No registered businesses found.</td></tr>
-                      ) : adminRestaurants
-                        .filter(r =>
-                          r.name.toLowerCase().includes(adminSearch.toLowerCase()) ||
-                          r.id.toLowerCase().includes(adminSearch.toLowerCase())
-                        ).length === 0 ? (
-                        <tr><td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No matching businesses found.</td></tr>
-                      ) : (
-                        adminRestaurants
+                  <div className="table-container">
+                    <table className="activity-table" style={{ tableLayout: 'fixed' }}>
+                      <thead>
+                        <tr>
+                          <th style={{ width: '20%' }}>Business Name</th>
+                          <th style={{ width: '15%' }}>Business ID</th>
+                          <th style={{ width: '10%' }}>Plan</th>
+                          <th style={{ width: '10%' }}>Status</th>
+                          <th style={{ width: '15%' }}>Expiry Date</th>
+                          <th style={{ width: '15%' }}>Created Date</th>
+                          <th style={{ width: '15%' }}>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {adminRestaurants.length === 0 ? (
+                          <tr><td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No registered businesses found.</td></tr>
+                        ) : adminRestaurants
                           .filter(r =>
                             r.name.toLowerCase().includes(adminSearch.toLowerCase()) ||
                             r.id.toLowerCase().includes(adminSearch.toLowerCase())
-                          )
-                          .map(res => (
-                            <tr key={res.id}>
-                              <td style={{ fontWeight: 700 }}>{res.name}</td>
-                              <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{res.id}</td>
-                              <td>{res.subscriptionPlan}</td>
-                              <td><StatusBadge status={res.subscriptionStatus} /></td>
-                              <td>{res.subscriptionExpiryDate ? formatDateTime(res.subscriptionExpiryDate) : 'N/A'}</td>
-                              <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{formatDateTime(res.createdAt)}</td>
-                              <td className="actions">
-                                <div style={{ display: 'flex', gap: '4px' }}>
-                                  <button className="admin-action-btn" onClick={() => fetchResDetails(res.id)}>View Details</button>
+                          ).length === 0 ? (
+                          <tr><td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No matching businesses found.</td></tr>
+                        ) : (
+                          adminRestaurants
+                            .filter(r =>
+                              r.name.toLowerCase().includes(adminSearch.toLowerCase()) ||
+                              r.id.toLowerCase().includes(adminSearch.toLowerCase())
+                            )
+                            .map(res => (
+                              <tr key={res.id}>
+                                <td style={{ fontWeight: 700 }}>{res.name}</td>
+                                <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{res.id}</td>
+                                <td>{res.subscriptionPlan}</td>
+                                <td><StatusBadge status={res.subscriptionStatus} /></td>
+                                <td>{res.subscriptionExpiryDate ? formatDateTime(res.subscriptionExpiryDate) : 'N/A'}</td>
+                                <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{formatDateTime(res.createdAt)}</td>
+                                <td className="actions">
+                                  <div style={{ display: 'flex', gap: '4px' }}>
+                                    <button className="admin-action-btn" onClick={() => fetchResDetails(res.id)}>View Details</button>
 
-                                  {res.subscriptionStatus?.toLowerCase() === 'active' ? (
-                                    <button className="admin-action-btn danger" onClick={() => handleAdminAction(`/admin/restaurants/${res.id}/suspend`)}>Deactivate</button>
-                                  ) : res.subscriptionStatus?.toLowerCase() === 'trial' ? (
-                                    <button className="admin-action-btn primary" onClick={() => handleAdminAction(`/admin/restaurants/${res.id}/activate`)}>Activate Full Access</button>
-                                  ) : (
-                                    <button className="admin-action-btn success" onClick={() => handleAdminAction(`/admin/restaurants/${res.id}/activate`)}>Activate</button>
-                                  )}
+                                    {res.subscriptionStatus?.toLowerCase() === 'active' ? (
+                                      <button className="admin-action-btn danger" onClick={() => handleAdminAction(`/admin/restaurants/${res.id}/suspend`)}>Deactivate</button>
+                                    ) : res.subscriptionStatus?.toLowerCase() === 'trial' ? (
+                                      <button className="admin-action-btn primary" onClick={() => handleAdminAction(`/admin/restaurants/${res.id}/activate`)}>Activate Full Access</button>
+                                    ) : (
+                                      <button className="admin-action-btn success" onClick={() => handleAdminAction(`/admin/restaurants/${res.id}/activate`)}>Activate</button>
+                                    )}
 
-                                  <button className="admin-action-btn" onClick={() => { setSelectedRes(res); setModalType('trial'); }}>Grant Trial</button>
-                                </div>
-                              </td>
-                            </tr>
-                          )))}
-                    </tbody>
-                  </table>
+                                    <button className="admin-action-btn" onClick={() => { setSelectedRes(res); setModalType('trial'); }}>Grant Trial</button>
+                                  </div>
+                                </td>
+                              </tr>
+                            )))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
+
+                {/* Modals */}
+                {modalType === 'view' && selectedRes && (
+                  <Modal title="Account Details" onClose={() => setModalType(null)}>
+                    <div className="modal-grid">
+                      <div className="modal-field"><label>Business Name</label><p>{selectedRes.name}</p></div>
+                      <div className="modal-field"><label>Business ID</label><p>{selectedRes.id}</p></div>
+                      <div className="modal-field"><label>Created Date</label><p>{formatDateTime(selectedRes.createdAt)}</p></div>
+                      <div className="modal-field"><label>Plan</label><p>{selectedRes.subscriptionPlan}</p></div>
+                      <div className="modal-field"><label>Status</label><p><StatusBadge status={selectedRes.subscriptionStatus} /></p></div>
+                      <div className="modal-field"><label>Expiry Date</label><p>{formatDateTime(selectedRes.subscriptionExpiryDate)}</p></div>
+                    </div>
+                  </Modal>
+                )}
+
+                {modalType === 'trial' && selectedRes && (
+                  <Modal title={`Grant Trial: ${selectedRes.name}`} onClose={() => setModalType(null)}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <button className="admin-action-btn" onClick={() => handleAdminAction(`/admin/restaurants/${selectedRes.id}/trial`, { days: 7 })}>7 Days</button>
+                      <button className="admin-action-btn" onClick={() => handleAdminAction(`/admin/restaurants/${selectedRes.id}/trial`, { days: 14 })}>14 Days</button>
+                      <button className="admin-action-btn" onClick={() => handleAdminAction(`/admin/restaurants/${selectedRes.id}/trial`, { days: 30 })}>30 Days</button>
+                      <button className="admin-action-btn" onClick={() => handleAdminAction(`/admin/restaurants/${selectedRes.id}/trial`, { days: 60 })}>60 Days</button>
+                    </div>
+                  </Modal>
+                )}
               </div>
+            )
+          }
 
-              {/* Modals */}
-              {modalType === 'view' && selectedRes && (
-                <Modal title="Account Details" onClose={() => setModalType(null)}>
-                  <div className="modal-grid">
-                    <div className="modal-field"><label>Business Name</label><p>{selectedRes.name}</p></div>
-                    <div className="modal-field"><label>Business ID</label><p>{selectedRes.id}</p></div>
-                    <div className="modal-field"><label>Created Date</label><p>{formatDateTime(selectedRes.createdAt)}</p></div>
-                    <div className="modal-field"><label>Plan</label><p>{selectedRes.subscriptionPlan}</p></div>
-                    <div className="modal-field"><label>Status</label><p><StatusBadge status={selectedRes.subscriptionStatus} /></p></div>
-                    <div className="modal-field"><label>Expiry Date</label><p>{formatDateTime(selectedRes.subscriptionExpiryDate)}</p></div>
-                  </div>
-                </Modal>
-              )}
+        </main >
 
-              {modalType === 'trial' && selectedRes && (
-                <Modal title={`Grant Trial: ${selectedRes.name}`} onClose={() => setModalType(null)}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                    <button className="admin-action-btn" onClick={() => handleAdminAction(`/admin/restaurants/${selectedRes.id}/trial`, { days: 7 })}>7 Days</button>
-                    <button className="admin-action-btn" onClick={() => handleAdminAction(`/admin/restaurants/${selectedRes.id}/trial`, { days: 14 })}>14 Days</button>
-                    <button className="admin-action-btn" onClick={() => handleAdminAction(`/admin/restaurants/${selectedRes.id}/trial`, { days: 30 })}>30 Days</button>
-                    <button className="admin-action-btn" onClick={() => handleAdminAction(`/admin/restaurants/${selectedRes.id}/trial`, { days: 60 })}>60 Days</button>
-                  </div>
-                </Modal>
-              )}
-            </div>
-          )
-        }
-
-      </main >
-
-      <footer style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', borderTop: '1px solid var(--border)' }}>
-        © 2026 MikrodCAP | MikrodTech Customer Appreciation Platform
-      </footer>
-    </div >
+        <footer style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', borderTop: '1px solid var(--border)' }}>
+          © 2026 MikrodCAP | MikrodTech Customer Appreciation Platform
+        </footer>
+      </div>
+    </ErrorBoundary>
   )
 }
 

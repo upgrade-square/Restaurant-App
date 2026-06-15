@@ -1,10 +1,11 @@
 const express = require('express');
+require('dotenv').config();
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const fs = require('fs');
 const path = require('path');
-const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const { sendOTPEmail, validateEmailConfig, testEmailConnection } = require('./services/emailService');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'restaurant-sms-saas-secret-key-2026';
 
@@ -22,6 +23,8 @@ const TEMPLATES_FILE = path.join(DATA_DIR, 'templates.json');
 const RESTAURANTS_FILE = path.join(DATA_DIR, 'restaurants.json');
 const GATEWAY_FILE = path.join(DATA_DIR, 'gateway.json');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
+const SECURITY_LOG_FILE = path.join(DATA_DIR, 'security_events.json');
+const OTPS_FILE = path.join(DATA_DIR, 'otps.json');
 
 const DEFAULT_RESTAURANT_ID = 'default';
 
@@ -89,6 +92,12 @@ if (!fs.existsSync(TEMPLATES_FILE)) {
     };
     fs.writeFileSync(TEMPLATES_FILE, JSON.stringify(defaultTemplates));
 }
+if (!fs.existsSync(SECURITY_LOG_FILE)) {
+    fs.writeFileSync(SECURITY_LOG_FILE, JSON.stringify([]));
+}
+if (!fs.existsSync(OTPS_FILE)) {
+    fs.writeFileSync(OTPS_FILE, JSON.stringify({}));
+}
 
 // Helper to read data
 const readData = (file) => {
@@ -104,6 +113,64 @@ const readData = (file) => {
 // Helper to write data
 const writeData = (file, data) => {
     fs.writeFileSync(file, JSON.stringify(data, null, 2));
+};
+
+// Security Helpers
+const logSecurityEvent = (userId, type, details, restaurantId = null) => {
+    try {
+        const events = readData(SECURITY_LOG_FILE);
+        events.push({
+            id: Date.now(),
+            userId,
+            restaurantId,
+            type, // 'PASSWORD_CHANGE', 'RESET_REQUEST', 'FAILED_VERIFICATION', 'LOGIN_FAILURE', etc.
+            details,
+            timestamp: nowUTC()
+        });
+        writeData(SECURITY_LOG_FILE, events.slice(-5000));
+    } catch (e) {
+        console.error('Security log failed', e);
+    }
+};
+
+const loginAttempts = new Map();
+const otpAttempts = new Map();
+
+const checkRateLimit = (key, limit = 5, windowMs = 15 * 60 * 1000, map = loginAttempts) => {
+    const now = Date.now();
+    const attempts = map.get(key) || [];
+    const validAttempts = attempts.filter(t => now - t < windowMs);
+    if (validAttempts.length >= limit) return false;
+    validAttempts.push(now);
+    map.set(key, validAttempts);
+    return true;
+};
+
+/**
+ * Normalizes phone numbers to standard format (07XXXXXXXX or 01XXXXXXXX)
+ * Handles: +254..., 254..., 7..., 07..., etc.
+ */
+const normalizePhone = (phone) => {
+    if (!phone) return '';
+    // Remove all non-numeric characters
+    let cleaned = String(phone).replace(/\D/g, '');
+
+    // If starts with 254 and is 12 digits, convert to 0...
+    if (cleaned.startsWith('254') && cleaned.length === 12) {
+        return '0' + cleaned.slice(3);
+    }
+
+    // If starts with 7 or 1 (9 digits), add prefix 0
+    if ((cleaned.startsWith('7') || cleaned.startsWith('1')) && cleaned.length === 9) {
+        return '0' + cleaned;
+    }
+
+    // If already 10 digits starting with 0, return as is
+    if (cleaned.startsWith('0') && cleaned.length === 10) {
+        return cleaned;
+    }
+
+    return cleaned;
 };
 
 // Template Processor: Dynamic Business Name Injection
@@ -163,6 +230,15 @@ const authenticateToken = (req, res, next) => {
 
     try {
         const verified = jwt.verify(token, JWT_SECRET);
+
+        // Security: Verify password version to allow session invalidation
+        const users = readData(USERS_FILE);
+        const user = users.find(u => u.id === verified.userId);
+        if (!user || user.passwordVersion !== verified.pv) {
+            console.log(`[AUTH_FAILED] Reason: Session invalidated (Password Version Mismatch) | User: ${verified.userId}`);
+            return res.status(401).json({ error: 'Session invalidated. Please log in again.' });
+        }
+
         req.user = verified;
         console.log(`[AUTH_SUCCESS] User: ${verified.userId} | Restaurant: ${verified.restaurantId || 'N/A'}`);
         next();
@@ -221,7 +297,11 @@ app.get('/customers', authenticateToken, checkSubscription, (req, res) => {
         const restaurantId = req.user.restaurantId;
         const customers = readData(DATA_FILE);
         const filtered = customers.filter(c => {
-            const isMatch = c.restaurantId === restaurantId || (!c.restaurantId && restaurantId === DEFAULT_RESTAURANT_ID);
+            // A customer is visible if they are explicitly assigned to this restaurant
+            // OR if this restaurant is in their servedBy list
+            const isMatch = c.restaurantId === restaurantId ||
+                (!c.restaurantId && restaurantId === DEFAULT_RESTAURANT_ID) ||
+                (c.servedBy && c.servedBy.includes(restaurantId));
             const isActive = c.active !== false;
             return isMatch && isActive;
         });
@@ -238,15 +318,12 @@ app.post('/customers', authenticateToken, checkSubscription, (req, res) => {
     try {
         const { name, phone, amount } = req.body;
         const restaurantId = req.user.restaurantId;
-        if (!name || !phone || !amount) {
+        if (!name || !phone) {
             return res.status(400).json({ error: 'Missing required fields' });
         }
 
         // Normalize Phone
-        let normalizedPhone = phone;
-        if (normalizedPhone.startsWith('254')) {
-            normalizedPhone = '0' + normalizedPhone.slice(3);
-        }
+        const normalizedPhone = normalizePhone(phone);
 
         const customers = readData(DATA_FILE);
         const smsQueue = readData(SMS_DATA_FILE);
@@ -258,12 +335,14 @@ app.post('/customers', authenticateToken, checkSubscription, (req, res) => {
         const templates = allTemplates[restaurantId] || (allTemplates.thankYou ? allTemplates : allTemplates[DEFAULT_RESTAURANT_ID]);
 
         // 1. Create/Update Customer (Phone is Unique Identifier)
-        let customer = customers.find(c => c.phone === normalizedPhone && (c.restaurantId === restaurantId || !c.restaurantId));
+        // Requirement: Phone number is the sole unique identifier
+        let customer = customers.find(c => c.phone === normalizedPhone);
 
         if (!customer) {
             customer = {
                 id: Date.now(),
                 restaurantId,
+                servedBy: [restaurantId], // Track who has served this customer
                 name,
                 phone: normalizedPhone,
                 visitCount: 1,
@@ -273,16 +352,25 @@ app.post('/customers', authenticateToken, checkSubscription, (req, res) => {
             };
             customers.push(customer);
         } else {
-            customer.name = name; // Update name if changed
+            // Requirement: Do not overwrite the original customer name
+            // Requirement: Increment existing customer's visit count
             customer.visitCount = (customer.visitCount || 1) + 1;
             customer.lastSeen = nowUTC();
             customer.active = true; // Ensure active
+
+            // Track that this restaurant has served this unique customer
+            if (!customer.servedBy) customer.servedBy = [customer.restaurantId || DEFAULT_RESTAURANT_ID];
+            if (!customer.servedBy.includes(restaurantId)) {
+                customer.servedBy.push(restaurantId);
+            }
         }
 
         // 2. Prepare message using standardized template engine
-        const firstName = name.split(' ')[0];
+        // Requirement: Use original name for message if record existed
+        const displayName = customer.name || name;
+        const firstName = displayName.split(' ')[0];
         let template = templates.thankYou || settings.defaultThanks || "Thank you {{name}} for your payment to {{businessName}}!";
-        const message = normalizeMessage(template, { name, firstName }, settings);
+        const message = normalizeMessage(template, { name: displayName, firstName }, settings);
 
         // 3. Create SMS Queue Entry
         const newSmsEntry = {
@@ -354,23 +442,22 @@ app.post('/payments/incoming', authenticateToken, (req, res) => {
             return res.json({ success: true, duplicate: true });
         }
 
-        // 2. Normalize Phone (254... -> 07...)
-        let normalizedPhone = customerPhone;
-        if (normalizedPhone.startsWith('254')) {
-            normalizedPhone = '0' + normalizedPhone.slice(3);
-        }
+        // 2. Normalize Phone (07XXXXXXXX or 01XXXXXXXX)
+        const normalizedPhone = normalizePhone(customerPhone);
 
         // 3. First Name Logic
-        const firstName = customerName.split(' ')[0];
+        const originalFirstName = customerName.split(' ')[0];
 
         // 4. Create/Update Customer (Phone is Unique Identifier)
+        // Requirement: Phone number is the sole unique identifier
         const customers = readData(DATA_FILE);
-        let customer = customers.find(c => c.phone === normalizedPhone && (c.restaurantId === restaurantId || !c.restaurantId));
+        let customer = customers.find(c => c.phone === normalizedPhone);
 
         if (!customer) {
             customer = {
                 id: Date.now(),
                 restaurantId,
+                servedBy: [restaurantId], // Track who has served this customer
                 name: customerName,
                 phone: normalizedPhone,
                 visitCount: 1,
@@ -381,23 +468,33 @@ app.post('/payments/incoming', authenticateToken, (req, res) => {
             customers.push(customer);
             console.log(`[PAYMENT_CUSTOMER_CREATED] ${customer.id}`);
         } else {
+            // Requirement: Increment existing customer's visit count
+            // Requirement: Keep the original customer name unchanged
             customer.visitCount = (customer.visitCount || 1) + 1;
             customer.lastSeen = nowUTC();
-            // Optional: Update name if provided
-            if (customerName) customer.name = customerName;
             customer.active = true;
+
+            // Track that this restaurant has served this unique customer
+            if (!customer.servedBy) customer.servedBy = [customer.restaurantId || DEFAULT_RESTAURANT_ID];
+            if (!customer.servedBy.includes(restaurantId)) {
+                customer.servedBy.push(restaurantId);
+            }
             console.log(`[PAYMENT_CUSTOMER_UPDATED] ${customer.id} | Visits: ${customer.visitCount}`);
         }
         writeData(DATA_FILE, customers);
 
         // 5. Generate SMS using standardized template engine
+        // Requirement: Use original name for message if record existed
+        const displayName = customer.name || customerName;
+        const firstName = displayName.split(' ')[0];
+
         const allTemplates = readData(TEMPLATES_FILE);
         const allSettings = readData(SETTINGS_FILE);
         const settings = allSettings[restaurantId] || allSettings[DEFAULT_RESTAURANT_ID] || {};
         const templates = allTemplates[restaurantId] || allTemplates[DEFAULT_RESTAURANT_ID] || {};
 
         const template = templates.thankYou || settings.defaultThanks || "Thank you {{name}} for your payment to {{businessName}}!";
-        const message = normalizeMessage(template, { name: customerName, firstName }, settings);
+        const message = normalizeMessage(template, { name: displayName, firstName }, settings);
 
         // 6. Add to SMS Queue
         console.log(`[PAYMENT] Queuing SMS for ${normalizedPhone}`);
@@ -406,7 +503,7 @@ app.post('/payments/incoming', authenticateToken, (req, res) => {
             id: Date.now() + 1,
             restaurantId,
             customerId: customer.id,
-            customerName: customerName, // Store FULL name in records
+            customerName: displayName, // Store canonical name in records
             phone: normalizedPhone,
             amount: amount,
             message: message,
@@ -711,7 +808,9 @@ app.get('/metrics', authenticateToken, checkSubscription, (req, res) => {
     try {
         const restaurantId = req.user.restaurantId;
         const customers = readData(DATA_FILE).filter(c => {
-            const isMatch = c.restaurantId === restaurantId || (!c.restaurantId && restaurantId === DEFAULT_RESTAURANT_ID);
+            const isMatch = c.restaurantId === restaurantId ||
+                (!c.restaurantId && restaurantId === DEFAULT_RESTAURANT_ID) ||
+                (c.servedBy && c.servedBy.includes(restaurantId));
             return isMatch && c.active !== false;
         });
         const smsQueue = readData(SMS_DATA_FILE).filter(s => s.restaurantId === restaurantId || (!s.restaurantId && restaurantId === DEFAULT_RESTAURANT_ID));
@@ -732,11 +831,11 @@ app.get('/metrics', authenticateToken, checkSubscription, (req, res) => {
         startOfWeekEAT.setUTCDate(startOfTodayEAT.getUTCDate() - dayOfWeek);
 
         const metrics = {
-            // "Customers Appreciated This Week" from permanent activity log
-            weeklyCustomers: activityLog.filter(a => {
+            // "Customers Appreciated This Week" from permanent activity log - UNIQUE customers
+            weeklyCustomers: new Set(activityLog.filter(a => {
                 const logDateEAT = getEATDate(a.timestamp);
                 return a.type === 'appreciation' && logDateEAT >= startOfWeekEAT;
-            }).length,
+            }).map(a => a.customerId)).size,
             // "Messages Sent Today" from permanent activity log
             sentToday: activityLog.filter(a => {
                 const logDateEAT = getEATDate(a.timestamp);
@@ -762,16 +861,18 @@ app.get('/metrics', authenticateToken, checkSubscription, (req, res) => {
 // --- AUTH ENDPOINTS ---
 const authRouter = express.Router();
 
-// Auth Health Check
-authRouter.get('/status', (req, res) => res.json({ status: 'auth system online' }));
-
-/**
- * @api {post} /auth/register Register User (Testing Only)
- */
 authRouter.post('/register', async (req, res) => {
     try {
-        const { name, email, password, restaurantId = DEFAULT_RESTAURANT_ID, role = 'owner' } = req.body;
-        if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+        const { name, email, password, otp, restaurantId = DEFAULT_RESTAURANT_ID, role = 'owner' } = req.body;
+        if (!email || !password || !otp) return res.status(400).json({ error: 'Email, password, and OTP required' });
+
+        const otps = readData(OTPS_FILE);
+        const storedOtp = otps[email];
+
+        if (!storedOtp || storedOtp.code !== otp || storedOtp.expiresAt < Date.now()) {
+            logSecurityEvent(null, 'VERIFICATION_FAILED', { email, action: 'register' });
+            return res.status(400).json({ error: 'Invalid or expired verification code' });
+        }
 
         const users = readData(USERS_FILE);
         if (users.find(u => u.email === email)) return res.status(400).json({ error: 'User already exists' });
@@ -786,13 +887,20 @@ authRouter.post('/register', async (req, res) => {
             passwordHash,
             restaurantId,
             role,
+            passwordVersion: 1,
+            emailVerified: true,
             createdAt: nowUTC()
         };
 
         users.push(newUser);
         writeData(USERS_FILE, users);
 
-        res.status(201).json({ message: 'User registered successfully', userId: newUser.id });
+        // Invalidate OTP
+        delete otps[email];
+        writeData(OTPS_FILE, otps);
+
+        logSecurityEvent(newUser.id, 'ACCOUNT_VERIFIED', { email }, restaurantId);
+        res.status(201).json({ message: 'Account verified and created successfully', userId: newUser.id });
     } catch (error) {
         res.status(500).json({ error: 'Registration failed' });
     }
@@ -804,19 +912,32 @@ authRouter.post('/register', async (req, res) => {
 authRouter.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
+
+        // Rate limiting: 10 attempts per 15 mins
+        if (!checkRateLimit(email, 10)) {
+            logSecurityEvent(null, 'RATE_LIMIT_EXCEEDED', { email, action: 'login' });
+            return res.status(429).json({ error: 'Too many login attempts. Please try again in 15 minutes.' });
+        }
+
         const users = readData(USERS_FILE);
         const user = users.find(u => u.email === email);
 
-        if (!user) return res.status(400).json({ error: 'Invalid email or password' });
+        if (!user) {
+            logSecurityEvent(null, 'LOGIN_FAILURE', { email, reason: 'user_not_found' });
+            return res.status(400).json({ error: 'Invalid email or password' });
+        }
 
         const validPass = await bcrypt.compare(password, user.passwordHash);
-        if (!validPass) return res.status(400).json({ error: 'Invalid email or password' });
+        if (!validPass) {
+            logSecurityEvent(user.id, 'LOGIN_FAILURE', { email, reason: 'invalid_password' }, user.restaurantId);
+            return res.status(400).json({ error: 'Invalid email or password' });
+        }
 
         const restaurants = readData(RESTAURANTS_FILE);
         const restaurant = restaurants.find(r => r.id === user.restaurantId);
 
         const token = jwt.sign(
-            { userId: user.id, restaurantId: user.restaurantId, role: user.role, email: user.email },
+            { userId: user.id, restaurantId: user.restaurantId, role: user.role, email: user.email, pv: user.passwordVersion || 1 },
             JWT_SECRET,
             { expiresIn: '24h' }
         );
@@ -867,6 +988,271 @@ authRouter.get('/me', authenticateToken, (req, res) => {
         });
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch user data' });
+    }
+});
+
+/**
+ * @api {post} /auth/change-password Change Password
+ */
+authRouter.post('/change-password', authenticateToken, async (req, res) => {
+    try {
+        const { otp, newPassword, confirmPassword } = req.body;
+        const users = readData(USERS_FILE);
+        const user = users.find(u => u.id === req.user.userId);
+
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        const otps = readData(OTPS_FILE);
+        const storedOtp = otps[user.email];
+        if (!storedOtp || storedOtp.code !== otp || storedOtp.expiresAt < Date.now()) {
+            logSecurityEvent(user.id, 'VERIFICATION_FAILED', { email: user.email, action: 'change_password' }, user.restaurantId);
+            return res.status(400).json({ error: 'Invalid or expired verification code' });
+        }
+
+        if (newPassword !== confirmPassword) {
+            return res.status(400).json({ error: 'New passwords do not match' });
+        }
+
+        if (newPassword.length < 6) {
+            return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+        }
+
+        user.passwordHash = await bcrypt.hash(newPassword, 10);
+        user.passwordVersion = (user.passwordVersion || 1) + 1; // Invalidate other devices
+        writeData(USERS_FILE, users);
+
+        // Invalidate OTP
+        delete otps[user.email];
+        writeData(OTPS_FILE, otps);
+
+        logSecurityEvent(user.id, 'PASSWORD_CHANGE', { email: user.email, method: 'OTP' }, user.restaurantId);
+        res.json({ message: 'Password updated successfully. Other sessions have been logged out.' });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to update password' });
+    }
+});
+
+/**
+ * @api {post} /auth/request-otp Request Email Verification Code
+ */
+authRouter.post('/request-otp', async (req, res) => {
+    try {
+        const { email } = req.body;
+        console.log(`[OTP_REQUEST] Received request for: ${email}`);
+        if (!email) return res.status(400).json({ error: 'Email required' });
+
+        // Cooldown: 1 request per 60 seconds per email
+        if (!checkRateLimit(email, 1, 60000, otpAttempts)) {
+            return res.status(429).json({ error: 'Please wait 60 seconds before requesting another code.' });
+        }
+
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const otps = readData(OTPS_FILE);
+        otps[email] = {
+            code: otp,
+            expiresAt: Date.now() + 10 * 60 * 1000 // 10 mins
+        };
+        writeData(OTPS_FILE, otps);
+
+        logSecurityEvent(null, 'OTP_GENERATED', { email });
+
+        // Send Email
+        const emailResult = await sendOTPEmail(email, otp);
+        if (!emailResult.success) {
+            logSecurityEvent(null, 'OTP_DELIVERY_FAILURE', { email, error: emailResult.error });
+            return res.status(500).json({
+                error: 'Unable to send verification code. Please try again.',
+                details: process.env.NODE_ENV !== 'production' ? emailResult.error : undefined
+            });
+        }
+
+        logSecurityEvent(null, 'OTP_SENT_SUCCESSFULLY', { email });
+        res.json({ message: 'Verification code sent successfully. Please check your email.' });
+    } catch (error) {
+        console.error('[OTP_ERROR]', error);
+        res.status(500).json({ error: 'Failed to process request' });
+    }
+});
+
+/**
+ * @api {post} /auth/forgot-password Request Reset Token
+ */
+authRouter.post('/forgot-password', async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (!checkRateLimit(email, 3, 15 * 60 * 1000, otpAttempts)) {
+            logSecurityEvent(null, 'RATE_LIMIT_EXCEEDED', { email, action: 'forgot_password' });
+            return res.status(429).json({ error: 'Too many requests. Try again later.' });
+        }
+
+        const users = readData(USERS_FILE);
+        const user = users.find(u => u.email === email);
+
+        if (user) {
+            const otp = Math.floor(100000 + Math.random() * 900000).toString();
+            // Store as resetToken for compatibility with current structure
+            user.resetToken = otp;
+            user.resetTokenExpiry = Date.now() + 15 * 60 * 1000; // 15 mins
+            writeData(USERS_FILE, users);
+
+            logSecurityEvent(user.id, 'PASSWORD_RESET_OTP_GENERATED', { email }, user.restaurantId);
+
+            // Send Email
+            const emailResult = await sendOTPEmail(email, otp);
+            if (!emailResult.success) {
+                logSecurityEvent(user.id, 'PASSWORD_RESET_DELIVERY_FAILURE', { email, error: emailResult.error }, user.restaurantId);
+                // We return generic success even if email fail to prevent enumeration, 
+                // but console/logs will show the error. Diagnostic details for dev:
+                if (process.env.NODE_ENV !== 'production') {
+                    console.error(`[DEV_ONLY] Forgot Password Email Failed: ${emailResult.error}`);
+                }
+            } else {
+                logSecurityEvent(user.id, 'PASSWORD_RESET_SENT', { email }, user.restaurantId);
+            }
+        } else {
+            logSecurityEvent(null, 'PASSWORD_RESET_NONEXISTENT', { email });
+        }
+
+        // Always return generic message
+        res.json({ message: 'If an account exists with this email, a verification code was sent.' });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to request reset' });
+    }
+});
+
+/**
+ * @api {post} /auth/reset-password Complete Reset
+ */
+authRouter.post('/reset-password', async (req, res) => {
+    try {
+        const { email, token, newPassword } = req.body;
+        const users = readData(USERS_FILE);
+        const user = users.find(u => u.email === email);
+
+        if (!user || user.resetToken !== token || user.resetTokenExpiry < Date.now()) {
+            logSecurityEvent(null, 'PASSWORD_RESET_FAILED', { email, reason: 'invalid_token' });
+            return res.status(400).json({ error: 'Invalid or expired reset code' });
+        }
+
+        user.passwordHash = await bcrypt.hash(newPassword, 10);
+        user.passwordVersion = (user.passwordVersion || 1) + 1;
+        user.resetToken = null;
+        user.resetTokenExpiry = null;
+        writeData(USERS_FILE, users);
+
+        logSecurityEvent(user.id, 'PASSWORD_RESET_SUCCESS', { email }, user.restaurantId);
+        res.json({ message: 'Password updated. Please log in with your new credentials.' });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to reset password' });
+    }
+});
+
+/**
+ * @api {post} /auth/admin/test-email Test Email Delivery (Admin Only)
+ */
+authRouter.post('/admin/test-email', authenticateToken, async (req, res) => {
+    try {
+        // Strict Admin Check
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ error: 'Admin privileges required' });
+        }
+
+        console.log(`[ADMIN_ACTION] Email Test initiated by admin: ${req.user.email}`);
+
+        const configStatus = validateEmailConfig();
+        const connectionStatus = await testEmailConnection();
+
+        // Use a real test email or default to admin's email
+        const targetEmail = req.body.email || req.user.email;
+
+        const testOtp = 'TEST-' + Math.floor(1000 + Math.random() * 9000);
+        const sendStatus = await sendOTPEmail(targetEmail, testOtp);
+
+        res.json({
+            config: configStatus,
+            connection: connectionStatus,
+            delivery: sendStatus,
+            diagnostic: {
+                targetEmail,
+                smtpHost: process.env.SMTP_HOST,
+                smtpUser: process.env.SMTP_USER,
+                timestamp: new Date().toISOString()
+            }
+        });
+    } catch (error) {
+        console.error('[ADMIN_EMAIL_TEST_CRASH]', error);
+        res.status(500).json({ error: 'Test failed with a system crash', details: error.message });
+    }
+});
+
+/**
+ * @api {post} /auth/reset-account Destructive Data Reset
+ */
+authRouter.post('/reset-account', authenticateToken, async (req, res) => {
+    try {
+        const { otp } = req.body;
+        const users = readData(USERS_FILE);
+        const user = users.find(u => u.id === req.user.userId);
+        if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+        const otps = readData(OTPS_FILE);
+        const storedOtp = otps[user.email];
+        if (!storedOtp || storedOtp.code !== otp || storedOtp.expiresAt < Date.now()) {
+            logSecurityEvent(user.id, 'VERIFICATION_FAILED', { email: user.email, action: 'reset_account' }, user.restaurantId);
+            return res.status(400).json({ error: 'Invalid or expired verification code' });
+        }
+
+        const restaurantId = user.restaurantId;
+        // 1. Customers: Remove association. If last association, delete.
+        let customers = readData(DATA_FILE);
+        customers = customers.filter(c => {
+            const isOwner = c.restaurantId === restaurantId;
+            const isServedBy = c.servedBy && c.servedBy.includes(restaurantId);
+
+            if (isOwner || isServedBy) {
+                // If they are servedBy others, keep record but remove our ID
+                if (c.servedBy && c.servedBy.length > 1) {
+                    c.servedBy = c.servedBy.filter(id => id !== restaurantId);
+                    if (isOwner) c.restaurantId = c.servedBy[0]; // Transfer ownership
+                    return true;
+                }
+                return false; // Delete only if we are the only ones
+            }
+            return true;
+        });
+        writeData(DATA_FILE, customers);
+
+        // 2. SMS Queue
+        let smsQueue = readData(SMS_DATA_FILE);
+        smsQueue = smsQueue.filter(s => s.restaurantId !== restaurantId);
+        writeData(SMS_DATA_FILE, smsQueue);
+
+        // 3. Activity Log
+        let activityLog = readData(ACTIVITY_LOG_FILE);
+        activityLog = activityLog.filter(a => a.restaurantId !== restaurantId);
+        writeData(ACTIVITY_LOG_FILE, activityLog);
+
+        // 4. Gateway Paired Devices
+        let gateways = readData(GATEWAY_FILE);
+        gateways = gateways.filter(g => g.restaurantId !== restaurantId);
+        writeData(GATEWAY_FILE, gateways);
+
+        // 5. Settings
+        let settings = readData(SETTINGS_FILE);
+        delete settings[restaurantId];
+        writeData(SETTINGS_FILE, settings);
+
+        // 6. Templates
+        let templates = readData(TEMPLATES_FILE);
+        delete templates[restaurantId];
+        writeData(TEMPLATES_FILE, templates);
+
+        logSecurityEvent(user.id, 'ACCOUNT_RESET', { email: user.email }, restaurantId);
+        console.log(`[ACCOUNT_RESET] Restaurant ${restaurantId} has been reset by user ${user.id}`);
+        res.json({ message: 'Account data has been completely reset.' });
+    } catch (error) {
+        console.error('Account reset failed', error);
+        res.status(500).json({ error: 'Failed to reset account data' });
     }
 });
 
@@ -1526,10 +1912,26 @@ app.use((req, res) => {
     res.status(404).send('Not Found');
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
     console.log(`Server running on http://localhost:${PORT}`);
 
-    // Startup Health Check
+    // Startup Health Checks
+    console.log('[STARTUP] Running System Integrity Checks...');
+
+    // 1. Email Configuration Validation
+    const emailConfig = validateEmailConfig();
+    if (!emailConfig.valid) {
+        console.error('🛑 [CRITICAL_FAILURE] Email system NOT configured correctly. Authentication will fail.');
+        console.error('Please set: ' + emailConfig.missing.join(', '));
+        // We don't exit(1) to allow admin to fix via UI if needed, but we log loudly
+    } else {
+        // 2. Async SMTP Connection Test
+        testEmailConnection().then(status => {
+            if (!status.success) {
+                console.warn('⚠️ [STARTUP_WARNING] SMTP Connection failed on startup. Email delivery may be broken.');
+            }
+        });
+    }
     try {
         const customers = readData(DATA_FILE);
         const payments = readData(path.join(DATA_DIR, 'payments.json'));

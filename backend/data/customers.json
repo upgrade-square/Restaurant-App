@@ -7,17 +7,26 @@
     "sms_status": "Sent",
     "sent_at": "6/2/2026, 11:43:31 PM",
     "timestamp": "6/2/2026, 11:43:16 PM",
-    "visitCount": 1
+    "visitCount": 1,
+    "servedBy": [
+      "default"
+    ]
   },
   {
     "id": 1780433173130,
-    "name": "Lyzz Cheryl",
+    "name": "John",
     "phone": "0769329029",
     "amount": "100",
     "sms_status": "Sent",
     "timestamp": "6/2/2026, 11:46:13 PM",
-    "sent_at": "2026-06-13T20:06:30.905Z",
-    "visitCount": 10
+    "sent_at": "2026-06-15T14:25:35.718Z",
+    "visitCount": 24,
+    "lastSeen": "2026-06-15T14:40:09.905Z",
+    "active": true,
+    "servedBy": [
+      "default",
+      "rahlah-691"
+    ]
   },
   {
     "id": 1780481958735,
@@ -29,33 +38,10 @@
     "timestamp": "6/3/2026, 1:19:18 PM",
     "created_at": "6/3/2026, 1:19:18 PM",
     "sent_at": "6/3/2026, 1:19:28 PM",
-    "visitCount": 1
-  },
-  {
-    "id": 1780494608153,
-    "restaurantId": "rahlah-691",
-    "name": "Michael",
-    "phone": "0769329029",
-    "amount": "5",
-    "sms_status": "Sent",
-    "active": true,
-    "timestamp": "6/3/2026, 4:50:08 PM",
-    "created_at": "6/3/2026, 4:50:08 PM",
-    "sent_at": "6/3/2026, 4:50:27 PM",
-    "visitCount": 3
-  },
-  {
-    "id": 1780501230102,
-    "restaurantId": "yendor-551",
-    "name": "Yendor",
-    "phone": "0769329029",
-    "amount": "100",
-    "sms_status": "Sent",
-    "active": true,
-    "timestamp": "6/3/2026, 6:40:30 PM",
-    "created_at": "6/3/2026, 6:40:30 PM",
-    "sent_at": "6/3/2026, 10:04:19 PM",
-    "visitCount": 3
+    "visitCount": 1,
+    "servedBy": [
+      "default"
+    ]
   },
   {
     "id": 1780782925697,
@@ -67,7 +53,10 @@
     "active": true,
     "createdAt": "2026-06-06T21:55:25.697Z",
     "sent_at": "6/7/2026, 12:55:28 AM",
-    "visitCount": 1
+    "visitCount": 1,
+    "servedBy": [
+      "rahlah-691"
+    ]
   },
   {
     "id": 1780860230752,
@@ -79,6 +68,9 @@
     "active": true,
     "createdAt": "2026-06-07T19:23:50.752Z",
     "sent_at": "6/7/2026, 10:24:04 PM",
-    "visitCount": 1
+    "visitCount": 1,
+    "servedBy": [
+      "rahlah-691"
+    ]
   }
 ]

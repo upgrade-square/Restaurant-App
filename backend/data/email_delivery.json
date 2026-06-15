@@ -1,0 +1,80 @@
+[
+  {
+    "timestamp": "2026-06-15T17:01:04.408Z",
+    "email": "mikrodtech@gmail.com",
+    "status": "SENDING",
+    "otp_generated": true
+  },
+  {
+    "timestamp": "2026-06-15T17:01:05.761Z",
+    "email": "mikrodtech@gmail.com",
+    "status": "FAILURE",
+    "error": "Invalid login: 535-5.7.8 Username and Password not accepted. For more information, go to\n535 5.7.8  https://support.google.com/mail/?p=BadCredentials 5b1f17b1804b1-4922fa47179sm6034435e9.6 - gsmtp"
+  },
+  {
+    "timestamp": "2026-06-15T17:25:56.749Z",
+    "email": "mikrodtech@gmail.com",
+    "status": "SENDING",
+    "otp_generated": true
+  },
+  {
+    "timestamp": "2026-06-15T17:26:04.070Z",
+    "email": "mikrodtech@gmail.com",
+    "status": "FAILURE",
+    "error": "Invalid login: 535-5.7.8 Username and Password not accepted. For more information, go to\n535 5.7.8  https://support.google.com/mail/?p=BadCredentials 5b1f17b1804b1-4922f9cd140sm8053195e9.0 - gsmtp"
+  },
+  {
+    "timestamp": "2026-06-15T18:53:51.332Z",
+    "email": "mikrodtech@gmail.com",
+    "status": "SENDING",
+    "otp_generated": true
+  },
+  {
+    "timestamp": "2026-06-15T18:53:52.621Z",
+    "email": "mikrodtech@gmail.com",
+    "status": "FAILURE",
+    "error": "Invalid login: 535-5.7.8 Username and Password not accepted. For more information, go to\n535 5.7.8  https://support.google.com/mail/?p=BadCredentials 5b1f17b1804b1-4922fa5b079sm16040555e9.12 - gsmtp"
+  },
+  {
+    "timestamp": "2026-06-15T19:01:46.739Z",
+    "email": "mikrodtech@gmail.com",
+    "status": "SENDING_ATTEMPT",
+    "attempt": 1,
+    "otp_generated": true
+  },
+  {
+    "timestamp": "2026-06-15T19:01:47.145Z",
+    "email": "mikrodtech@gmail.com",
+    "status": "ATTEMPT_FAILURE",
+    "attempt": 1,
+    "error": "getaddrinfo ENOTFOUND mail.mikrodtech.co.ke"
+  },
+  {
+    "timestamp": "2026-06-15T19:01:49.146Z",
+    "email": "mikrodtech@gmail.com",
+    "status": "SENDING_ATTEMPT",
+    "attempt": 2,
+    "otp_generated": true
+  },
+  {
+    "timestamp": "2026-06-15T19:01:49.158Z",
+    "email": "mikrodtech@gmail.com",
+    "status": "ATTEMPT_FAILURE",
+    "attempt": 2,
+    "error": "getaddrinfo ENOTFOUND mail.mikrodtech.co.ke"
+  },
+  {
+    "timestamp": "2026-06-15T19:01:53.160Z",
+    "email": "mikrodtech@gmail.com",
+    "status": "SENDING_ATTEMPT",
+    "attempt": 3,
+    "otp_generated": true
+  },
+  {
+    "timestamp": "2026-06-15T19:01:53.171Z",
+    "email": "mikrodtech@gmail.com",
+    "status": "ATTEMPT_FAILURE",
+    "attempt": 3,
+    "error": "getaddrinfo ENOTFOUND mail.mikrodtech.co.ke"
+  }
+]
