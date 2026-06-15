@@ -1054,7 +1054,7 @@ authRouter.post('/request-otp', async (req, res) => {
         const otps = readData(OTPS_FILE);
         otps[email] = {
             code: otp,
-            expiresAt: Date.now() + 10 * 60 * 1000 // 10 mins
+            expiresAt: Date.now() + 5 * 60 * 1000 // 5 mins
         };
         writeData(OTPS_FILE, otps);
 
@@ -1099,7 +1099,7 @@ authRouter.post('/forgot-password', async (req, res) => {
             const otp = Math.floor(100000 + Math.random() * 900000).toString();
             // Store as resetToken for compatibility with current structure
             user.resetToken = otp;
-            user.resetTokenExpiry = Date.now() + 15 * 60 * 1000; // 15 mins
+            user.resetTokenExpiry = Date.now() + 5 * 60 * 1000; // 5 mins
             writeData(USERS_FILE, users);
 
             logSecurityEvent(user.id, 'PASSWORD_RESET_OTP_GENERATED', { email }, user.restaurantId);

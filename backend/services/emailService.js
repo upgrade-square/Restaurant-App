@@ -39,7 +39,7 @@ const getEmailConfig = () => {
         port: parseInt(process.env.SMTP_PORT || process.env.smtp_port) || 587,
         user: process.env.SMTP_USER || process.env.SMTP_USERNAME || process.env.smtp_user || process.env.smtp_username,
         pass: process.env.SMTP_PASS || process.env.SMTP_PASSWORD || process.env.smtp_pass || process.env.smtp_password,
-        from: process.env.SMTP_FROM || process.env.EMAIL_FROM || process.env.smtp_from || 'MikrodTech <info@mikrodtech.co.ke>'
+        from: process.env.SMTP_FROM || process.env.EMAIL_FROM || process.env.smtp_from || `${process.env.SMTP_FROM_NAME || 'MikrodTech'} <${process.env.SMTP_USER || process.env.SMTP_USERNAME || 'info@mikrodtech.co.ke'}>`
     };
 };
 
@@ -145,7 +145,7 @@ const sendOTPEmail = async (email, otp) => {
         from: config.from,
         to: email,
         subject: 'Your MikrodCAP Verification Code',
-        text: `Your verification code is: ${otp}. It will expire in 10 minutes.`,
+        text: `Your verification code is: ${otp}. It will expire in 5 minutes.`,
         html: `
             <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; max-width: 600px; margin: auto; border: 1px solid #eee; border-radius: 10px;">
                 <div style="text-align: center; margin-bottom: 20px;">
@@ -157,7 +157,7 @@ const sendOTPEmail = async (email, otp) => {
                 <div style="font-size: 32px; font-weight: bold; background: #f0f7ff; color: #0072CE; padding: 20px; text-align: center; border-radius: 8px; margin: 25px 0; letter-spacing: 8px; border: 1px dashed #0072CE;">
                     ${otp}
                 </div>
-                <p>This code is <strong>valid for 10 minutes</strong> and can only be used once.</p>
+                <p>This code is <strong>valid for 5 minutes</strong> and can only be used once.</p>
                 <p style="color: #666; font-size: 13px; margin-top: 25px;">If you did not request this code, please ignore this email.</p>
                 <hr style="border: 0; border-top: 1px solid #eee; margin: 30px 0;">
                 <p style="font-size: 12px; color: #999; text-align: center;">&copy; 2026 MikrodCAP Platform. All rights reserved.</p>

@@ -494,7 +494,7 @@ function App() {
                 <div className="form-group">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <label>Password</label>
-                    <button type="button" className="link-btn" style={{ fontSize: '0.8rem', padding: 0 }} onClick={() => setAuthMode('forgot-password')}>Forgot Password?</button>
+                    <button type="button" className="link-btn" onClick={() => setAuthMode('forgot-password')}>Forgot Password?</button>
                   </div>
                   <div className="password-input-wrapper">
                     <input className="form-control" name="password" type={showLoginPassword ? 'text' : 'password'} required />
@@ -1219,7 +1219,7 @@ function App() {
                             <div className="modal-grid" style={{ marginTop: '16px' }}>
                               <div className="form-group">
                                 <label>New Password</label>
-                                <div style={{ position: 'relative' }}>
+                                <div className="password-input-wrapper">
                                   <input
                                     className="form-control"
                                     type={showNewPassword ? 'text' : 'password'}
@@ -1227,14 +1227,14 @@ function App() {
                                     onChange={e => setPasswordData({ ...passwordData, new: e.target.value })}
                                     autoComplete="new-password"
                                   />
-                                  <span className="password-toggle" onClick={() => setShowNewPassword(!showNewPassword)}>
+                                  <button type="button" className="password-toggle" onClick={() => setShowNewPassword(!showNewPassword)} aria-label={showNewPassword ? 'Hide password' : 'Show password'}>
                                     {showNewPassword ? <EyeSlashIcon /> : <EyeIcon />}
-                                  </span>
+                                  </button>
                                 </div>
                               </div>
                               <div className="form-group">
                                 <label>Confirm New Password</label>
-                                <div style={{ position: 'relative' }}>
+                                <div className="password-input-wrapper">
                                   <input
                                     className="form-control"
                                     type={showConfirmNewPassword ? 'text' : 'password'}
@@ -1242,9 +1242,9 @@ function App() {
                                     onChange={e => setPasswordData({ ...passwordData, confirm: e.target.value })}
                                     autoComplete="new-password"
                                   />
-                                  <span className="password-toggle" onClick={() => setShowConfirmNewPassword(!showConfirmNewPassword)}>
+                                  <button type="button" className="password-toggle" onClick={() => setShowConfirmNewPassword(!showConfirmNewPassword)} aria-label={showConfirmNewPassword ? 'Hide password' : 'Show password'}>
                                     {showConfirmNewPassword ? <EyeSlashIcon /> : <EyeIcon />}
-                                  </span>
+                                  </button>
                                 </div>
                               </div>
                             </div>
@@ -1263,7 +1263,7 @@ function App() {
                         )}
                       </div>
 
-                      <div className="settings-section" style={{ marginTop: '48px', paddingTop: '32px', borderTop: '2px solid #fee2e2' }}>
+                      <div className="settings-section" style={{ marginTop: '48px', paddingTop: '32px', borderTop: '2px solid var(--danger-light)' }}>
                         <h4 style={{ color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <span style={{ display: 'inline-block', width: '8px', height: '8px', background: 'var(--danger)', borderRadius: '50%' }}></span>
                           Danger Zone
@@ -1276,7 +1276,7 @@ function App() {
                               Reset All Business Data
                             </button>
                           ) : (
-                            <div className="card" style={{ background: '#fff1f1', border: '1px solid #fee2e2', padding: '20px' }}>
+                            <div className="card" style={{ background: 'var(--danger-light)', border: '1px solid var(--danger)', padding: '24px' }}>
                               <p style={{ fontWeight: 700, color: 'var(--danger)', marginBottom: '16px' }}>Ownership Verification Required</p>
 
                               {!otpSent ? (
