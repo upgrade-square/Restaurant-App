@@ -1128,6 +1128,25 @@ authRouter.post('/forgot-password', async (req, res) => {
 });
 
 /**
+ * @api {post} /auth/verify-reset-token Verify OTP before allowing password change
+ */
+authRouter.post('/verify-reset-token', async (req, res) => {
+    try {
+        const { email, token } = req.body;
+        const users = readData(USERS_FILE);
+        const user = users.find(u => u.email === email);
+
+        if (!user || user.resetToken !== token || user.resetTokenExpiry < Date.now()) {
+            return res.status(400).json({ error: 'Invalid or expired verification code' });
+        }
+
+        res.json({ message: 'Code verified. You may now reset your password.' });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to verify code' });
+    }
+});
+
+/**
  * @api {post} /auth/reset-password Complete Reset
  */
 authRouter.post('/reset-password', async (req, res) => {

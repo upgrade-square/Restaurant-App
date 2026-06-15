@@ -177,7 +177,6 @@ function App() {
 
   const handleAccountReset = async () => {
     try {
-      if (!confirm('FINAL WARNING: This will permanently delete all your application data. This cannot be undone.')) return;
 
       const data = await fetchWithAuth('/auth/reset-account', {
         method: 'POST',
@@ -230,7 +229,7 @@ function App() {
       showToast('Verification code sent successfully. Please check your email inbox.');
       setOtpSent(true);
       setOtpCooldown(60);
-      setOtpExpiry(600); // 10 minutes
+      setOtpExpiry(300); // 5 minutes
       return true;
     } catch (err) {
       console.error(`[OTP] Failed: ${err.message}`);
@@ -286,6 +285,22 @@ function App() {
       showToast(data.message);
       setForgotEmail(email);
       setForgotStep(2);
+    } catch (err) {
+      showToast(err.message, 'danger');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyResetToken = async (email, token) => {
+    try {
+      setLoading(true);
+      const data = await fetchWithAuth('/auth/verify-reset-token', {
+        method: 'POST',
+        body: JSON.stringify({ email, token })
+      });
+      showToast(data.message);
+      setForgotStep(3);
     } catch (err) {
       showToast(err.message, 'danger');
     } finally {
@@ -492,15 +507,15 @@ function App() {
               }}>
                 <div className="form-group"><label>Email</label><input className="form-control" name="email" type="email" required /></div>
                 <div className="form-group">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <label>Password</label>
-                    <button type="button" className="link-btn" onClick={() => setAuthMode('forgot-password')}>Forgot Password?</button>
-                  </div>
+                  <label>Password</label>
                   <div className="password-input-wrapper">
                     <input className="form-control" name="password" type={showLoginPassword ? 'text' : 'password'} required />
                     <button type="button" className="password-toggle" onClick={() => setShowLoginPassword(!showLoginPassword)} aria-label={showLoginPassword ? 'Hide password' : 'Show password'}>
                       {showLoginPassword ? <EyeSlashIcon /> : <EyeIcon />}
                     </button>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '4px' }}>
+                    <button type="button" className="link-btn" style={{ fontSize: '0.8rem' }} onClick={() => setAuthMode('forgot-password')}>Forgot Password?</button>
                   </div>
                 </div>
                 <button className="login-btn" type="submit">Login</button>
@@ -535,16 +550,37 @@ function App() {
 
               {forgotStep === 2 && (
                 <>
-                  <h2>Reset Password</h2>
-                  <p style={{ color: 'var(--text-muted)', marginBottom: '20px' }}>Enter the 6-character recovery code sent to your email.</p>
+                  <h2>Verify Recovery Code</h2>
+                  <p style={{ color: 'var(--text-muted)', marginBottom: '20px' }}>Enter the 6-character code sent to {forgotEmail}.</p>
                   <form className="auth-form" onSubmit={e => {
                     e.preventDefault();
-                    handleResetPassword(forgotEmail, e.target.token.value, e.target.newPassword.value);
+                    handleVerifyResetToken(forgotEmail, e.target.token.value);
                   }}>
                     <div className="form-group">
                       <label>Recovery Code</label>
-                      <input className="form-control" name="token" style={{ letterSpacing: '4px', textAlign: 'center', fontWeight: 'bold' }} maxLength={6} placeholder="XXXXXX" required />
+                      <input className="form-control" name="token" id="reset-otp-input" style={{ letterSpacing: '4px', textAlign: 'center', fontWeight: 'bold' }} maxLength={6} placeholder="XXXXXX" required />
                     </div>
+                    <button className="login-btn" type="submit" disabled={loading}>
+                      {loading ? 'Verifying...' : 'Verify Code'}
+                    </button>
+                  </form>
+                  <div className="auth-switch">
+                    <button className="secondary-btn" style={{ width: '100%' }} onClick={() => setForgotStep(1)}>Back</button>
+                  </div>
+                </>
+              )}
+
+              {forgotStep === 3 && (
+                <>
+                  <h2>Secure Your Account</h2>
+                  <p style={{ color: 'var(--text-muted)', marginBottom: '20px' }}>Verification successful. Please choose a strong new password.</p>
+                  <form className="auth-form" onSubmit={e => {
+                    e.preventDefault();
+                    // We need the token from previous step. We can store it in a state or just use a ref/DOM if needed.
+                    // For simplicity, let's just grab it from the previous input if it's still in the DOM or better, store it.
+                    const token = document.getElementById('reset-otp-input').value;
+                    handleResetPassword(forgotEmail, token, e.target.newPassword.value);
+                  }}>
                     <div className="form-group">
                       <label>New Password</label>
                       <div className="password-input-wrapper">
@@ -555,12 +591,9 @@ function App() {
                       </div>
                     </div>
                     <button className="login-btn" type="submit" disabled={loading}>
-                      {loading ? 'Updating Password...' : 'Reset Password'}
+                      {loading ? 'Finalizing...' : 'Update Password'}
                     </button>
                   </form>
-                  <div className="auth-switch">
-                    <button className="secondary-btn" style={{ width: '100%' }} onClick={() => setForgotStep(1)}>Resend Code</button>
-                  </div>
                 </>
               )}
             </div>
@@ -874,14 +907,12 @@ function App() {
                                 <button
                                   style={{ color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px' }}
                                   onClick={async () => {
-                                    if (confirm('Delete this activity record?')) {
-                                      try {
-                                        await fetchWithAuth(`/sms-queue/${msg.id}`, { method: 'DELETE' });
-                                        setSmsHistory(prev => prev.filter(s => s.id !== msg.id));
-                                        showToast('Activity record deleted');
-                                        refreshData(true);
-                                      } catch (err) { showToast(err.message, 'danger'); }
-                                    }
+                                    try {
+                                      await fetchWithAuth(`/sms-queue/${msg.id}`, { method: 'DELETE' });
+                                      setSmsHistory(prev => prev.filter(s => s.id !== msg.id));
+                                      showToast('Activity record deleted');
+                                      refreshData(true);
+                                    } catch (err) { showToast(err.message, 'danger'); }
                                   }}
                                 >
                                   Delete
@@ -966,15 +997,13 @@ function App() {
                                 <button
                                   style={{ color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer' }}
                                   onClick={async () => {
-                                    if (confirm('Delete this customer? This will remove their record but keep historical metrics.')) {
-                                      try {
-                                        await fetchWithAuth(`/customers/${customer.id}`, { method: 'DELETE' });
-                                        setCustomers(prev => prev.filter(c => c.id !== customer.id));
-                                        showToast('Customer deleted');
-                                        refreshData(true);
-                                      } catch (err) {
-                                        showToast(err.message, 'danger');
-                                      }
+                                    try {
+                                      await fetchWithAuth(`/customers/${customer.id}`, { method: 'DELETE' });
+                                      setCustomers(prev => prev.filter(c => c.id !== customer.id));
+                                      showToast('Customer deleted');
+                                      refreshData(true);
+                                    } catch (err) {
+                                      showToast(err.message, 'danger');
                                     }
                                   }}
                                 >
