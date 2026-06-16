@@ -962,7 +962,7 @@ function App() {
                     )}
                   </div>
                   <div className="table-container" style={{ marginTop: '16px' }}>
-                    <table className="activity-table" style={{ width: '100%', tableLayout: 'fixed', minWidth: '800px' }}>
+                    <table className="activity-table" style={{ width: '100%', minWidth: '900px' }}>
                       <thead>
                         <tr>
                           <th style={{ width: '40px' }}>
@@ -979,10 +979,10 @@ function App() {
                               }}
                             />
                           </th>
-                          <th style={{ width: '20%' }}>Created Date</th>
-                          <th style={{ width: '20%' }}>Customer Name</th>
+                          <th style={{ width: '15%' }}>Created Date</th>
+                          <th style={{ width: '35%' }}>Customer Name</th>
                           <th style={{ width: '15%' }}>Phone Number</th>
-                          <th style={{ width: '20%' }}>SMS Sent Time</th>
+                          <th style={{ width: '15%' }}>SMS Sent Time</th>
                           <th style={{ width: '10%' }}>Status</th>
                           <th style={{ width: '10%' }}>Action</th>
                         </tr>
@@ -1005,7 +1005,7 @@ function App() {
                               />
                             </td>
                             <td title={formatDateTime(msg.createdAt || msg.id)}>{formatDateTime(msg.createdAt || msg.id)}</td>
-                            <td style={{ fontWeight: 700 }} title={msg.customerName}>{msg.customerName}</td>
+                            <td className="customer-name-cell" style={{ fontWeight: 700 }} title={msg.customerName}>{msg.customerName}</td>
                             <td title={msg.phone}>{msg.phone}</td>
                             <td title={msg.sentAt ? formatDateTime(msg.sentAt) : 'Pending'}>
                               {msg.sentAt ? formatDateTime(msg.sentAt) : <span className="badge badge-pending">Pending</span>}

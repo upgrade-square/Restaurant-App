@@ -1278,53 +1278,44 @@ authRouter.post('/reset-account', authenticateToken, async (req, res) => {
         }
 
         const restaurantId = user.restaurantId;
-        // 1. Customers: Remove association. If last association, delete.
+
+        // 1. Operational Reset: SMS Queue
+        let smsQueue = readData(SMS_DATA_FILE);
+        smsQueue = smsQueue.filter(s => s.restaurantId !== restaurantId);
+        writeData(SMS_DATA_FILE, smsQueue);
+
+        // 2. Operational Reset: Activity Log (This clears Dashboard metrics like total sent, weekly customers etc.)
+        let activityLog = readData(ACTIVITY_LOG_FILE);
+        activityLog = activityLog.filter(a => a.restaurantId !== restaurantId);
+        writeData(ACTIVITY_LOG_FILE, activityLog);
+
+        // 3. Operational Reset: Customers & Visit Counts
         let customers = readData(DATA_FILE);
         customers = customers.filter(c => {
             const isOwner = c.restaurantId === restaurantId;
             const isServedBy = c.servedBy && c.servedBy.includes(restaurantId);
 
             if (isOwner || isServedBy) {
-                // If they are servedBy others, keep record but remove our ID
+                // If they are served by OTHER restaurants, keep the record for them but remove OUR association
                 if (c.servedBy && c.servedBy.length > 1) {
                     c.servedBy = c.servedBy.filter(id => id !== restaurantId);
-                    if (isOwner) c.restaurantId = c.servedBy[0]; // Transfer ownership
+                    if (isOwner) c.restaurantId = c.servedBy[0]; // Transfer ownership to next in line
+                    // Note: visitCount is global in this architecture, but removing our association 
+                    // makes them "new" to us if they ever return.
                     return true;
                 }
-                return false; // Delete only if we are the only ones
+                // If they ONLY belonged to us, delete the record completely
+                return false;
             }
             return true;
         });
         writeData(DATA_FILE, customers);
 
-        // 2. SMS Queue
-        let smsQueue = readData(SMS_DATA_FILE);
-        smsQueue = smsQueue.filter(s => s.restaurantId !== restaurantId);
-        writeData(SMS_DATA_FILE, smsQueue);
+        // NOTE: Gateway, Settings, and Templates are PRESERVED as System Configuration
 
-        // 3. Activity Log
-        let activityLog = readData(ACTIVITY_LOG_FILE);
-        activityLog = activityLog.filter(a => a.restaurantId !== restaurantId);
-        writeData(ACTIVITY_LOG_FILE, activityLog);
-
-        // 4. Gateway Paired Devices
-        let gateways = readData(GATEWAY_FILE);
-        gateways = gateways.filter(g => g.restaurantId !== restaurantId);
-        writeData(GATEWAY_FILE, gateways);
-
-        // 5. Settings
-        let settings = readData(SETTINGS_FILE);
-        delete settings[restaurantId];
-        writeData(SETTINGS_FILE, settings);
-
-        // 6. Templates
-        let templates = readData(TEMPLATES_FILE);
-        delete templates[restaurantId];
-        writeData(TEMPLATES_FILE, templates);
-
-        logSecurityEvent(user.id, 'ACCOUNT_RESET', { email: user.email }, restaurantId);
-        console.log(`[ACCOUNT_RESET] Restaurant ${restaurantId} has been factory reset by user ${user.id}`);
-        res.json({ message: 'Factory reset completed successfully.' });
+        logSecurityEvent(user.id, 'FACTORY_RESET', { email: user.email }, restaurantId);
+        console.log(`[FACTORY_RESET] Restaurant ${restaurantId} has completed a factory reset. Operational data cleared, configuration preserved.`);
+        res.json({ message: 'Factory reset completed successfully. Operational data has been cleared while configuration and connectivity were preserved.' });
     } catch (error) {
         console.error('Factory reset failed', error);
         res.status(500).json({ error: 'Failed to perform factory reset' });

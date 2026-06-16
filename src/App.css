@@ -324,6 +324,21 @@ h4 {
   text-overflow: ellipsis;
 }
 
+.activity-table td.customer-name-cell,
+.activity-table th.customer-name-cell {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
+  min-width: 250px;
+}
+
+.table-container {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 8px;
+  background: white;
+}
+
 .activity-table tr:hover {
   background: #FBFCFD;
 }
