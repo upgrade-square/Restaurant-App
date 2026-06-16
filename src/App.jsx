@@ -99,6 +99,10 @@ function App() {
   const [passwordOtpCooldown, setPasswordOtpCooldown] = useState(0);
   const [passwordOtpExpiry, setPasswordOtpExpiry] = useState(0);
 
+  useEffect(() => {
+    console.log('%c MikrodCAP OS %c v1.0.1 - Alignment Patch 2 %c', 'background: #0072CE; color: white; padding: 4px; border-radius: 4px 0 0 4px;', 'background: #FF8C00; color: white; padding: 4px; border-radius: 0 4px 4px 0;', 'background: transparent;');
+  }, []);
+
   // Factory Reset OTP State
   const [factoryResetOTP, setFactoryResetOTP] = useState('');
   const [factoryResetOtpSent, setFactoryResetOtpSent] = useState(false);
@@ -962,10 +966,19 @@ function App() {
                     )}
                   </div>
                   <div className="table-container" style={{ marginTop: '16px' }}>
-                    <table className="activity-table" style={{ width: '100%', minWidth: '900px' }}>
+                    <table className="activity-table" style={{ width: '100%', tableLayout: 'fixed', minWidth: '950px' }}>
+                      <colgroup>
+                        <col style={{ width: '50px' }} />
+                        <col style={{ width: '15%' }} />
+                        <col style={{ width: '25%' }} />
+                        <col style={{ width: '15%' }} />
+                        <col style={{ width: '15%' }} />
+                        <col style={{ width: '15%' }} />
+                        <col style={{ width: '100px' }} />
+                      </colgroup>
                       <thead>
                         <tr>
-                          <th style={{ width: '40px' }}>
+                          <th>
                             <input
                               type="checkbox"
                               className="custom-checkbox"
@@ -979,18 +992,18 @@ function App() {
                               }}
                             />
                           </th>
-                          <th style={{ width: '15%' }}>Created Date</th>
-                          <th className="customer-name-cell" style={{ width: '35%' }}>Customer Name</th>
-                          <th style={{ width: '15%' }}>Phone Number</th>
-                          <th style={{ width: '15%' }}>SMS Sent Time</th>
-                          <th style={{ width: '10%' }}>Status</th>
-                          <th style={{ width: '10%' }}>Action</th>
+                          <th>Created Date</th>
+                          <th className="customer-name-cell">Customer Name</th>
+                          <th>Phone Number</th>
+                          <th>SMS Sent Time</th>
+                          <th>Status</th>
+                          <th>Action</th>
                         </tr>
                       </thead>
                       <tbody>
                         {smsHistory.slice(0, 100).map(msg => (
                           <tr key={msg.id} className={selectedSms.includes(msg.id) ? 'row-selected' : ''}>
-                            <td style={{ width: '40px' }}>
+                            <td>
                               <input
                                 type="checkbox"
                                 className="custom-checkbox"
@@ -1138,10 +1151,18 @@ function App() {
                     </div>
                   </div>
                   <div className="table-container">
-                    <table className="activity-table" style={{ tableLayout: 'fixed', minWidth: '800px' }}>
+                    <table className="activity-table" style={{ tableLayout: 'fixed', minWidth: '950px' }}>
+                      <colgroup>
+                        <col style={{ width: '50px' }} />
+                        <col style={{ width: '15%' }} />
+                        <col style={{ width: '35%' }} />
+                        <col style={{ width: '25%' }} />
+                        <col style={{ width: '10%' }} />
+                        <col style={{ width: '15%' }} />
+                      </colgroup>
                       <thead>
                         <tr>
-                          <th style={{ width: '40px' }}>
+                          <th>
                             <input
                               type="checkbox"
                               className="custom-checkbox"
@@ -1158,11 +1179,11 @@ function App() {
                               }}
                             />
                           </th>
-                          <th style={{ width: '20%' }}>Created Date</th>
-                          <th style={{ width: '25%' }}>Customer Name</th>
-                          <th style={{ width: '20%' }}>Phone Number</th>
-                          <th style={{ width: '10%' }}>Visit Count</th>
-                          <th style={{ width: '15%' }}>Actions</th>
+                          <th>Created Date</th>
+                          <th className="customer-name-cell">Customer Name</th>
+                          <th>Phone Number</th>
+                          <th>Visit Count</th>
+                          <th>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1185,9 +1206,9 @@ function App() {
                                 />
                               </td>
                               <td title={formatDateTime(customer.createdAt || customer.created_at || customer.timestamp || customer.id)}>{formatDateTime(customer.createdAt || customer.created_at || customer.timestamp || customer.id)}</td>
-                              <td style={{ fontWeight: 700 }} title={customer.name}>{customer.name}</td>
+                              <td className="customer-name-cell" style={{ fontWeight: 700 }} title={customer.name}>{customer.name}</td>
                               <td title={customer.phone}>{customer.phone}</td>
-                              <td style={{ textAlign: 'center' }}>{customer.visitCount || 1}</td>
+                              <td>{customer.visitCount || 1}</td>
                               <td className="actions">
                                 <button
                                   className="btn-delete"
@@ -1296,14 +1317,22 @@ function App() {
                   <h3>Payment History</h3>
                   <div className="table-container" style={{ marginTop: '16px' }}>
                     <table className="activity-table" style={{ width: '100%', tableLayout: 'fixed' }}>
+                      <colgroup>
+                        <col style={{ width: '25%' }} />
+                        <col style={{ width: '20%' }} />
+                        <col style={{ width: '15%' }} />
+                        <col style={{ width: '15%' }} />
+                        <col style={{ width: '15%' }} />
+                        <col style={{ width: '10%' }} />
+                      </colgroup>
                       <thead>
                         <tr>
-                          <th style={{ width: '25%' }}>Transaction Code</th>
-                          <th style={{ width: '20%' }}>Plan Purchased</th>
-                          <th style={{ width: '15%' }}>Amount</th>
-                          <th style={{ width: '15%' }}>Duration</th>
-                          <th style={{ width: '15%' }}>Date</th>
-                          <th style={{ width: '10%' }}>Status</th>
+                          <th>Transaction Code</th>
+                          <th>Plan Purchased</th>
+                          <th>Amount</th>
+                          <th>Duration</th>
+                          <th>Date</th>
+                          <th>Status</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1587,15 +1616,24 @@ function App() {
 
                   <div className="table-container">
                     <table className="activity-table" style={{ tableLayout: 'fixed' }}>
+                      <colgroup>
+                        <col style={{ width: '20%' }} />
+                        <col style={{ width: '15%' }} />
+                        <col style={{ width: '10%' }} />
+                        <col style={{ width: '10%' }} />
+                        <col style={{ width: '15%' }} />
+                        <col style={{ width: '15%' }} />
+                        <col style={{ width: '15%' }} />
+                      </colgroup>
                       <thead>
                         <tr>
-                          <th style={{ width: '20%' }}>Business Name</th>
-                          <th style={{ width: '15%' }}>Business ID</th>
-                          <th style={{ width: '10%' }}>Plan</th>
-                          <th style={{ width: '10%' }}>Status</th>
-                          <th style={{ width: '15%' }}>Expiry Date</th>
-                          <th style={{ width: '15%' }}>Created Date</th>
-                          <th style={{ width: '15%' }}>Actions</th>
+                          <th>Business Name</th>
+                          <th>Business ID</th>
+                          <th>Plan</th>
+                          <th>Status</th>
+                          <th>Expiry Date</th>
+                          <th>Created Date</th>
+                          <th>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
