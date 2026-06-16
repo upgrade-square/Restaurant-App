@@ -337,15 +337,14 @@ app.post('/customers', authenticateToken, checkSubscription, (req, res) => {
         const templates = allTemplates[restaurantId] || (allTemplates.thankYou ? allTemplates : allTemplates[DEFAULT_RESTAURANT_ID]);
 
         // 1. Create/Update Customer (Phone is Unique Identifier)
-        // Requirement: Phone number is the sole unique identifier
         let customer = customers.find(c => c.phone === normalizedPhone);
 
         if (!customer) {
             customer = {
                 id: Date.now(),
                 restaurantId,
-                servedBy: [restaurantId], // Track who has served this customer
-                name,
+                servedBy: [restaurantId],
+                name: name, // Save provided name for new customer
                 phone: normalizedPhone,
                 visitCount: 1,
                 lastSeen: nowUTC(),
@@ -354,11 +353,13 @@ app.post('/customers', authenticateToken, checkSubscription, (req, res) => {
             };
             customers.push(customer);
         } else {
-            // Requirement: Do not overwrite the original customer name
             // Requirement: Increment existing customer's visit count
             customer.visitCount = (customer.visitCount || 1) + 1;
             customer.lastSeen = nowUTC();
-            customer.active = true; // Ensure active
+            customer.active = true;
+
+            // Requirement: Preserve the original customer name
+            // (customer.name remains as it was)
 
             // Track that this restaurant has served this unique customer
             if (!customer.servedBy) customer.servedBy = [customer.restaurantId || DEFAULT_RESTAURANT_ID];
@@ -368,8 +369,8 @@ app.post('/customers', authenticateToken, checkSubscription, (req, res) => {
         }
 
         // 2. Prepare message using standardized template engine
-        // Requirement: Use original name for message if record existed
-        const displayName = customer.name || name;
+        // Use CANONICAL name from the customer record
+        const displayName = customer.name;
         const firstName = displayName.split(' ')[0];
         let template = templates.thankYou || settings.defaultThanks || "Thank you {{name}} for your payment to {{businessName}}!";
         const message = normalizeMessage(template, { name: displayName, firstName }, settings);
@@ -379,7 +380,7 @@ app.post('/customers', authenticateToken, checkSubscription, (req, res) => {
             id: Date.now() + 1,
             restaurantId,
             customerId: customer.id,
-            customerName: name,
+            customerName: displayName, // Store canonical name in records for consistency
             phone: normalizedPhone,
             amount: amount,
             message: message,
@@ -451,7 +452,6 @@ app.post('/payments/incoming', authenticateToken, (req, res) => {
         const originalFirstName = customerName.split(' ')[0];
 
         // 4. Create/Update Customer (Phone is Unique Identifier)
-        // Requirement: Phone number is the sole unique identifier
         const customers = readData(DATA_FILE);
         let customer = customers.find(c => c.phone === normalizedPhone);
 
@@ -459,7 +459,7 @@ app.post('/payments/incoming', authenticateToken, (req, res) => {
             customer = {
                 id: Date.now(),
                 restaurantId,
-                servedBy: [restaurantId], // Track who has served this customer
+                servedBy: [restaurantId],
                 name: customerName,
                 phone: normalizedPhone,
                 visitCount: 1,
@@ -470,8 +470,7 @@ app.post('/payments/incoming', authenticateToken, (req, res) => {
             customers.push(customer);
             console.log(`[PAYMENT_CUSTOMER_CREATED] ${customer.id}`);
         } else {
-            // Requirement: Increment existing customer's visit count
-            // Requirement: Keep the original customer name unchanged
+            // Requirement: Increment existing customer's visit count and preserve name
             customer.visitCount = (customer.visitCount || 1) + 1;
             customer.lastSeen = nowUTC();
             customer.active = true;
@@ -486,8 +485,8 @@ app.post('/payments/incoming', authenticateToken, (req, res) => {
         writeData(DATA_FILE, customers);
 
         // 5. Generate SMS using standardized template engine
-        // Requirement: Use original name for message if record existed
-        const displayName = customer.name || customerName;
+        // Use CANONICAL name from the customer record
+        const displayName = customer.name;
         const firstName = displayName.split(' ')[0];
 
         const allTemplates = readData(TEMPLATES_FILE);

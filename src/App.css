@@ -498,6 +498,13 @@ h4 {
   transform: translateY(-1px);
 }
 
+.login-btn svg {
+  width: 18px;
+  height: 18px;
+  vertical-align: middle;
+  margin-right: 8px;
+}
+
 .secondary-btn {
   background: white;
   color: var(--primary-blue);
@@ -787,11 +794,80 @@ h4 {
 .admin-action-btn.danger {
   color: var(--danger);
   border-color: var(--danger);
+  transition: all 0.2s ease;
+}
+
+.admin-action-btn.danger:hover {
+  background: var(--danger);
+  color: white;
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15);
 }
 
 .admin-action-btn.success {
   color: var(--success);
   border-color: var(--success);
+}
+
+/* --- Reusable Delete Button --- */
+.btn-delete {
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid transparent;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 200ms ease-in-out;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.btn-delete:hover {
+  background: var(--danger);
+  color: white;
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
+}
+
+.btn-delete:active {
+  transform: scale(0.95);
+  filter: brightness(0.9);
+}
+
+.btn-delete:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  background: var(--danger-light);
+  color: var(--danger);
+}
+
+.btn-delete svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* For icon-only variant */
+.btn-delete.btn-icon {
+  padding: 8px;
+  border-radius: 8px;
+}
+
+/* Danger variant for login-btn */
+.login-btn.danger {
+  background: var(--danger);
+  box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.2);
+}
+
+.login-btn.danger:hover {
+  background: #dc2626;
+  /* Slightly darker danger */
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(239, 68, 68, 0.3);
 }
 
 .search-container {

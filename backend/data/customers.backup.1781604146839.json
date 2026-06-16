@@ -1,20 +1,5 @@
 [
   {
-    "id": 1780481958735,
-    "restaurantId": "default",
-    "name": "Fix Verification",
-    "phone": "999888777",
-    "amount": 50,
-    "sms_status": "Sent",
-    "timestamp": "6/3/2026, 1:19:18 PM",
-    "created_at": "6/3/2026, 1:19:18 PM",
-    "sent_at": "6/3/2026, 1:19:28 PM",
-    "visitCount": 1,
-    "servedBy": [
-      "default"
-    ]
-  },
-  {
     "id": 1780432996625,
     "name": "Andria Simati",
     "phone": "0705826780",
@@ -41,6 +26,21 @@
     "servedBy": [
       "default",
       "rahlah-691"
+    ]
+  },
+  {
+    "id": 1780481958735,
+    "restaurantId": "default",
+    "name": "Fix Verification",
+    "phone": "999888777",
+    "amount": 50,
+    "sms_status": "Sent",
+    "timestamp": "6/3/2026, 1:19:18 PM",
+    "created_at": "6/3/2026, 1:19:18 PM",
+    "sent_at": "6/3/2026, 1:19:28 PM",
+    "visitCount": 1,
+    "servedBy": [
+      "default"
     ]
   },
   {

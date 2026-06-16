@@ -22,6 +22,12 @@ const CopyIcon = () => (
   </svg>
 )
 
+const TrashIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+  </svg>
+)
+
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard')
   const [smsHistory, setSmsHistory] = useState([])
@@ -792,6 +798,15 @@ function App() {
     return getRelativeTime(timestamp);
   };
 
+  const normalizePhone = (phone) => {
+    if (!phone) return '';
+    let cleaned = String(phone).replace(/\D/g, '');
+    if (cleaned.startsWith('254') && cleaned.length === 12) return '0' + cleaned.slice(3);
+    if ((cleaned.startsWith('7') || cleaned.startsWith('1')) && cleaned.length === 9) return '0' + cleaned;
+    if (cleaned.startsWith('0') && cleaned.length === 10) return cleaned;
+    return cleaned;
+  };
+
   return (
     <ErrorBoundary>
       <div className="app-container">
@@ -905,7 +920,7 @@ function App() {
                                   <button className="resend-btn" onClick={() => handleResend(msg.id)}>Resend</button>
                                 )}
                                 <button
-                                  style={{ color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px' }}
+                                  className="btn-delete"
                                   onClick={async () => {
                                     try {
                                       await fetchWithAuth(`/sms-queue/${msg.id}`, { method: 'DELETE' });
@@ -915,6 +930,7 @@ function App() {
                                     } catch (err) { showToast(err.message, 'danger'); }
                                   }}
                                 >
+                                  <TrashIcon />
                                   Delete
                                 </button>
                               </div>
@@ -937,10 +953,23 @@ function App() {
             activeTab === 'customers' && (
               <div className="section">
                 <div className="card">
-                  <h3>Manual Appreciation Entry</h3>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h3>Manual Appreciation Entry</h3>
+                    {formData.phone.length >= 9 && customers.find(c => normalizePhone(c.phone) === normalizePhone(formData.phone)) && (
+                      <span className="badge badge-active" style={{ fontSize: '0.7rem' }}>✓ Recognized Customer</span>
+                    )}
+                  </div>
                   <form onSubmit={e => {
                     e.preventDefault();
-                    fetchWithAuth('/customers', { method: 'POST', body: JSON.stringify(formData) })
+                    const normalized = normalizePhone(formData.phone);
+                    const existing = customers.find(c => normalizePhone(c.phone) === normalized);
+                    const finalData = {
+                      ...formData,
+                      name: existing ? existing.name : formData.name,
+                      phone: normalized
+                    };
+
+                    fetchWithAuth('/customers', { method: 'POST', body: JSON.stringify(finalData) })
                       .then((data) => {
                         setFormData({ name: '', phone: '', amount: '' });
                         setCustomers(prev => {
@@ -957,8 +986,40 @@ function App() {
                         refreshData(true);
                       });
                   }} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginTop: '16px' }}>
-                    <div className="form-group"><label>Customer Name</label><input className="form-control" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} required /></div>
-                    <div className="form-group"><label>Phone Number</label><input className="form-control" value={formData.phone} onChange={e => setFormData({ ...formData, phone: e.target.value })} required /></div>
+                    <div className="form-group">
+                      <label>Phone Number</label>
+                      <input
+                        className="form-control"
+                        placeholder="e.g. 0712345678"
+                        value={formData.phone}
+                        onChange={e => {
+                          const val = e.target.value;
+                          const normalized = normalizePhone(val);
+                          const existing = customers.find(c => normalizePhone(c.phone) === normalized);
+                          setFormData({
+                            ...formData,
+                            phone: val,
+                            name: existing ? existing.name : (formData.name === existing?.name ? '' : formData.name)
+                          });
+                        }}
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Customer Name</label>
+                      <input
+                        className="form-control"
+                        placeholder="Full Name"
+                        value={formData.name}
+                        onChange={e => setFormData({ ...formData, name: e.target.value })}
+                        required
+                        readOnly={!!(formData.phone.length >= 9 && customers.find(c => normalizePhone(c.phone) === normalizePhone(formData.phone)))}
+                        style={{ background: (formData.phone.length >= 9 && customers.find(c => normalizePhone(c.phone) === normalizePhone(formData.phone))) ? '#f8fafc' : 'white' }}
+                      />
+                      {formData.phone.length >= 9 && customers.find(c => normalizePhone(c.phone) === normalizePhone(formData.phone)) && (
+                        <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px' }}>Name is locked for existing contacts.</p>
+                      )}
+                    </div>
                     {isProfessional && (
                       <div className="form-group"><label>Bill Amount (KES)</label><input className="form-control" type="number" value={formData.amount} onChange={e => setFormData({ ...formData, amount: e.target.value })} required={isProfessional} /></div>
                     )}
@@ -995,7 +1056,7 @@ function App() {
                               <td style={{ textAlign: 'center' }}>{customer.visitCount || 1}</td>
                               <td className="actions">
                                 <button
-                                  style={{ color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer' }}
+                                  className="btn-delete"
                                   onClick={async () => {
                                     try {
                                       await fetchWithAuth(`/customers/${customer.id}`, { method: 'DELETE' });
@@ -1007,6 +1068,7 @@ function App() {
                                     }
                                   }}
                                 >
+                                  <TrashIcon />
                                   Delete
                                 </button>
                               </td>
@@ -1301,8 +1363,8 @@ function App() {
                           <label>Perform Account Data Reset</label>
 
                           {!showResetConfirm ? (
-                            <button className="admin-action-btn danger" type="button" onClick={() => setShowResetConfirm(true)}>
-                              Reset All Business Data
+                            <button className="btn-delete" type="button" onClick={() => setShowResetConfirm(true)}>
+                              <TrashIcon /> Reset All Business Data
                             </button>
                           ) : (
                             <div className="card" style={{ background: 'var(--danger-light)', border: '1px solid var(--danger)', padding: '24px' }}>
@@ -1337,11 +1399,11 @@ function App() {
                                     <button
                                       className="login-btn danger"
                                       type="button"
-                                      style={{ width: 'auto', padding: '10px 24px', background: 'var(--danger)', fontWeight: 600 }}
+                                      style={{ width: 'auto', padding: '10px 24px' }}
                                       onClick={handleAccountReset}
                                       disabled={securityOTP.length < 6}
                                     >
-                                      Confirm Permanent Reset
+                                      <TrashIcon /> Confirm Permanent Reset
                                     </button>
                                     <button className="admin-action-btn" type="button" onClick={() => { setShowResetConfirm(false); setOtpSent(false); setSecurityOTP(''); }}>
                                       Cancel
