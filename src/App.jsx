@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import './App.css'
 import API_URL from './config/api'
 import ErrorBoundary from './components/ErrorBoundary'
+import { getRelativeTime, formatActivityDate, formatDateTime } from './utils/dateUtils'
 
 const EyeIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -816,44 +817,6 @@ function App() {
     return `KES ${num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   }
 
-  const formatActivityDate = (timestamp) => {
-    if (!timestamp) return "---";
-    const date = new Date(timestamp);
-    if (isNaN(date.getTime())) return "---";
-
-    const nairobiOptions = { timeZone: "Africa/Nairobi", hour12: false };
-    const now = new Date();
-
-    // Check buckets in Nairobi time
-    const formatDate = (d, opts) => d.toLocaleString("en-KE", { ...nairobiOptions, ...opts });
-
-    const nowParts = formatDate(now, { year: 'numeric', month: 'numeric', day: 'numeric' });
-    const targetParts = formatDate(date, { year: 'numeric', month: 'numeric', day: 'numeric' });
-    const timeString = formatDate(date, { hour: '2-digit', minute: '2-digit' });
-
-    // Today
-    if (nowParts === targetParts) return timeString;
-
-    // Yesterday
-    const yesterday = new Date(now);
-    yesterday.setDate(now.getDate() - 1);
-    const yesterdayParts = formatDate(yesterday, { year: 'numeric', month: 'numeric', day: 'numeric' });
-    if (yesterdayParts === targetParts) return `Yesterday, ${timeString}`;
-
-    // This Year vs Other Year
-    const nowYear = formatDate(now, { year: 'numeric' });
-    const targetYear = formatDate(date, { year: 'numeric' });
-
-    if (nowYear === targetYear) {
-      return formatDate(date, { day: 'numeric', month: 'short' }) + `, ${timeString}`;
-    }
-
-    return formatDate(date, { day: 'numeric', month: 'short', year: 'numeric' }) + `, ${timeString}`;
-  };
-
-  const formatDateTime = (timestamp) => {
-    return formatActivityDate(timestamp);
-  };
 
   const normalizePhone = (phone) => {
     if (!phone) return '';
