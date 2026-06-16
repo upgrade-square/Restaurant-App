@@ -19,6 +19,13 @@ const getEndpoints = () => {
     };
 };
 
+const maskPhone = (phone) => {
+    if (!phone) return 'N/A';
+    const str = String(phone);
+    if (str.length < 8) return '****' + str.slice(-3);
+    return str.slice(0, 5) + '***' + str.slice(-3);
+};
+
 /**
  * Validates M-Pesa configuration
  */
@@ -61,6 +68,7 @@ async function getAccessToken() {
     const auth = Buffer.from(`${consumerKey}:${consumerSecret}`).toString('base64');
     const { AUTH } = getEndpoints();
 
+    console.log('[MPESA_AUTH] Requesting access token');
     try {
         const response = await fetch(AUTH, {
             headers: {
@@ -70,13 +78,20 @@ async function getAccessToken() {
         const data = await response.json();
 
         if (response.status !== 200) {
-            console.error('[MPESA_AUTH_REJECTED]', data);
+            console.error('[MPESA_AUTH_REJECTED]', {
+                status: response.status,
+                data: data
+            });
             throw new Error(data.errorMessage || 'Safaricom authentication failed');
         }
 
+        console.log('[MPESA_AUTH] Token acquired');
         return data.access_token;
     } catch (error) {
-        console.error('[MPESA_AUTH_ERROR]', error.message);
+        console.error('[MPESA_AUTH_ERROR]', {
+            message: error.message,
+            stack: error.stack
+        });
         throw error;
     }
 }
@@ -115,6 +130,14 @@ async function initiateSTKPush(amount, phone, restaurantId) {
             TransactionDesc: 'Subscription Payment'
         };
 
+        console.log('[MPESA_STK_REQUEST] Configuration Summary:');
+        console.log(` - Environment: ${process.env.MPESA_ENVIRONMENT || 'sandbox'}`);
+        console.log(` - Shortcode Presence: ${!!shortCode}`);
+        console.log(` - TransactionType: ${body.TransactionType}`);
+        console.log(` - Amount: ${body.Amount}`);
+        console.log(` - Phone: ${maskPhone(normalizedPhone)}`);
+        console.log(` - CallbackURL: ${body.CallBackURL ? body.CallBackURL.slice(0, 30) + '...' : 'MISSING'}`);
+
         const response = await fetch(STK, {
             method: 'POST',
             headers: {
@@ -130,12 +153,20 @@ async function initiateSTKPush(amount, phone, restaurantId) {
                 status: response.status,
                 data: data
             });
+        } else {
+            console.log('[MPESA_STK_SUCCESS]', {
+                CheckoutRequestID: data.CheckoutRequestID,
+                ResponseCode: data.ResponseCode
+            });
         }
         return data;
     } catch (error) {
-        console.error('[MPESA_STK_ERROR]', error.message);
+        console.error('[MPESA_STK_ERROR]', {
+            message: error.message,
+            stack: error.stack
+        });
         throw error;
     }
 }
 
-module.exports = { initiateSTKPush, validateConfig };
+module.exports = { initiateSTKPush, validateConfig, maskPhone };

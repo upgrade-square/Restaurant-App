@@ -7,7 +7,7 @@ const path = require('path');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { sendOTPEmail, validateEmailConfig, testEmailConnection } = require('./services/emailService');
-const { initiateSTKPush, validateConfig: validateMpesaConfig } = require('./services/mpesaService');
+const { initiateSTKPush, validateConfig: validateMpesaConfig, maskPhone } = require('./services/mpesaService');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'restaurant-sms-saas-secret-key-2026';
 
@@ -37,10 +37,13 @@ const mpesaStatus = validateMpesaConfig();
 if (!mpesaStatus.valid) {
     console.error(`[CRITICAL] Missing M-Pesa configuration: ${mpesaStatus.missing.join(', ')}`);
 } else {
-    console.log('[CONFIG] M-Pesa Diagnostics:');
-    console.log(` - Env: ${mpesaStatus.env}`);
-    console.log(` - Shortcode: ${process.env.MPESA_SHORTCODE.slice(0, 3)}***`);
-    console.log(` - Callback: ${process.env.MPESA_CALLBACK_URL}`);
+    console.log('[MPESA_CONFIG]');
+    console.log(`CONSUMER_KEY: ${process.env.MPESA_CONSUMER_KEY ? 'Present' : 'Missing'}`);
+    console.log(`CONSUMER_SECRET: ${process.env.MPESA_CONSUMER_SECRET ? 'Present' : 'Missing'}`);
+    console.log(`SHORTCODE: ${process.env.MPESA_SHORTCODE ? 'Present' : 'Missing'}`);
+    console.log(`PASSKEY: ${process.env.MPESA_PASSKEY ? 'Present' : 'Missing'}`);
+    console.log(`CALLBACK_URL: ${process.env.MPESA_CALLBACK_URL ? 'Present' : 'Missing'}`);
+    console.log(`ENVIRONMENT: ${process.env.MPESA_ENVIRONMENT || 'Not Set'}`);
     if (!process.env.MPESA_CALLBACK_URL.startsWith('https://')) {
         console.warn(' ! [WARNING] MPESA_CALLBACK_URL is not HTTPS. This will fail in production.');
     }
@@ -1886,7 +1889,11 @@ app.post('/subscriptions/mpesa/initiate', authenticateToken, async (req, res) =>
             return res.status(400).json({ error: 'Plan, phone, and amount are required' });
         }
 
-        console.log(`[MPESA_INITIATE] Plan: ${plan} | Phone: ${phone} | Restaurant: ${restaurantId}`);
+        console.log('[MPESA_INIT] Request received');
+        console.log('[MPESA_INIT] User:', req.user.userId);
+        console.log('[MPESA_INIT] Plan:', plan);
+        console.log('[MPESA_INIT] Phone:', maskPhone(phone));
+
         const result = await initiateSTKPush(amount, phone, restaurantId);
 
         if (result.ResponseCode === '0') {
@@ -1907,7 +1914,11 @@ app.post('/subscriptions/mpesa/initiate', authenticateToken, async (req, res) =>
         }
     } catch (error) {
         console.error('[MPESA_INITIATE_ERROR]', error);
-        res.status(500).json({ error: 'M-Pesa payment failed to initialize' });
+        res.status(500).json({
+            success: false,
+            errorCode: 'MPESA_STK_INIT_FAILED',
+            message: 'M-Pesa payment failed to initialize'
+        });
     }
 });
 
@@ -1924,7 +1935,11 @@ app.post('/subscriptions/mpesa/callback', async (req, res) => {
     }
 
     const callbackData = req.body.Body.stkCallback;
-    console.log(`[MPESA_CALLBACK_DETAIL] ResultCode: ${callbackData.ResultCode} | Msg: ${callbackData.ResultDesc}`);
+    console.log('[MPESA_CALLBACK_DETAIL]');
+    console.log(`ResultCode: ${callbackData.ResultCode}`);
+    console.log(`CheckoutRequestID: ${callbackData.CheckoutRequestID}`);
+    console.log(`MerchantRequestID: ${callbackData.MerchantRequestID || 'N/A'}`);
+    console.log(`Msg: ${callbackData.ResultDesc}`);
 
     if (callbackData.ResultCode === 0) {
         const metadata = callbackData.CallbackMetadata.Item;
