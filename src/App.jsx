@@ -379,11 +379,11 @@ function App() {
       const baseEndpoints = [
         '/sms-queue/history', // 0
         '/metrics',           // 1
-        '/gateway/status'     // 2
+        '/gateway/status',    // 2
+        '/customers'          // 3
       ];
 
       const extraEndpoints = [
-        '/customers',             // 3
         '/settings',              // 4
         '/templates',             // 5
         '/subscription/history'   // 6
@@ -392,15 +392,15 @@ function App() {
       const endpointsToFetch = isDashboardHeartbeat ? baseEndpoints : [...baseEndpoints, ...extraEndpoints];
       const results = await Promise.all(endpointsToFetch.map(endpoint => fetchWithAuth(endpoint)));
 
-      // Always update dashboard components (they are in the base endpoints)
+      // Always update dashboard and customer lists
       setSmsHistory(results[0])
       setMetrics(results[1])
       setGatewayStatus(results[2])
+      setCustomers(results[3])
 
       // Only update form-based pages if it's NOT a background heartbeat
       // This prevents overwriting unsaved user data in Settings, Templates, etc.
       if (!isDashboardHeartbeat) {
-        setCustomers(results[3])
         setSettings(results[4])
         setTemplates(results[5])
         setSubscriptionHistory(results[6])
@@ -980,7 +980,7 @@ function App() {
                             />
                           </th>
                           <th style={{ width: '15%' }}>Created Date</th>
-                          <th style={{ width: '35%' }}>Customer Name</th>
+                          <th className="customer-name-cell" style={{ width: '35%' }}>Customer Name</th>
                           <th style={{ width: '15%' }}>Phone Number</th>
                           <th style={{ width: '15%' }}>SMS Sent Time</th>
                           <th style={{ width: '10%' }}>Status</th>
@@ -990,7 +990,7 @@ function App() {
                       <tbody>
                         {smsHistory.slice(0, 100).map(msg => (
                           <tr key={msg.id} className={selectedSms.includes(msg.id) ? 'row-selected' : ''}>
-                            <td>
+                            <td style={{ width: '40px' }}>
                               <input
                                 type="checkbox"
                                 className="custom-checkbox"
