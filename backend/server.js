@@ -7,7 +7,7 @@ const path = require('path');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { sendOTPEmail, validateEmailConfig, testEmailConnection } = require('./services/emailService');
-const { initiateSTKPush } = require('./services/mpesaService');
+const { initiateSTKPush, validateConfig: validateMpesaConfig } = require('./services/mpesaService');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'restaurant-sms-saas-secret-key-2026';
 
@@ -32,22 +32,19 @@ const PENDING_MPESA_FILE = path.join(DATA_DIR, 'pending_mpesa.json');
 const DEFAULT_RESTAURANT_ID = 'default';
 
 // --- MPESA ENVIRONMENT VALIDATION ---
-const validateMpesaConfig = () => {
-    const required = [
-        'MPESA_CONSUMER_KEY', 'MPESA_CONSUMER_SECRET', 'MPESA_SHORTCODE',
-        'MPESA_PASSKEY', 'MPESA_CALLBACK_URL', 'MPESA_ENVIRONMENT'
-    ];
-    const missing = required.filter(key => !process.env[key]);
-    if (missing.length > 0) {
-        console.error(`[CRITICAL] Missing M-Pesa configuration: ${missing.join(', ')}`);
-    } else {
-        console.log('[CONFIG] M-Pesa Diagnostics:');
-        console.log(` - Env: ${process.env.MPESA_ENVIRONMENT}`);
-        console.log(` - Shortcode: ${process.env.MPESA_SHORTCODE.slice(0, 3)}***`);
-        console.log(` - Callback: ${process.env.MPESA_CALLBACK_URL}`);
+// --- MPESA ENVIRONMENT VALIDATION ---
+const mpesaStatus = validateMpesaConfig();
+if (!mpesaStatus.valid) {
+    console.error(`[CRITICAL] Missing M-Pesa configuration: ${mpesaStatus.missing.join(', ')}`);
+} else {
+    console.log('[CONFIG] M-Pesa Diagnostics:');
+    console.log(` - Env: ${mpesaStatus.env}`);
+    console.log(` - Shortcode: ${process.env.MPESA_SHORTCODE.slice(0, 3)}***`);
+    console.log(` - Callback: ${process.env.MPESA_CALLBACK_URL}`);
+    if (!process.env.MPESA_CALLBACK_URL.startsWith('https://')) {
+        console.warn(' ! [WARNING] MPESA_CALLBACK_URL is not HTTPS. This will fail in production.');
     }
-};
-validateMpesaConfig();
+}
 
 app.use(cors());
 app.use(bodyParser.json());
@@ -1875,6 +1872,16 @@ app.post('/subscriptions/mpesa/initiate', authenticateToken, async (req, res) =>
         const { plan, phone, amount } = req.body;
         const restaurantId = req.user.restaurantId;
 
+        // Pre-flight Config Check
+        const mpesaStatus = validateMpesaConfig();
+        if (!mpesaStatus.valid) {
+            return res.status(500).json({
+                success: false,
+                errorCode: 'MPESA_CONFIG_MISSING',
+                message: 'M-Pesa configuration is incomplete on the server.'
+            });
+        }
+
         if (!plan || !phone || !amount) {
             return res.status(400).json({ error: 'Plan, phone, and amount are required' });
         }
@@ -1908,8 +1915,16 @@ app.post('/subscriptions/mpesa/initiate', authenticateToken, async (req, res) =>
  * @api {post} /subscriptions/mpesa/callback Automated M-Pesa Callback (Safaricom)
  */
 app.post('/subscriptions/mpesa/callback', async (req, res) => {
+    console.log('[MPESA_CALLBACK_RECEIVED]');
+
+    // Safety check for malformed Safaricom bodies
+    if (!req.body?.Body?.stkCallback) {
+        console.error('[MPESA_CALLBACK_ERROR] Malformed callback body reached endpoint');
+        return res.status(400).json({ error: 'Invalid callback structure' });
+    }
+
     const callbackData = req.body.Body.stkCallback;
-    console.log(`[MPESA_CALLBACK] ResultCode: ${callbackData.ResultCode} | Msg: ${callbackData.ResultDesc}`);
+    console.log(`[MPESA_CALLBACK_DETAIL] ResultCode: ${callbackData.ResultCode} | Msg: ${callbackData.ResultDesc}`);
 
     if (callbackData.ResultCode === 0) {
         const metadata = callbackData.CallbackMetadata.Item;
