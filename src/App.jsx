@@ -33,7 +33,9 @@ function App() {
   const [transactionCode, setTransactionCode] = useState('')
   const [selectedPlan, setSelectedPlan] = useState('Professional')
   const [subscriptionHistory, setSubscriptionHistory] = useState([])
-  const [selectedSms, setSelectedSms] = useState([])
+  const [showMpesaModal, setShowMpesaModal] = useState(false)
+  const [mpesaPhone, setMpesaPhone] = useState('')
+  const [isProcessingMpesa, setIsProcessingMpesa] = useState(false)
   const [selectedCustomers, setSelectedCustomers] = useState([])
 
   const [loading, setLoading] = useState(true)
@@ -1227,67 +1229,101 @@ function App() {
           {
             activeTab === 'subscription' && (
               <div className="section">
-                <div className="card" style={{ marginBottom: '24px' }}>
-                  <h3>Current Subscription Status</h3>
-                  <div className="kpi-grid" style={{ marginTop: '16px' }}>
-                    <div className="card"><div className="kpi-label">Current Plan</div><div className="kpi-value" style={{ fontSize: '1.5rem' }}>{restaurant?.plan || 'None'}</div></div>
-                    <div className="card"><div className="kpi-label">Status</div><div className="kpi-value" style={{ color: restaurant?.subscriptionStatus === 'Active' ? 'var(--success)' : 'var(--danger)' }}>{restaurant?.subscriptionStatus || 'Not Activated'}</div></div>
+                <div className="card" style={{ marginBottom: '32px' }}>
+                  <h3 className="subscription-section-title">Current Subscription Status</h3>
+                  <div className="kpi-grid">
+                    <div className="card">
+                      <div className="subscription-helper-text">Current Plan</div>
+                      <div style={{ fontSize: '1.25rem', fontWeight: 700, marginTop: '4px' }}>{restaurant?.plan || 'None'}</div>
+                    </div>
+                    <div className="card">
+                      <div className="subscription-helper-text">Status</div>
+                      <div className={`subscription-badge ${restaurant?.subscriptionStatus === 'Active' ? 'badge-sent' : 'badge-pending'}`} style={{ display: 'inline-block', marginTop: '8px' }}>
+                        {restaurant?.subscriptionStatus || 'Inactive'}
+                      </div>
+                    </div>
                     {restaurant?.subscriptionStatus === 'Active' && (
                       <>
-                        <div className="card"><div className="kpi-label">Expiry</div><div className="kpi-value" style={{ fontSize: '1.25rem' }}>{restaurant?.subscriptionExpiry ? formatDateTime(restaurant.subscriptionExpiry) : 'N/A'}</div></div>
-                        <div className="card"><div className="kpi-label">Days Remaining</div><div className="kpi-value">{getDaysRemaining(restaurant?.subscriptionExpiry)}</div></div>
+                        <div className="card">
+                          <div className="subscription-helper-text">Expiry</div>
+                          <div className="subscription-table-text" style={{ fontWeight: 600, marginTop: '4px' }}>
+                            {restaurant?.subscriptionExpiry ? formatActivityDate(restaurant.subscriptionExpiry) : 'N/A'}
+                          </div>
+                        </div>
+                        <div className="card">
+                          <div className="subscription-helper-text">Days Left</div>
+                          <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--primary-blue)' }}>{getDaysRemaining(restaurant?.subscriptionExpiry)}</div>
+                        </div>
                       </>
                     )}
                   </div>
                 </div>
 
-                <div className="card" style={{ marginBottom: '24px' }}>
-                  <h3>Business Subscription Plans</h3>
-                  <div className="kpi-grid" style={{ marginTop: '16px' }}>
-                    <div className="card" style={{ borderColor: selectedPlan === 'Starter' ? 'var(--primary-orange)' : '' }} onClick={() => setSelectedPlan('Starter')}>
-                      <h4>Starter</h4>
-                      <div className="price" style={{ fontSize: '1.5rem', fontWeight: 800, margin: '10px 0' }}>KES 1,250/mo</div>
-                      <button className="nav-btn" style={{ width: '100%', background: selectedPlan === 'Starter' ? 'var(--primary-blue)' : '#f1f5f9', color: selectedPlan === 'Starter' ? 'white' : '' }}>Select</button>
-                    </div>
-                    <div className="card" style={{ borderColor: selectedPlan === 'Professional' ? 'var(--primary-orange)' : '' }} onClick={() => setSelectedPlan('Professional')}>
-                      <h4 style={{ color: 'var(--primary-orange)' }}>Professional</h4>
-                      <div className="price" style={{ fontSize: '1.5rem', fontWeight: 800, margin: '10px 0' }}>KES 2,500/mo</div>
-                      <button className="nav-btn" style={{ width: '100%', background: selectedPlan === 'Professional' ? 'var(--primary-blue)' : '#f1f5f9', color: selectedPlan === 'Professional' ? 'white' : '' }}>Select</button>
-                    </div>
-                    <div className="card" style={{ borderColor: selectedPlan === 'Enterprise' ? 'var(--primary-orange)' : '' }} onClick={() => setSelectedPlan('Enterprise')}>
-                      <h4>Enterprise</h4>
-                      <div className="price" style={{ fontSize: '1.5rem', fontWeight: 800, margin: '10px 0' }}>KES 5,000/mo</div>
-                      <button className="nav-btn" style={{ width: '100%', background: selectedPlan === 'Enterprise' ? 'var(--primary-blue)' : '#f1f5f9', color: selectedPlan === 'Enterprise' ? 'white' : '' }}>Select</button>
-                    </div>
+                <div className="card" style={{ marginBottom: '32px' }}>
+                  <h3 className="subscription-section-title">Business Subscription Plans</h3>
+                  <p className="subscription-body" style={{ marginBottom: '24px' }}>Choose a plan that fits your business volume. All plans include automated SMS and analytics.</p>
+
+                  <div className="kpi-grid">
+                    {[
+                      { name: 'Starter', price: 1250, desc: 'Ideal for small cafes' },
+                      { name: 'Professional', price: 2500, desc: 'Perfect for busy restaurants' },
+                      { name: 'Enterprise', price: 5000, desc: 'For large franchises' }
+                    ].map(plan => (
+                      <div
+                        key={plan.name}
+                        className={`pricing-card ${selectedPlan === plan.name ? 'selected' : ''}`}
+                        onClick={() => setSelectedPlan(plan.name)}
+                      >
+                        <h4 className="subscription-card-title" style={{ color: plan.name === 'Professional' ? 'var(--primary-orange)' : 'inherit' }}>{plan.name}</h4>
+                        <p className="subscription-helper-text">{plan.desc}</p>
+                        <div className="price-display">KES {plan.price.toLocaleString()}</div>
+                        <div className="subscription-helper-text">per month</div>
+                        <button
+                          className="btn-security-primary"
+                          style={{ width: '100%', marginTop: '16px', background: selectedPlan === plan.name ? '' : '#f1f5f9', color: selectedPlan === plan.name ? '' : '#64748b', border: selectedPlan === plan.name ? '' : '1px solid #e2e8f0' }}
+                        >
+                          {selectedPlan === plan.name ? 'Selected' : 'Select Plan'}
+                        </button>
+                      </div>
+                    ))}
                   </div>
 
-                  <div style={{ marginTop: '32px' }}>
-                    <h4>Payment Instructions (Paybill 400200 / Account {restaurant?.id})</h4>
-                    <form onSubmit={handleVerifyPayment} style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
-                      <input className="form-control" style={{ flex: 1 }} placeholder="Enter Transaction Code" value={transactionCode} onChange={e => setTransactionCode(e.target.value)} required />
-                      <button className="login-btn" style={{ marginTop: 0, padding: '0 32px' }} type="submit">Verify</button>
-                    </form>
+                  <div style={{ marginTop: '40px', padding: '24px', background: '#f8fafc', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <h4 className="subscription-card-title">Automated M-Pesa Activation</h4>
+                        <p className="subscription-body">Pay instantly via STK Push. No manual verification required.</p>
+                      </div>
+                      <button
+                        className="btn-security-primary"
+                        style={{ padding: '12px 32px' }}
+                        onClick={() => {
+                          setMpesaPhone(restaurant?.phone || '');
+                          setShowMpesaModal(true);
+                        }}
+                      >
+                        Pay KES {selectedPlan === 'Starter' ? '1,250' : selectedPlan === 'Professional' ? '2,500' : '5,000'}
+                      </button>
+                    </div>
                   </div>
                 </div>
 
                 <div className="card">
-                  <h3>Payment History</h3>
-                  <div className="table-container" style={{ marginTop: '16px' }}>
-                    <table className="activity-table" style={{ width: '100%', tableLayout: 'fixed' }}>
+                  <h3 className="subscription-section-title">Payment History</h3>
+                  <div className="table-container">
+                    <table className="activity-table">
                       <colgroup>
-                        <col style={{ width: '25%' }} />
+                        <col style={{ width: '30%' }} />
                         <col style={{ width: '20%' }} />
                         <col style={{ width: '15%' }} />
+                        <col style={{ width: '20%' }} />
                         <col style={{ width: '15%' }} />
-                        <col style={{ width: '15%' }} />
-                        <col style={{ width: '10%' }} />
                       </colgroup>
                       <thead>
                         <tr>
-                          <th>Transaction Code</th>
+                          <th>Receipt #</th>
                           <th>Plan Purchased</th>
                           <th>Amount</th>
-                          <th>Duration</th>
                           <th>Date</th>
                           <th>Status</th>
                         </tr>
@@ -1295,21 +1331,17 @@ function App() {
                       <tbody>
                         {subscriptionHistory.map(pay => (
                           <tr key={pay.id}>
-                            <td style={{ fontWeight: 700 }} title={pay.transactionCode}>{pay.transactionCode}</td>
-                            <td title={pay.plan}>{pay.plan}</td>
-                            <td>KES {pay.amount?.toLocaleString()}</td>
-                            <td>1 Month</td>
-                            <td className="date-cell" title={formatDateTime(pay.date)}>{formatDateTime(pay.date)}</td>
-                            <td><span className="badge badge-sent">Processed</span></td>
+                            <td className="subscription-table-text" style={{ fontWeight: 700 }}>{pay.transactionCode}</td>
+                            <td className="subscription-table-text">{pay.plan}</td>
+                            <td className="subscription-table-text">KES {pay.amount?.toLocaleString()}</td>
+                            <td className="subscription-table-text">{formatActivityDate(pay.date)}</td>
+                            <td><span className="subscription-badge badge-sent">Processed</span></td>
                           </tr>
                         ))}
                         {subscriptionHistory.length === 0 && (
                           <tr>
-                            <td colSpan="6" style={{ textAlign: 'center', padding: '60px' }}>
-                              <div style={{ color: 'var(--text-muted)' }}>
-                                <div style={{ fontSize: '2rem', marginBottom: '16px' }}>💳</div>
-                                <p>No subscription payments found yet.</p>
-                              </div>
+                            <td colSpan="5" style={{ textAlign: 'center', padding: '60px' }}>
+                              <p className="subscription-body">No subscription history found.</p>
                             </td>
                           </tr>
                         )}
@@ -1317,6 +1349,73 @@ function App() {
                     </table>
                   </div>
                 </div>
+
+                {/* M-Pesa Payment Modal */}
+                {showMpesaModal && (
+                  <Modal title="Lipa Na M-Pesa Online" onClose={() => !isProcessingMpesa && setShowMpesaModal(false)}>
+                    <div style={{ padding: '20px' }}>
+                      <div className="modal-payment-card">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                          <span className="subscription-body">Purchasing:</span>
+                          <span className="subscription-table-text" style={{ fontWeight: 700 }}>{selectedPlan} Plan</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span className="subscription-body">Amount Due:</span>
+                          <span className="subscription-table-text" style={{ color: 'var(--primary-blue)', fontWeight: 800 }}>
+                            KES {selectedPlan === 'Starter' ? '1,250' : selectedPlan === 'Professional' ? '2,500' : '5,000'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="form-group">
+                        <label className="subscription-card-title">M-Pesa Phone Number</label>
+                        <input
+                          className="form-control"
+                          placeholder="e.g. 0712345678"
+                          value={mpesaPhone}
+                          onChange={e => setMpesaPhone(e.target.value)}
+                          disabled={isProcessingMpesa}
+                        />
+                        <p className="subscription-helper-text" style={{ marginTop: '8px' }}>You will receive an STK Push prompt on this phone.</p>
+                      </div>
+
+                      <button
+                        className="btn-security-primary"
+                        style={{ width: '100%', marginTop: '24px', padding: '14px' }}
+                        disabled={isProcessingMpesa || mpesaPhone.length < 10}
+                        onClick={async () => {
+                          setIsProcessingMpesa(true);
+                          try {
+                            const amount = selectedPlan === 'Starter' ? 1250 : selectedPlan === 'Professional' ? 2500 : 5000;
+                            const res = await fetchWithAuth('/subscriptions/mpesa/initiate', {
+                              method: 'POST',
+                              body: JSON.stringify({ plan: selectedPlan, phone: mpesaPhone, amount })
+                            });
+
+                            showToast('STK Push sent! Please enter your PIN on your phone.');
+
+                            // Start polling or just wait
+                            setTimeout(() => {
+                              showToast('Payment processing... Please wait.');
+                              setTimeout(() => {
+                                refreshData(true);
+                                setShowMpesaModal(false);
+                                setIsProcessingMpesa(false);
+                                showToast('Subscription activated successfully!', 'success');
+                              }, 5000);
+                            }, 5000);
+
+                          } catch (err) {
+                            showToast(err.message, 'error');
+                            setIsProcessingMpesa(false);
+                          }
+                        }}
+                      >
+                        {isProcessingMpesa ? 'Awaiting M-Pesa PIN...' : 'Pay with M-Pesa'}
+                      </button>
+                    </div>
+                  </Modal>
+                )}
               </div>
             )
           }

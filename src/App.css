@@ -1193,3 +1193,89 @@ h4 {
   color: var(--primary-blue);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
+
+/* --- Subscription Integration Styles --- */
+.subscription-section-title {
+  font-size: 1.125rem;
+  /* 18px */
+  font-weight: 600;
+  line-height: 1.4;
+  margin-bottom: 16px;
+  color: var(--text-main);
+}
+
+.subscription-card-title {
+  font-size: 1rem;
+  /* 16px */
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.subscription-body {
+  font-size: 0.875rem;
+  /* 14px */
+  font-weight: 400;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.subscription-table-text {
+  font-size: 0.8125rem;
+  /* 13px */
+  font-weight: 400;
+}
+
+.subscription-helper-text {
+  font-size: 0.75rem;
+  /* 12px */
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.subscription-badge {
+  font-size: 0.75rem;
+  /* 12px */
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 12px;
+}
+
+.subscription-btn-text {
+  font-size: 0.875rem;
+  /* 14px */
+  font-weight: 500;
+}
+
+.pricing-card {
+  border: 1.5px solid var(--border);
+  padding: 20px;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  background: white;
+}
+
+.pricing-card:hover {
+  border-color: var(--primary-blue);
+  box-shadow: 0 4px 12px rgba(0, 114, 206, 0.08);
+}
+
+.pricing-card.selected {
+  border-color: var(--primary-orange);
+  background: rgba(247, 147, 30, 0.02);
+}
+
+.price-display {
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin: 12px 0;
+  color: var(--text-main);
+}
+
+.modal-payment-card {
+  background: #f8fafc;
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  border: 1px solid var(--border);
+}
