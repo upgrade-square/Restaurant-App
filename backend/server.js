@@ -353,26 +353,29 @@ app.post('/customers', authenticateToken, checkSubscription, (req, res) => {
             };
             customers.push(customer);
         } else {
-            // New Requirement: Update customer name if provided, and increment visit count
-            if (name) customer.name = name;
-            customer.visitCount = (customer.visitCount || 0) + 1;
+            // Re-enrollment check: If found but not served by us, treat as NEW engagement
+            const isReenrolling = !customer.servedBy || !customer.servedBy.includes(restaurantId);
 
-            // If this is the FIRST visit (new or after reset), set the createdAt date
-            if (customer.visitCount === 1) {
+            if (isReenrolling) {
+                customer.visitCount = 1;
                 customer.createdAt = nowUTC();
-                // Remove legacy keys if they exist
-                delete customer.created_at;
-                delete customer.timestamp;
+                if (!customer.servedBy) customer.servedBy = [];
+                customer.servedBy.push(restaurantId);
+            } else {
+                customer.visitCount = (customer.visitCount || 0) + 1;
+                // If this is the FIRST visit (new or after reset), set the createdAt date
+                if (customer.visitCount === 1) {
+                    customer.createdAt = nowUTC();
+                }
             }
 
+            if (name) customer.name = name;
             customer.lastSeen = nowUTC();
             customer.active = true;
 
-            // Track that this restaurant has served this unique customer
-            if (!customer.servedBy) customer.servedBy = [customer.restaurantId || DEFAULT_RESTAURANT_ID];
-            if (!customer.servedBy.includes(restaurantId)) {
-                customer.servedBy.push(restaurantId);
-            }
+            // Remove legacy keys if they exist
+            delete customer.created_at;
+            delete customer.timestamp;
         }
 
         // 2. Prepare message using standardized template engine
@@ -477,26 +480,27 @@ app.post('/payments/incoming', authenticateToken, (req, res) => {
             customers.push(customer);
             console.log(`[PAYMENT_CUSTOMER_CREATED] ${customer.id}`);
         } else {
-            // New Requirement: Update customer name if provided, and increment visit count
-            if (customerName) customer.name = customerName;
-            customer.visitCount = (customer.visitCount || 0) + 1;
+            // Re-enrollment check: If found but not served by us, treat as NEW engagement
+            const isReenrolling = !customer.servedBy || !customer.servedBy.includes(restaurantId);
 
-            // If this is the FIRST visit (new or after reset), set the createdAt date
-            if (customer.visitCount === 1) {
+            if (isReenrolling) {
+                customer.visitCount = 1;
                 customer.createdAt = nowUTC();
-                // Remove legacy keys if they exist
-                delete customer.created_at;
-                delete customer.timestamp;
+                if (!customer.servedBy) customer.servedBy = [];
+                customer.servedBy.push(restaurantId);
+                console.log(`[PAYMENT_RE_ENROLLED] ${customer.id} | Name: ${customerName}`);
+            } else {
+                customer.visitCount = (customer.visitCount || 0) + 1;
             }
 
+            if (customerName) customer.name = customerName;
             customer.lastSeen = nowUTC();
             customer.active = true;
 
-            // Track that this restaurant has served this unique customer
-            if (!customer.servedBy) customer.servedBy = [customer.restaurantId || DEFAULT_RESTAURANT_ID];
-            if (!customer.servedBy.includes(restaurantId)) {
-                customer.servedBy.push(restaurantId);
-            }
+            // Remove legacy keys
+            delete customer.created_at;
+            delete customer.timestamp;
+
             console.log(`[PAYMENT_CUSTOMER_UPDATED] ${customer.id} | Visits: ${customer.visitCount}`);
         }
         writeData(DATA_FILE, customers);
@@ -732,15 +736,31 @@ app.delete('/customers/:id', authenticateToken, checkSubscription, (req, res) =>
         const { id } = req.params;
         const restaurantId = req.user.restaurantId;
         let customers = readData(DATA_FILE);
-        const initialLength = customers.length;
-        customers = customers.filter(c => !(c.id === parseInt(id) && (c.restaurantId === restaurantId || (!c.restaurantId && restaurantId === DEFAULT_RESTAURANT_ID))));
+        const customer = customers.find(c => c.id === parseInt(id));
 
-        if (customers.length === initialLength) {
-            return res.json({ message: 'Customer already removed or not found or access denied' });
+        if (!customer) return res.status(404).json({ error: 'Customer not found' });
+
+        // Check if authorized (either owner or in servedBy)
+        const isAuthorized = customer.restaurantId === restaurantId || (customer.servedBy && customer.servedBy.includes(restaurantId));
+        if (!isAuthorized) return res.status(403).json({ error: 'Access denied' });
+
+        // Logic: If others serve them, just UNLINK us. If only we serve them, DELETE the record.
+        const otherServers = (customer.servedBy || []).filter(rid => rid !== restaurantId);
+
+        if (otherServers.length > 0) {
+            // Unlink current restaurant
+            customer.servedBy = otherServers;
+            if (customer.restaurantId === restaurantId) {
+                customer.restaurantId = otherServers[0]; // Transfer ownership
+            }
+            writeData(DATA_FILE, customers);
+            return res.json({ message: 'Customer unlinked successfully' });
+        } else {
+            // Permanent Delete
+            customers = customers.filter(c => c.id !== parseInt(id));
+            writeData(DATA_FILE, customers);
+            return res.json({ message: 'Customer deleted successfully' });
         }
-
-        writeData(DATA_FILE, customers);
-        res.json({ message: 'Customer deleted' });
     } catch (error) {
         res.status(500).json({ error: 'Failed to delete customer' });
     }
@@ -756,16 +776,29 @@ app.post('/customers/delete-multiple', authenticateToken, checkSubscription, (re
         if (!Array.isArray(ids)) return res.status(400).json({ error: 'IDs must be an array' });
 
         let customers = readData(DATA_FILE);
-        const initialLength = customers.length;
+        const idsToProcess = ids.map(Number);
 
-        customers = customers.filter(c => {
-            const isTarget = ids.map(Number).includes(Number(c.id));
-            const isAuthorized = c.restaurantId === restaurantId || (!c.restaurantId && restaurantId === DEFAULT_RESTAURANT_ID);
-            return !(isTarget && isAuthorized);
-        });
+        let deleteCount = 0;
+        const updatedCustomers = customers.map(c => {
+            if (idsToProcess.includes(Number(c.id))) {
+                const isAuthorized = c.restaurantId === restaurantId || (c.servedBy && c.servedBy.includes(restaurantId));
+                if (isAuthorized) {
+                    deleteCount++;
+                    const otherServers = (c.servedBy || []).filter(rid => rid !== restaurantId);
+                    if (otherServers.length > 0) {
+                        // Unlink
+                        c.servedBy = otherServers;
+                        if (c.restaurantId === restaurantId) c.restaurantId = otherServers[0];
+                        return c;
+                    }
+                    return null; // Flag for deletion
+                }
+            }
+            return c;
+        }).filter(Boolean);
 
-        writeData(DATA_FILE, customers);
-        res.json({ message: `${initialLength - customers.length} customers deleted`, deletedCount: initialLength - customers.length });
+        writeData(DATA_FILE, updatedCustomers);
+        res.json({ message: `${deleteCount} customers processed`, deletedCount: deleteCount });
     } catch (error) {
         res.status(500).json({ error: 'Failed to delete customers' });
     }
