@@ -694,7 +694,7 @@ app.post('/sms-queue/delete-multiple', authenticateToken, checkSubscription, (re
         const initialLength = smsQueue.length;
 
         smsQueue = smsQueue.filter(s => {
-            const isTarget = ids.includes(s.id);
+            const isTarget = ids.map(Number).includes(Number(s.id));
             const isAuthorized = s.restaurantId === restaurantId || (!s.restaurantId && restaurantId === DEFAULT_RESTAURANT_ID);
             return !(isTarget && isAuthorized);
         });
@@ -741,7 +741,7 @@ app.post('/customers/delete-multiple', authenticateToken, checkSubscription, (re
         const initialLength = customers.length;
 
         customers = customers.filter(c => {
-            const isTarget = ids.includes(c.id);
+            const isTarget = ids.map(Number).includes(Number(c.id));
             const isAuthorized = c.restaurantId === restaurantId || (!c.restaurantId && restaurantId === DEFAULT_RESTAURANT_ID);
             return !(isTarget && isAuthorized);
         });
@@ -1323,11 +1323,11 @@ authRouter.post('/reset-account', authenticateToken, async (req, res) => {
         writeData(TEMPLATES_FILE, templates);
 
         logSecurityEvent(user.id, 'ACCOUNT_RESET', { email: user.email }, restaurantId);
-        console.log(`[ACCOUNT_RESET] Restaurant ${restaurantId} has been reset by user ${user.id}`);
-        res.json({ message: 'Account data has been completely reset.' });
+        console.log(`[ACCOUNT_RESET] Restaurant ${restaurantId} has been factory reset by user ${user.id}`);
+        res.json({ message: 'Factory reset completed successfully.' });
     } catch (error) {
-        console.error('Account reset failed', error);
-        res.status(500).json({ error: 'Failed to reset account data' });
+        console.error('Factory reset failed', error);
+        res.status(500).json({ error: 'Failed to perform factory reset' });
     }
 });
 

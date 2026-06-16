@@ -90,14 +90,23 @@ function App() {
   const [forgotEmail, setForgotEmail] = useState('');
   const [showRecoveryPassword, setShowRecoveryPassword] = useState(false);
 
-  // Verification & OTP State
-  const [securityOTP, setSecurityOTP] = useState('');
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpCooldown, setOtpCooldown] = useState(0);
+  // Verification & OTP State (Shared Requesting)
+  const [requestingOTP, setRequestingOTP] = useState(false);
+
+  // Password Change OTP State
+  const [passwordOTP, setPasswordOTP] = useState('');
+  const [passwordOtpSent, setPasswordOtpSent] = useState(false);
+  const [passwordOtpCooldown, setPasswordOtpCooldown] = useState(0);
+  const [passwordOtpExpiry, setPasswordOtpExpiry] = useState(0);
+
+  // Factory Reset OTP State
+  const [factoryResetOTP, setFactoryResetOTP] = useState('');
+  const [factoryResetOtpSent, setFactoryResetOtpSent] = useState(false);
+  const [factoryResetOtpCooldown, setFactoryResetOtpCooldown] = useState(0);
+  const [factoryResetOtpExpiry, setFactoryResetOtpExpiry] = useState(0);
+
   const [registrationOTP, setRegistrationOTP] = useState('');
   const [showOTPStep, setShowOTPStep] = useState(false);
-  const [requestingOTP, setRequestingOTP] = useState(false);
-  const [otpExpiry, setOtpExpiry] = useState(0); // seconds remaining
 
   const fetchWithAuth = async (endpoint, options = {}) => {
     const headers = { ...options.headers, 'Content-Type': 'application/json' }
@@ -180,14 +189,13 @@ function App() {
 
   const handleAccountReset = async () => {
     try {
-
       const data = await fetchWithAuth('/auth/reset-account', {
         method: 'POST',
-        body: JSON.stringify({ otp: securityOTP })
+        body: JSON.stringify({ otp: factoryResetOTP })
       });
 
-      showToast(data.message);
-      setSecurityOTP('');
+      showToast('Factory reset completed successfully');
+      setFactoryResetOTP('');
       setResetData({ password: '', confirmed: false });
       setShowResetConfirm(false);
 
@@ -195,33 +203,49 @@ function App() {
       refreshData();
       setActiveTab('dashboard');
     } catch (err) {
-      setSecurityOTP('');
+      setFactoryResetOTP('');
       showToast(err.message, 'danger');
     }
   };
 
   useEffect(() => {
     let timer;
-    if (otpCooldown > 0) {
-      timer = setInterval(() => setOtpCooldown(prev => prev - 1), 1000);
+    if (passwordOtpCooldown > 0) {
+      timer = setInterval(() => setPasswordOtpCooldown(prev => prev - 1), 1000);
     }
     return () => clearInterval(timer);
-  }, [otpCooldown]);
+  }, [passwordOtpCooldown]);
 
   useEffect(() => {
     let timer;
-    if (otpExpiry > 0) {
-      timer = setInterval(() => setOtpExpiry(prev => prev - 1), 1000);
+    if (passwordOtpExpiry > 0) {
+      timer = setInterval(() => setPasswordOtpExpiry(prev => prev - 1), 1000);
     }
     return () => clearInterval(timer);
-  }, [otpExpiry]);
+  }, [passwordOtpExpiry]);
 
-  const handleRequestOTP = async (email) => {
+  useEffect(() => {
+    let timer;
+    if (factoryResetOtpCooldown > 0) {
+      timer = setInterval(() => setFactoryResetOtpCooldown(prev => prev - 1), 1000);
+    }
+    return () => clearInterval(timer);
+  }, [factoryResetOtpCooldown]);
+
+  useEffect(() => {
+    let timer;
+    if (factoryResetOtpExpiry > 0) {
+      timer = setInterval(() => setFactoryResetOtpExpiry(prev => prev - 1), 1000);
+    }
+    return () => clearInterval(timer);
+  }, [factoryResetOtpExpiry]);
+
+  const handleRequestOTP = async (email, flow = 'password') => {
     if (!email) {
       showToast('Email address is required', 'danger');
       return false;
     }
-    console.log(`[OTP] Requesting code for: ${email}`);
+    console.log(`[OTP] Requesting code for: ${email} | Flow: ${flow}`);
     try {
       setRequestingOTP(true);
       const data = await fetchWithAuth('/auth/request-otp', {
@@ -230,9 +254,16 @@ function App() {
       });
       console.log(`[OTP] Success: ${data.message}`);
       showToast('Verification code sent successfully. Please check your email inbox.');
-      setOtpSent(true);
-      setOtpCooldown(60);
-      setOtpExpiry(300); // 5 minutes
+
+      if (flow === 'factory-reset') {
+        setFactoryResetOtpSent(true);
+        setFactoryResetOtpCooldown(60);
+        setFactoryResetOtpExpiry(300);
+      } else {
+        setPasswordOtpSent(true);
+        setPasswordOtpCooldown(60);
+        setPasswordOtpExpiry(300); // 5 minutes
+      }
       return true;
     } catch (err) {
       console.error(`[OTP] Failed: ${err.message}`);
@@ -249,18 +280,24 @@ function App() {
         showToast('New passwords do not match', 'danger');
         return;
       }
-      const data = await fetchWithAuth('/auth/change-password', {
+      const data = await fetchWithAuth('/auth/reset-password', {
         method: 'POST',
         body: JSON.stringify({
-          otp: securityOTP,
-          newPassword: passwordData.new,
+          email: user.email,
+          otp: passwordOTP,
+          password: passwordData.new,
           confirmPassword: passwordData.confirm
         })
       });
       showToast(data.message);
+      setToken(null);
+      setUser(null);
+      setRestaurant(null);
+      localStorage.clear();
+      setAuthMode('login');
+      setPasswordOTP('');
       setPasswordData({ current: '', new: '', confirm: '' });
-      setSecurityOTP('');
-      setOtpSent(false);
+      setPasswordOtpSent(false);
     } catch (err) {
       showToast(err.message, 'danger');
     }
@@ -342,11 +379,11 @@ function App() {
       const baseEndpoints = [
         '/sms-queue/history', // 0
         '/metrics',           // 1
-        '/gateway/status'     // 2
+        '/gateway/status',    // 2
+        '/customers'          // 3
       ];
 
       const extraEndpoints = [
-        '/customers',             // 3
         '/settings',              // 4
         '/templates',             // 5
         '/subscription/history'   // 6
@@ -355,15 +392,15 @@ function App() {
       const endpointsToFetch = isDashboardHeartbeat ? baseEndpoints : [...baseEndpoints, ...extraEndpoints];
       const results = await Promise.all(endpointsToFetch.map(endpoint => fetchWithAuth(endpoint)));
 
-      // Always update dashboard components (they are in the base endpoints)
+      // Always update dashboard and customer lists
       setSmsHistory(results[0])
       setMetrics(results[1])
       setGatewayStatus(results[2])
+      setCustomers(results[3])
 
       // Only update form-based pages if it's NOT a background heartbeat
       // This prevents overwriting unsaved user data in Settings, Templates, etc.
       if (!isDashboardHeartbeat) {
-        setCustomers(results[3])
         setSettings(results[4])
         setTemplates(results[5])
         setSubscriptionHistory(results[6])
@@ -463,22 +500,23 @@ function App() {
 
   const handleBulkDelete = async (type, ids) => {
     if (!ids.length) return;
+    const deleteCount = ids.length;
     try {
       const endpoint = type === 'sms' ? '/sms-queue/delete-multiple' : '/customers/delete-multiple';
       await fetchWithAuth(endpoint, {
         method: 'POST',
-        body: JSON.stringify({ ids })
+        body: JSON.stringify({ ids: ids.map(id => Number(id)) }) // Ensure numeric IDs
       });
 
       if (type === 'sms') {
-        setSmsHistory(prev => prev.filter(item => !ids.includes(item.id)));
+        setSmsHistory(prev => prev.filter(item => !ids.map(Number).includes(Number(item.id))));
         setSelectedSms([]);
       } else {
-        setCustomers(prev => prev.filter(item => !ids.includes(item.id)));
+        setCustomers(prev => prev.filter(item => !ids.map(Number).includes(Number(item.id))));
         setSelectedCustomers([]);
       }
 
-      showToast('Deleted successfully');
+      showToast(`${deleteCount} ${type === 'sms' ? 'records' : 'customers'} deleted successfully`);
       refreshData(true);
     } catch (err) {
       showToast(err.message || 'Deletion failed', 'error');
@@ -1368,15 +1406,15 @@ function App() {
                       <div className="settings-section" style={{ marginTop: '32px', paddingTop: '24px', borderTop: '1px solid var(--border)' }}>
                         <h4>Security Management</h4>
 
-                        {!otpSent ? (
+                        {!passwordOtpSent ? (
                           <div style={{ padding: '16px', background: '#f8fafc', borderRadius: '8px' }}>
                             <button
                               className="admin-action-btn"
                               type="button"
-                              onClick={() => handleRequestOTP(user.email)}
-                              disabled={otpCooldown > 0 || requestingOTP}
+                              onClick={() => handleRequestOTP(user.email, 'password')}
+                              disabled={passwordOtpCooldown > 0 || requestingOTP}
                             >
-                              {requestingOTP ? 'Sending Verification Code...' : otpCooldown > 0 ? `Resend code in ${otpCooldown}s` : 'Send Verification Code'}
+                              {requestingOTP ? 'Sending Verification Code...' : passwordOtpCooldown > 0 ? `Resend code in ${passwordOtpCooldown}s` : 'Send Verification Code'}
                             </button>
                           </div>
                         ) : (
@@ -1384,7 +1422,7 @@ function App() {
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                               <h5 style={{ margin: 0, color: 'var(--primary-blue)' }}>Security Verification</h5>
                               <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                                Expires: <span style={{ fontWeight: 600 }}>{Math.floor(otpExpiry / 60)}:{(otpExpiry % 60).toString().padStart(2, '0')}</span>
+                                Expires: <span style={{ fontWeight: 600 }}>{Math.floor(passwordOtpExpiry / 60)}:{(passwordOtpExpiry % 60).toString().padStart(2, '0')}</span>
                               </div>
                             </div>
                             <p style={{ fontSize: '0.85rem', marginBottom: '20px' }}>Enter the 6-digit verification code sent to your email address.</p>
@@ -1392,8 +1430,8 @@ function App() {
                               <label>Verification Code</label>
                               <input
                                 className="form-control"
-                                value={securityOTP}
-                                onChange={e => setSecurityOTP(e.target.value)}
+                                value={passwordOTP}
+                                onChange={e => setPasswordOTP(e.target.value)}
                                 placeholder="Enter 6-digit code"
                                 maxLength={6}
                                 style={{ letterSpacing: '4px', fontWeight: 'bold', textAlign: 'center', fontSize: '1.1rem' }}
@@ -1436,11 +1474,13 @@ function App() {
                                 className="admin-action-btn"
                                 type="button"
                                 onClick={handlePasswordChangeOTP}
-                                disabled={securityOTP.length < 6 || !passwordData.new}
+                                disabled={passwordOTP.length < 6 || !passwordData.new}
                               >
-                                Update Password
+                                {requestingOTP ? 'Changing...' : 'Change Password'}
                               </button>
-                              <button className="link-btn" onClick={() => setOtpSent(false)}>Cancel</button>
+                              <button className="admin-action-btn" style={{ background: 'white' }} type="button" onClick={() => { setPasswordOtpSent(false); setPasswordOTP(''); setPasswordData({ current: '', new: '', confirm: '' }); }}>
+                                Cancel
+                              </button>
                             </div>
                           </div>
                         )}
@@ -1452,7 +1492,7 @@ function App() {
                           Danger Zone
                         </h4>
                         <div className="form-group" style={{ marginTop: '16px' }}>
-                          <label>Perform Account Data Reset</label>
+                          <label>Perform Factory Reset</label>
 
                           {!showResetConfirm ? (
                             <button className="btn-delete" type="button" onClick={() => setShowResetConfirm(true)}>
@@ -1462,26 +1502,26 @@ function App() {
                             <div className="card" style={{ background: 'var(--danger-light)', border: '1px solid var(--danger)', padding: '24px' }}>
                               <p style={{ fontWeight: 700, color: 'var(--danger)', marginBottom: '16px' }}>Ownership Verification Required</p>
 
-                              {!otpSent ? (
+                              {!factoryResetOtpSent ? (
                                 <button
                                   className="login-btn danger"
                                   style={{ width: 'auto', padding: '10px 20px', background: 'var(--danger)' }}
-                                  onClick={() => handleRequestOTP(user.email)}
-                                  disabled={otpCooldown > 0 || requestingOTP}
+                                  onClick={() => handleRequestOTP(user.email, 'factory-reset')}
+                                  disabled={factoryResetOtpCooldown > 0 || requestingOTP}
                                 >
-                                  {requestingOTP ? 'Sending code...' : otpCooldown > 0 ? `Resend in ${otpCooldown}s` : 'Send Verification Code'}
+                                  {requestingOTP ? 'Sending code...' : factoryResetOtpCooldown > 0 ? `Resend in ${factoryResetOtpCooldown}s` : 'Send Verification Code'}
                                 </button>
                               ) : (
                                 <>
                                   <div style={{ marginBottom: '16px', fontSize: '0.85rem', color: 'var(--danger)', fontWeight: 600 }}>
-                                    Verification code expires in: {Math.floor(otpExpiry / 60)}:{(otpExpiry % 60).toString().padStart(2, '0')}
+                                    Verification code expires in: {Math.floor(factoryResetOtpExpiry / 60)}:{(factoryResetOtpExpiry % 60).toString().padStart(2, '0')}
                                   </div>
                                   <div className="form-group">
                                     <label>Enter 6-Digit Code</label>
                                     <input
                                       className="form-control"
-                                      value={securityOTP}
-                                      onChange={e => setSecurityOTP(e.target.value)}
+                                      value={factoryResetOTP}
+                                      onChange={e => setFactoryResetOTP(e.target.value)}
                                       placeholder="XXXXXX"
                                       maxLength={6}
                                       style={{ letterSpacing: '4px', fontWeight: 'bold', textAlign: 'center' }}
@@ -1493,11 +1533,11 @@ function App() {
                                       type="button"
                                       style={{ width: 'auto', padding: '10px 24px' }}
                                       onClick={handleAccountReset}
-                                      disabled={securityOTP.length < 6}
+                                      disabled={factoryResetOTP.length < 6}
                                     >
-                                      Confirm Permanent Reset
+                                      Confirm Factory Reset
                                     </button>
-                                    <button className="admin-action-btn" type="button" onClick={() => { setShowResetConfirm(false); setOtpSent(false); setSecurityOTP(''); }}>
+                                    <button className="admin-action-btn" type="button" onClick={() => { setShowResetConfirm(false); setFactoryResetOtpSent(false); setFactoryResetOTP(''); }}>
                                       Cancel
                                     </button>
                                   </div>
