@@ -355,7 +355,7 @@ app.post('/customers', authenticateToken, checkSubscription, (req, res) => {
         } else {
             // New Requirement: Update customer name if provided, and increment visit count
             if (name) customer.name = name;
-            customer.visitCount = (customer.visitCount || 1) + 1;
+            customer.visitCount = (customer.visitCount || 0) + 1;
             customer.lastSeen = nowUTC();
             customer.active = true;
 
@@ -470,7 +470,7 @@ app.post('/payments/incoming', authenticateToken, (req, res) => {
         } else {
             // New Requirement: Update customer name if provided, and increment visit count
             if (customerName) customer.name = customerName;
-            customer.visitCount = (customer.visitCount || 1) + 1;
+            customer.visitCount = (customer.visitCount || 0) + 1;
             customer.lastSeen = nowUTC();
             customer.active = true;
 
@@ -1289,25 +1289,22 @@ authRouter.post('/reset-account', authenticateToken, async (req, res) => {
         activityLog = activityLog.filter(a => a.restaurantId !== restaurantId);
         writeData(ACTIVITY_LOG_FILE, activityLog);
 
-        // 3. Operational Reset: Customers & Visit Counts
+        // 3. Operational Reset: Customers & Visit Counts (Preserve contacts, reset statistics)
         let customers = readData(DATA_FILE);
-        customers = customers.filter(c => {
+        customers = customers.map(c => {
             const isOwner = c.restaurantId === restaurantId;
             const isServedBy = c.servedBy && c.servedBy.includes(restaurantId);
 
             if (isOwner || isServedBy) {
-                // If they are served by OTHER restaurants, keep the record for them but remove OUR association
-                if (c.servedBy && c.servedBy.length > 1) {
-                    c.servedBy = c.servedBy.filter(id => id !== restaurantId);
-                    if (isOwner) c.restaurantId = c.servedBy[0]; // Transfer ownership to next in line
-                    // Note: visitCount is global in this architecture, but removing our association 
-                    // makes them "new" to us if they ever return.
-                    return true;
-                }
-                // If they ONLY belonged to us, delete the record completely
-                return false;
+                // Return original customer record with ZEROED engagement stats
+                return {
+                    ...c,
+                    visitCount: 0,
+                    lastSeen: null,
+                    active: true // Ensure they stay in the directory
+                };
             }
-            return true;
+            return c;
         });
         writeData(DATA_FILE, customers);
 
