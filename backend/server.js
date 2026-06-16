@@ -1871,12 +1871,36 @@ app.get('/subscription/history', authenticateToken, (req, res) => {
  * @api {post} /subscriptions/mpesa/initiate Initiate STK Push Payment
  */
 app.post('/subscriptions/mpesa/initiate', authenticateToken, async (req, res) => {
-    try {
-        const { plan, phone, amount } = req.body;
-        const restaurantId = req.user.restaurantId;
+    console.log('[MPESA_INIT] Route entered');
 
-        // Pre-flight Config Check
-        const mpesaStatus = validateMpesaConfig();
+    try {
+        // Step 0: Validate Service Import
+        const mpesaService = require('./services/mpesaService');
+        console.log('[MPESA_INIT] Service methods:', Object.keys(mpesaService || {}));
+
+        // Step 1: Validate Request Body
+        console.log('[MPESA_INIT] Body keys:', Object.keys(req.body || {}));
+        const { plan, phone, amount } = req.body || {};
+        const restaurantId = req.user?.restaurantId;
+
+        console.log('[MPESA_INIT] Validation:', { plan: !!plan, phone: !!phone, amount: !!amount, restaurantId: !!restaurantId });
+
+        if (!plan || !phone || !amount) {
+            console.warn('[MPESA_INIT] Validation failed - missing fields');
+            return res.status(400).json({ error: 'Plan, phone, and amount are required' });
+        }
+
+        // Step 2: Config Check
+        console.log('[MPESA_INIT] Running config check');
+        let mpesaStatus;
+        try {
+            mpesaStatus = validateMpesaConfig();
+            console.log('[MPESA_INIT] Config valid:', mpesaStatus.valid);
+        } catch (configError) {
+            console.error('[MPESA_INIT] Config check crashed:', configError);
+            throw configError;
+        }
+
         if (!mpesaStatus.valid) {
             return res.status(500).json({
                 success: false,
@@ -1885,19 +1909,19 @@ app.post('/subscriptions/mpesa/initiate', authenticateToken, async (req, res) =>
             });
         }
 
-        if (!plan || !phone || !amount) {
-            return res.status(400).json({ error: 'Plan, phone, and amount are required' });
+        // Step 3: Initiate Payment
+        console.log('[MPESA_INIT] Calling M-Pesa service');
+        let result;
+        try {
+            result = await initiateSTKPush(amount, phone, restaurantId);
+            console.log('[MPESA_INIT] Service result status:', result?.ResponseCode);
+        } catch (serviceError) {
+            console.error('[MPESA_INIT] Service call crashed:', serviceError);
+            throw serviceError;
         }
 
-        console.log('[MPESA_INIT] Request received');
-        console.log('[MPESA_INIT] User:', req.user.userId);
-        console.log('[MPESA_INIT] Plan:', plan);
-        console.log('[MPESA_INIT] Phone:', maskPhone(phone));
-
-        const result = await initiateSTKPush(amount, phone, restaurantId);
-
         if (result.ResponseCode === '0') {
-            // Save pending transaction for callback matching
+            console.log('[MPESA_INIT] Success, saving pending');
             const pending = readData(PENDING_MPESA_FILE);
             pending[result.CheckoutRequestID] = {
                 restaurantId,
@@ -1913,13 +1937,29 @@ app.post('/subscriptions/mpesa/initiate', authenticateToken, async (req, res) =>
             res.status(400).json({ error: result.CustomerMessage || 'Failed to initiate STK Push' });
         }
     } catch (error) {
-        console.error('[MPESA_INITIATE_ERROR]', error);
+        console.error('[MPESA_INIT_CRITICAL_ERROR]', {
+            message: error.message,
+            stack: error.stack,
+            body: req.body
+        });
         res.status(500).json({
             success: false,
             errorCode: 'MPESA_STK_INIT_FAILED',
             message: 'M-Pesa payment failed to initialize'
         });
     }
+});
+
+// Global Error Handler
+app.use((err, req, res, next) => {
+    console.error('[UNHANDLED_ERROR]', {
+        message: err.message,
+        stack: err.stack,
+        url: req.originalUrl,
+        method: req.method
+    });
+    if (res.headersSent) return next(err);
+    res.status(500).json({ error: 'Internal Server Error' });
 });
 
 /**
