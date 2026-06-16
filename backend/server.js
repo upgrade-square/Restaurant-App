@@ -353,13 +353,11 @@ app.post('/customers', authenticateToken, checkSubscription, (req, res) => {
             };
             customers.push(customer);
         } else {
-            // Requirement: Increment existing customer's visit count
+            // New Requirement: Update customer name if provided, and increment visit count
+            if (name) customer.name = name;
             customer.visitCount = (customer.visitCount || 1) + 1;
             customer.lastSeen = nowUTC();
             customer.active = true;
-
-            // Requirement: Preserve the original customer name
-            // (customer.name remains as it was)
 
             // Track that this restaurant has served this unique customer
             if (!customer.servedBy) customer.servedBy = [customer.restaurantId || DEFAULT_RESTAURANT_ID];
@@ -470,7 +468,8 @@ app.post('/payments/incoming', authenticateToken, (req, res) => {
             customers.push(customer);
             console.log(`[PAYMENT_CUSTOMER_CREATED] ${customer.id}`);
         } else {
-            // Requirement: Increment existing customer's visit count and preserve name
+            // New Requirement: Update customer name if provided, and increment visit count
+            if (customerName) customer.name = customerName;
             customer.visitCount = (customer.visitCount || 1) + 1;
             customer.lastSeen = nowUTC();
             customer.active = true;

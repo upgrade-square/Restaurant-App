@@ -1070,11 +1070,9 @@ function App() {
                         value={formData.name}
                         onChange={e => setFormData({ ...formData, name: e.target.value })}
                         required
-                        readOnly={!!(formData.phone.length >= 9 && customers.find(c => normalizePhone(c.phone) === normalizePhone(formData.phone)))}
-                        style={{ background: (formData.phone.length >= 9 && customers.find(c => normalizePhone(c.phone) === normalizePhone(formData.phone))) ? '#f8fafc' : 'white' }}
                       />
                       {formData.phone.length >= 9 && customers.find(c => normalizePhone(c.phone) === normalizePhone(formData.phone)) && (
-                        <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '4px' }}>Name is locked for existing contacts.</p>
+                        <p style={{ fontSize: '0.7rem', color: 'var(--success)', marginTop: '4px' }}>✓ Recognized Customer (Name will be updated if changed)</p>
                       )}
                     </div>
                     {isProfessional && (
