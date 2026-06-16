@@ -379,11 +379,11 @@ function App() {
       const baseEndpoints = [
         '/sms-queue/history', // 0
         '/metrics',           // 1
-        '/gateway/status',    // 2
-        '/customers'          // 3
+        '/gateway/status'     // 2
       ];
 
       const extraEndpoints = [
+        '/customers',             // 3
         '/settings',              // 4
         '/templates',             // 5
         '/subscription/history'   // 6
@@ -392,15 +392,15 @@ function App() {
       const endpointsToFetch = isDashboardHeartbeat ? baseEndpoints : [...baseEndpoints, ...extraEndpoints];
       const results = await Promise.all(endpointsToFetch.map(endpoint => fetchWithAuth(endpoint)));
 
-      // Always update dashboard and customer lists
+      // Always update dashboard components (they are in the base endpoints)
       setSmsHistory(results[0])
       setMetrics(results[1])
       setGatewayStatus(results[2])
-      setCustomers(results[3])
 
       // Only update form-based pages if it's NOT a background heartbeat
       // This prevents overwriting unsaved user data in Settings, Templates, etc.
       if (!isDashboardHeartbeat) {
+        setCustomers(results[3])
         setSettings(results[4])
         setTemplates(results[5])
         setSubscriptionHistory(results[6])
@@ -969,10 +969,10 @@ function App() {
                             <input
                               type="checkbox"
                               className="custom-checkbox"
-                              checked={smsHistory.length > 0 && selectedSms.length === smsHistory.slice(0, 100).length}
+                              checked={smsHistory.length > 0 && selectedSms.length === smsHistory.slice(0, 10).length}
                               onChange={(e) => {
                                 if (e.target.checked) {
-                                  setSelectedSms(smsHistory.slice(0, 100).map(s => s.id));
+                                  setSelectedSms(smsHistory.slice(0, 10).map(s => s.id));
                                 } else {
                                   setSelectedSms([]);
                                 }
@@ -988,7 +988,7 @@ function App() {
                         </tr>
                       </thead>
                       <tbody>
-                        {smsHistory.slice(0, 100).map(msg => (
+                        {smsHistory.slice(0, 10).map(msg => (
                           <tr key={msg.id} className={selectedSms.includes(msg.id) ? 'row-selected' : ''}>
                             <td>
                               <input
