@@ -83,9 +83,15 @@ async function initiateSTKPush(amount, phone, restaurantId) {
         });
 
         const data = await response.json();
+        if (response.status !== 200) {
+            console.error('[MPESA_STK_REJECTED]', {
+                status: response.status,
+                data: data
+            });
+        }
         return data;
     } catch (error) {
-        console.error('[MPESA_STK_ERROR]', error);
+        console.error('[MPESA_STK_ERROR]', error.message);
         throw error;
     }
 }

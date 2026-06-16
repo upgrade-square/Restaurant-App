@@ -23,6 +23,46 @@ const CopyIcon = () => (
   </svg>
 )
 
+const Modal = ({ title, onClose, children }) => (
+  <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-content" onClick={e => e.stopPropagation()}>
+      <div className="modal-header">
+        <h2>{title}</h2>
+        <button className="close-modal" onClick={onClose}>&times;</button>
+      </div>
+      {children}
+    </div>
+  </div>
+)
+
+const StatusBadge = ({ status }) => {
+  let s = (status || 'Not Activated').toLowerCase()
+  if (s === 'suspended') s = 'inactive'
+  const displayStatus = s.charAt(0).toUpperCase() + s.slice(1)
+  return <span className={`badge badge-${s}`}>{displayStatus}</span>
+}
+
+const getDaysRemaining = (expiry) => {
+  if (!expiry) return '---'
+  const days = Math.ceil((new Date(expiry) - new Date()) / (1000 * 60 * 60 * 24))
+  return Math.max(0, days)
+}
+
+const formatAmount = (amt) => {
+  if (!amt || amt === '-' || amt === 'M-Pesa') return '-'
+  const num = parseFloat(amt)
+  if (isNaN(num)) return amt
+  return `KES ${num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+const normalizePhone = (phone) => {
+  if (!phone) return '';
+  let cleaned = String(phone).replace(/\D/g, '');
+  if (cleaned.startsWith('254') && cleaned.length === 12) return '0' + cleaned.slice(3);
+  if ((cleaned.startsWith('7') || cleaned.startsWith('1')) && cleaned.length === 9) return '0' + cleaned;
+  if (cleaned.startsWith('0') && cleaned.length === 10) return cleaned;
+  return cleaned;
+};
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -43,7 +83,6 @@ function App() {
   const [error, setError] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
 
-  // Auth & Core State
   const [token, setToken] = useState(localStorage.getItem('token'))
   const [user, setUser] = useState(JSON.parse(localStorage.getItem('user') || 'null'))
   const [restaurant, setRestaurant] = useState(JSON.parse(localStorage.getItem('restaurant') || 'null'))
@@ -56,13 +95,12 @@ function App() {
   const [metrics, setMetrics] = useState({ totalCustomers: 0, totalSent: 0, sentToday: 0, pending: 0, failed: 0 })
   const [gatewayStatus, setGatewayStatus] = useState({ status: 'Offline', lastSeen: null, batteryLevel: 0, isCharging: false, deviceName: 'N/A' })
 
-  // Admin State
   const [adminMetrics, setAdminMetrics] = useState(null)
   const [adminRestaurants, setAdminRestaurants] = useState([])
   const [adminSearch, setAdminSearch] = useState('')
   const [selectedRes, setSelectedRes] = useState(null)
   const [resPayments, setResPayments] = useState([])
-  const [modalType, setModalType] = useState(null) // 'view', 'activate', 'trial', 'payments'
+  const [modalType, setModalType] = useState(null)
   const [toast, setToast] = useState(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [showLoginPassword, setShowLoginPassword] = useState(false)
@@ -78,9 +116,8 @@ function App() {
   const isProfessional = restaurant?.plan === 'Professional' || restaurant?.plan === 'Enterprise' || isAdmin;
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [isSaving, setIsSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState(null); // 'saving', 'saved'
+  const [saveStatus, setSaveStatus] = useState(null);
 
-  // Advanced Security State
   const [passwordData, setPasswordData] = useState({ current: '', new: '', confirm: '' });
   const [resetData, setResetData] = useState({ password: '', confirmed: false });
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
@@ -89,15 +126,12 @@ function App() {
   const [showResetPassword, setShowResetPassword] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
-  // Recovery State
   const [forgotStep, setForgotStep] = useState(1);
   const [forgotEmail, setForgotEmail] = useState('');
   const [showRecoveryPassword, setShowRecoveryPassword] = useState(false);
 
-  // Verification & OTP State (Shared Requesting)
   const [requestingOTP, setRequestingOTP] = useState(false);
 
-  // Password Change OTP State
   const [passwordOTP, setPasswordOTP] = useState('');
   const [passwordOtpSent, setPasswordOtpSent] = useState(false);
   const [passwordOtpCooldown, setPasswordOtpCooldown] = useState(0);
@@ -107,7 +141,6 @@ function App() {
     console.log('%c MikrodCAP OS %c v1.0.1 - Alignment Patch 2 %c', 'background: #0072CE; color: white; padding: 4px; border-radius: 4px 0 0 4px;', 'background: #FF8C00; color: white; padding: 4px; border-radius: 0 4px 4px 0;', 'background: transparent;');
   }, []);
 
-  // Factory Reset OTP State
   const [factoryResetOTP, setFactoryResetOTP] = useState('');
   const [factoryResetOtpSent, setFactoryResetOtpSent] = useState(false);
   const [factoryResetOtpCooldown, setFactoryResetOtpCooldown] = useState(0);
@@ -115,6 +148,8 @@ function App() {
 
   const [registrationOTP, setRegistrationOTP] = useState('');
   const [showOTPStep, setShowOTPStep] = useState(false);
+  const [otpCooldown, setOtpCooldown] = useState(0);
+  const [otpExpiry, setOtpExpiry] = useState(0);
 
   const fetchWithAuth = async (endpoint, options = {}) => {
     const headers = { ...options.headers, 'Content-Type': 'application/json' }
@@ -207,7 +242,6 @@ function App() {
       setResetData({ password: '', confirmed: false });
       setShowResetConfirm(false);
 
-      // Force refresh of all data
       refreshData();
       setActiveTab('dashboard');
     } catch (err) {
@@ -270,7 +304,7 @@ function App() {
       } else {
         setPasswordOtpSent(true);
         setPasswordOtpCooldown(60);
-        setPasswordOtpExpiry(300); // 5 minutes
+        setPasswordOtpExpiry(300);
       }
       return true;
     } catch (err) {
@@ -374,8 +408,6 @@ function App() {
   };
 
   const refreshData = async (isBackground = false) => {
-    // If it's a background refresh and we're not on dashboard, stop here.
-    // This ensures no automatic background updates happen on Settings/Templates/etc.
     if (isBackground && activeTab !== 'dashboard') return;
 
     try {
@@ -383,35 +415,42 @@ function App() {
 
       const isDashboardHeartbeat = isBackground && activeTab === 'dashboard';
 
-      // Define endpoints based on whether this is a full sync or a targeted dashboard heartbeat
       const baseEndpoints = [
-        '/sms-queue/history', // 0
-        '/metrics',           // 1
-        '/gateway/status',    // 2
-        '/customers'          // 3
+        '/sms-queue/history',
+        '/metrics',
+        '/gateway/status',
+        '/customers'
       ];
 
       const extraEndpoints = [
-        '/settings',              // 4
-        '/templates',             // 5
-        '/subscription/history'   // 6
+        '/settings',
+        '/templates',
+        '/subscription/history'
       ];
 
       const endpointsToFetch = isDashboardHeartbeat ? baseEndpoints : [...baseEndpoints, ...extraEndpoints];
       const results = await Promise.all(endpointsToFetch.map(endpoint => fetchWithAuth(endpoint)));
 
-      // Always update dashboard and customer lists
       setSmsHistory(results[0])
       setMetrics(results[1])
       setGatewayStatus(results[2])
       setCustomers(results[3])
 
-      // Only update form-based pages if it's NOT a background heartbeat
-      // This prevents overwriting unsaved user data in Settings, Templates, etc.
       if (!isDashboardHeartbeat) {
         setSettings(results[4])
         setTemplates(results[5])
         setSubscriptionHistory(results[6])
+
+        // Sync restaurant state (subscription status, plan, etc)
+        try {
+          const me = await fetchWithAuth('/auth/me');
+          if (me && me.restaurant) {
+            setRestaurant(me.restaurant);
+            localStorage.setItem('restaurant', JSON.stringify(me.restaurant));
+          }
+        } catch (meError) {
+          console.warn('Failed to sync profile', meError);
+        }
 
         if (isAdmin) {
           const aMetrics = await fetchWithAuth('/admin/metrics')
@@ -429,7 +468,6 @@ function App() {
     }
   }
 
-  // Initial full data load on login/app start
   useEffect(() => {
     if (token) {
       refreshData()
@@ -438,14 +476,10 @@ function App() {
     }
   }, [token])
 
-  // Route-aware heartbeat: only active when on the Dashboard tab
   useEffect(() => {
     let interval;
     if (token && activeTab === 'dashboard') {
-      // Trigger immediate targeted refresh when switching back to dashboard
       refreshData(true);
-
-      // Setup heartbeat for dashboard only
       interval = setInterval(() => refreshData(true), 15000);
     }
 
@@ -474,7 +508,6 @@ function App() {
     refreshData()
   }
 
-  // Admin Handlers
   const fetchResDetails = async (id) => {
     const data = await fetchWithAuth(`/admin/restaurants/${id}`)
     setSelectedRes(data)
@@ -491,7 +524,6 @@ function App() {
     try {
       const data = await fetchWithAuth(endpoint, { method: 'POST', body: JSON.stringify(body) })
 
-      // Snappy UI update: Update the specific restaurant in the list immediately
       if (data.restaurant) {
         setAdminRestaurants(prev => prev.map(res =>
           res.id === data.restaurant.id
@@ -502,7 +534,7 @@ function App() {
 
       showToast(data.message || 'Action completed successfully')
       setModalType(null)
-      refreshData(true) // Background refresh to sync everything
+      refreshData(true)
     } catch (err) { showToast(err.message, 'error') }
   }
 
@@ -513,7 +545,7 @@ function App() {
       const endpoint = type === 'sms' ? '/sms-queue/delete-multiple' : '/customers/delete-multiple';
       await fetchWithAuth(endpoint, {
         method: 'POST',
-        body: JSON.stringify({ ids: ids.map(id => Number(id)) }) // Ensure numeric IDs
+        body: JSON.stringify({ ids: ids.map(id => Number(id)) })
       });
 
       if (type === 'sms') {
@@ -530,19 +562,6 @@ function App() {
       showToast(err.message || 'Deletion failed', 'error');
     }
   };
-
-
-  const Modal = ({ title, onClose, children }) => (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2>{title}</h2>
-          <button className="close-modal" onClick={onClose}>&times;</button>
-        </div>
-        {children}
-      </div>
-    </div>
-  )
 
   if (!token) {
     return (
@@ -649,8 +668,6 @@ function App() {
                   <p style={{ color: 'var(--text-muted)', marginBottom: '20px' }}>Verification successful. Please choose a strong new password.</p>
                   <form className="auth-form" onSubmit={e => {
                     e.preventDefault();
-                    // We need the token from previous step. We can store it in a state or just use a ref/DOM if needed.
-                    // For simplicity, let's just grab it from the previous input if it's still in the DOM or better, store it.
                     const token = document.getElementById('reset-otp-input').value;
                     handleResetPassword(forgotEmail, token, e.target.newPassword.value);
                   }}>
@@ -798,37 +815,6 @@ function App() {
       </div>
     )
   }
-
-
-  const StatusBadge = ({ status }) => {
-    let s = status?.toLowerCase() || 'pending'
-    if (s === 'suspended') s = 'inactive'
-    const displayStatus = s.charAt(0).toUpperCase() + s.slice(1)
-    return <span className={`badge badge-${s}`}>{displayStatus}</span>
-  }
-
-  const getDaysRemaining = (expiry) => {
-    if (!expiry) return '---'
-    const days = Math.ceil((new Date(expiry) - new Date()) / (1000 * 60 * 60 * 24))
-    return Math.max(0, days)
-  }
-
-  const formatAmount = (amt) => {
-    if (!amt || amt === '-' || amt === 'M-Pesa') return '-'
-    const num = parseFloat(amt)
-    if (isNaN(num)) return amt
-    return `KES ${num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-  }
-
-
-  const normalizePhone = (phone) => {
-    if (!phone) return '';
-    let cleaned = String(phone).replace(/\D/g, '');
-    if (cleaned.startsWith('254') && cleaned.length === 12) return '0' + cleaned.slice(3);
-    if ((cleaned.startsWith('7') || cleaned.startsWith('1')) && cleaned.length === 9) return '0' + cleaned;
-    if (cleaned.startsWith('0') && cleaned.length === 10) return cleaned;
-    return cleaned;
-  };
 
   return (
     <ErrorBoundary>

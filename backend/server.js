@@ -27,8 +27,27 @@ const GATEWAY_FILE = path.join(DATA_DIR, 'gateway.json');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const SECURITY_LOG_FILE = path.join(DATA_DIR, 'security_events.json');
 const OTPS_FILE = path.join(DATA_DIR, 'otps.json');
+const PENDING_MPESA_FILE = path.join(DATA_DIR, 'pending_mpesa.json');
 
 const DEFAULT_RESTAURANT_ID = 'default';
+
+// --- MPESA ENVIRONMENT VALIDATION ---
+const validateMpesaConfig = () => {
+    const required = [
+        'MPESA_CONSUMER_KEY', 'MPESA_CONSUMER_SECRET', 'MPESA_SHORTCODE',
+        'MPESA_PASSKEY', 'MPESA_CALLBACK_URL', 'MPESA_ENVIRONMENT'
+    ];
+    const missing = required.filter(key => !process.env[key]);
+    if (missing.length > 0) {
+        console.error(`[CRITICAL] Missing M-Pesa configuration: ${missing.join(', ')}`);
+    } else {
+        console.log('[CONFIG] M-Pesa Diagnostics:');
+        console.log(` - Env: ${process.env.MPESA_ENVIRONMENT}`);
+        console.log(` - Shortcode: ${process.env.MPESA_SHORTCODE.slice(0, 3)}***`);
+        console.log(` - Callback: ${process.env.MPESA_CALLBACK_URL}`);
+    }
+};
+validateMpesaConfig();
 
 app.use(cors());
 app.use(bodyParser.json());
@@ -62,9 +81,9 @@ if (!fs.existsSync(RESTAURANTS_FILE)) {
     const defaultRestaurant = {
         id: DEFAULT_RESTAURANT_ID,
         name: 'MikrodCAP Business',
-        plan: 'Professional',
-        subscriptionStatus: 'Active',
-        subscriptionExpiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        plan: null,
+        subscriptionStatus: 'Inactive',
+        subscriptionExpiry: null,
         phone: '',
         address: '',
         createdAt: nowUTC(),
@@ -99,6 +118,9 @@ if (!fs.existsSync(SECURITY_LOG_FILE)) {
 }
 if (!fs.existsSync(OTPS_FILE)) {
     fs.writeFileSync(OTPS_FILE, JSON.stringify({}));
+}
+if (!fs.existsSync(PENDING_MPESA_FILE)) {
+    fs.writeFileSync(PENDING_MPESA_FILE, JSON.stringify({}));
 }
 
 // Helper to read data
@@ -1083,12 +1105,16 @@ authRouter.get('/me', authenticateToken, (req, res) => {
         const user = users.find(u => u.id === req.user.userId);
         if (!user) return res.status(404).json({ error: 'User not found' });
 
+        const restaurants = readData(RESTAURANTS_FILE);
+        const restaurant = restaurants.find(r => r.id === user.restaurantId);
+
         res.json({
             id: user.id,
             name: user.name,
             email: user.email,
             restaurantId: user.restaurantId,
-            role: user.role
+            role: user.role,
+            restaurant: restaurant || null
         });
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch user data' });
@@ -1857,8 +1883,19 @@ app.post('/subscriptions/mpesa/initiate', authenticateToken, async (req, res) =>
         const result = await initiateSTKPush(amount, phone, restaurantId);
 
         if (result.ResponseCode === '0') {
+            // Save pending transaction for callback matching
+            const pending = readData(PENDING_MPESA_FILE);
+            pending[result.CheckoutRequestID] = {
+                restaurantId,
+                plan,
+                amount,
+                timestamp: Date.now()
+            };
+            writeData(PENDING_MPESA_FILE, pending);
+
             res.json({ success: true, checkoutID: result.CheckoutRequestID, message: 'STK Push sent to your phone' });
         } else {
+            console.error('[MPESA_INIT_FAILURE]', result);
             res.status(400).json({ error: result.CustomerMessage || 'Failed to initiate STK Push' });
         }
     } catch (error) {
@@ -1875,51 +1912,40 @@ app.post('/subscriptions/mpesa/callback', async (req, res) => {
     console.log(`[MPESA_CALLBACK] ResultCode: ${callbackData.ResultCode} | Msg: ${callbackData.ResultDesc}`);
 
     if (callbackData.ResultCode === 0) {
-        // Success!
         const metadata = callbackData.CallbackMetadata.Item;
         const amount = metadata.find(i => i.Name === 'Amount').Value;
         const receipt = metadata.find(i => i.Name === 'MpesaReceiptNumber').Value;
         const phone = metadata.find(i => i.Name === 'PhoneNumber').Value;
         const checkoutID = callbackData.CheckoutRequestID;
 
-        // Parse AccountReference from our initiation (MikrodCAP-res123)
-        // Note: Safaricom doesn't send AccountReference back in STK Push callback Body explicitly in some versions,
-        // but it's usually in the description or we track via CheckoutRequestID.
-        // For simplicity, we'll assume we can update based on a temporary pending_payments registry
-        // or we check the transaction description.
-        // Actually, let's use the CheckoutRequestID to find the restaurantId.
-
-        // We'll update the restaurants and history
         try {
+            const pending = readData(PENDING_MPESA_FILE);
+            const transaction = pending[checkoutID];
+
+            if (!transaction) {
+                console.error(`[MPESA_CALLBACK_ORPHAN] CheckoutID ${checkoutID} not found in pending transactions`);
+                return res.json({ success: true }); // Still return OK to Safaricom
+            }
+
+            const restaurantId = transaction.restaurantId;
+            const plan = transaction.plan;
+
             const restaurants = readData(RESTAURANTS_FILE);
             const paymentsPath = path.join(DATA_DIR, 'subscription_payments.json');
             const payments = readData(paymentsPath);
 
-            // Determine plan based on amount (Legacy logic or metadata lookup)
-            let plan = 'Starter';
-            if (amount >= 5000) plan = 'Enterprise';
-            else if (amount >= 2500) plan = 'Professional';
-
-            // Find restaurant - Ideally we store CheckoutID in a temp file, 
-            // but for this lab we'll use the description or similar logic.
-            // Let's assume we find it via some metadata or just update all restaurants checking CheckoutID?
-            // BETTER: Safaricom allows us to pass metadata.
-
-            // For now, let's just log and update the first matching one or use a convention
-            // In a real app we'd have a pending_transactions.json
-
-            // Hardcoded update for demo if restaurantId is missing in early callback
-            // (In production, you'd use a DB to match CheckoutRequestID)
-
-            // Let's look for any restaurant that was recently "pending" this checkoutID
-            // For now, we'll update based on the phone if unique, or just add to history
+            // Idempotency check: Don't process the same receipt twice
+            if (payments.find(p => p.transactionCode === receipt)) {
+                console.warn(`[MPESA_CALLBACK_DUPLICATE] Receipt ${receipt} already processed`);
+                return res.json({ success: true });
+            }
 
             const newPayment = {
                 id: Date.now(),
-                restaurantId: 'default', // Placeholder, should be resolved from CheckoutID
+                restaurantId,
                 transactionCode: receipt,
-                plan: plan,
-                amount: amount,
+                plan,
+                amount,
                 date: nowUTC(),
                 status: 'Processed',
                 phone: phone,
@@ -1929,11 +1955,10 @@ app.post('/subscriptions/mpesa/callback', async (req, res) => {
             writeData(paymentsPath, payments);
 
             // Update Restaurant
-            const restaurant = restaurants.find(r => r.id === 'default');
+            const restaurant = restaurants.find(r => r.id === restaurantId);
             if (restaurant) {
                 restaurant.subscriptionStatus = 'Active';
                 restaurant.plan = plan;
-                // Add 30 days
                 const currentExpiry = new Date(restaurant.subscriptionExpiry || Date.now());
                 if (currentExpiry < new Date()) {
                     restaurant.subscriptionExpiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
@@ -1942,9 +1967,13 @@ app.post('/subscriptions/mpesa/callback', async (req, res) => {
                 }
                 restaurant.updatedAt = nowUTC();
                 writeData(RESTAURANTS_FILE, restaurants);
+                console.log(`[SUBSCRIPTION_ACTIVATED] Restaurant: ${restaurantId} | Plan: ${plan} | Receipt: ${receipt}`);
             }
 
-            console.log(`[SUBSCRIPTION_ACTIVATED] Receipt: ${receipt} | Amount: ${amount} | Plan: ${plan}`);
+            // Cleanup pending
+            delete pending[checkoutID];
+            writeData(PENDING_MPESA_FILE, pending);
+
         } catch (err) {
             console.error('[CALLBACK_PROCESSING_ERROR]', err);
         }
