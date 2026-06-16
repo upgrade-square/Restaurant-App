@@ -759,8 +759,8 @@ function App() {
                   <div className="auth-switch">
                     <button className="secondary-btn" style={{ width: '100%' }} onClick={() => { setShowOTPStep(false); setRegistrationOTP(''); }}>Back to Details</button>
                     <button
-                      className="link-btn"
-                      style={{ marginTop: '16px' }}
+                      className="btn-security-primary"
+                      style={{ marginTop: '16px', width: '100%' }}
                       onClick={() => handleRequestOTP(signupData.email)}
                       disabled={otpCooldown > 0 || requestingOTP}
                     >
@@ -1397,7 +1397,7 @@ function App() {
                         {!passwordOtpSent ? (
                           <div style={{ padding: '16px', background: '#f8fafc', borderRadius: '8px' }}>
                             <button
-                              className="admin-action-btn"
+                              className="btn-security-primary"
                               type="button"
                               onClick={() => handleRequestOTP(user.email, 'password')}
                               disabled={passwordOtpCooldown > 0 || requestingOTP}
@@ -1459,7 +1459,7 @@ function App() {
                             </div>
                             <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
                               <button
-                                className="admin-action-btn"
+                                className="btn-security-primary"
                                 type="button"
                                 onClick={handlePasswordChangeOTP}
                                 disabled={passwordOTP.length < 6 || !passwordData.new}
@@ -1492,8 +1492,7 @@ function App() {
 
                               {!factoryResetOtpSent ? (
                                 <button
-                                  className="login-btn danger"
-                                  style={{ width: 'auto', padding: '10px 20px', background: 'var(--danger)' }}
+                                  className="btn-security-primary"
                                   onClick={() => handleRequestOTP(user.email, 'factory-reset')}
                                   disabled={factoryResetOtpCooldown > 0 || requestingOTP}
                                 >
@@ -1517,9 +1516,9 @@ function App() {
                                   </div>
                                   <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
                                     <button
-                                      className="login-btn danger"
+                                      className="btn-security-primary"
                                       type="button"
-                                      style={{ width: 'auto', padding: '10px 24px' }}
+                                      style={{ background: 'var(--danger)', border: '1px solid var(--danger)' }}
                                       onClick={handleAccountReset}
                                       disabled={factoryResetOTP.length < 6}
                                     >

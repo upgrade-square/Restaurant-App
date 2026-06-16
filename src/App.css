@@ -841,6 +841,44 @@ h4 {
   border-color: var(--success);
 }
 
+/* --- Reusable Security Action Button --- */
+.btn-security-primary {
+  display: inline-block;
+  padding: 10px 20px;
+  background-color: var(--primary-blue);
+  color: white;
+  border: 1px solid var(--primary-blue);
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  text-align: center;
+}
+
+.btn-security-primary:hover {
+  background-color: #005BB5;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 114, 206, 0.25);
+}
+
+.btn-security-primary:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(0, 114, 206, 0.2);
+}
+
+.btn-security-primary:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0, 114, 206, 0.3);
+}
+
+.btn-security-primary:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
 /* --- Reusable Delete Button --- */
 .btn-delete {
   background: transparent;
