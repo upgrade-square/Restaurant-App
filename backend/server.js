@@ -683,6 +683,31 @@ app.delete('/sms-queue/:id', authenticateToken, checkSubscription, (req, res) =>
 });
 
 /**
+ * @api {post} /sms-queue/delete-multiple Bulk Delete SMS Records
+ */
+app.post('/sms-queue/delete-multiple', authenticateToken, checkSubscription, (req, res) => {
+    try {
+        const { ids } = req.body;
+        const restaurantId = req.user.restaurantId;
+        if (!Array.isArray(ids)) return res.status(400).json({ error: 'IDs must be an array' });
+
+        let smsQueue = readData(SMS_DATA_FILE);
+        const initialLength = smsQueue.length;
+
+        smsQueue = smsQueue.filter(s => {
+            const isTarget = ids.includes(s.id);
+            const isAuthorized = s.restaurantId === restaurantId || (!s.restaurantId && restaurantId === DEFAULT_RESTAURANT_ID);
+            return !(isTarget && isAuthorized);
+        });
+
+        writeData(SMS_DATA_FILE, smsQueue);
+        res.json({ message: `${initialLength - smsQueue.length} SMS records deleted`, deletedCount: initialLength - smsQueue.length });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to delete SMS records' });
+    }
+});
+
+/**
  * @api {delete} /customers/:id Archive Customer
  */
 app.delete('/customers/:id', authenticateToken, checkSubscription, (req, res) => {
@@ -701,6 +726,31 @@ app.delete('/customers/:id', authenticateToken, checkSubscription, (req, res) =>
         res.json({ message: 'Customer deleted' });
     } catch (error) {
         res.status(500).json({ error: 'Failed to delete customer' });
+    }
+});
+
+/**
+ * @api {post} /customers/delete-multiple Bulk Delete Customers
+ */
+app.post('/customers/delete-multiple', authenticateToken, checkSubscription, (req, res) => {
+    try {
+        const { ids } = req.body;
+        const restaurantId = req.user.restaurantId;
+        if (!Array.isArray(ids)) return res.status(400).json({ error: 'IDs must be an array' });
+
+        let customers = readData(DATA_FILE);
+        const initialLength = customers.length;
+
+        customers = customers.filter(c => {
+            const isTarget = ids.includes(c.id);
+            const isAuthorized = c.restaurantId === restaurantId || (!c.restaurantId && restaurantId === DEFAULT_RESTAURANT_ID);
+            return !(isTarget && isAuthorized);
+        });
+
+        writeData(DATA_FILE, customers);
+        res.json({ message: `${initialLength - customers.length} customers deleted`, deletedCount: initialLength - customers.length });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to delete customers' });
     }
 });
 

@@ -22,11 +22,6 @@ const CopyIcon = () => (
   </svg>
 )
 
-const TrashIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-  </svg>
-)
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -37,6 +32,8 @@ function App() {
   const [transactionCode, setTransactionCode] = useState('')
   const [selectedPlan, setSelectedPlan] = useState('Professional')
   const [subscriptionHistory, setSubscriptionHistory] = useState([])
+  const [selectedSms, setSelectedSms] = useState([])
+  const [selectedCustomers, setSelectedCustomers] = useState([])
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -458,11 +455,35 @@ function App() {
         ))
       }
 
-      alert(data.message || 'Action completed successfully')
+      showToast(data.message || 'Action completed successfully')
       setModalType(null)
       refreshData(true) // Background refresh to sync everything
-    } catch (err) { alert(err.message) }
+    } catch (err) { showToast(err.message, 'error') }
   }
+
+  const handleBulkDelete = async (type, ids) => {
+    if (!ids.length) return;
+    try {
+      const endpoint = type === 'sms' ? '/sms-queue/delete-multiple' : '/customers/delete-multiple';
+      await fetchWithAuth(endpoint, {
+        method: 'POST',
+        body: JSON.stringify({ ids })
+      });
+
+      if (type === 'sms') {
+        setSmsHistory(prev => prev.filter(item => !ids.includes(item.id)));
+        setSelectedSms([]);
+      } else {
+        setCustomers(prev => prev.filter(item => !ids.includes(item.id)));
+        setSelectedCustomers([]);
+      }
+
+      showToast('Deleted successfully');
+      refreshData(true);
+    } catch (err) {
+      showToast(err.message || 'Deletion failed', 'error');
+    }
+  };
 
 
   const Modal = ({ title, onClose, children }) => (
@@ -893,13 +914,35 @@ function App() {
 
               <div className="activity-section">
                 <div className="card">
-                  <h3>Customer Engagement Activity</h3>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <h3>Customer Engagement Activity</h3>
+                    {selectedSms.length > 0 && (
+                      <div className="bulk-selection-bar">
+                        <span className="selection-count">{selectedSms.length} items selected</span>
+                        <button className="btn-delete bulk-delete-btn" onClick={() => handleBulkDelete('sms', selectedSms)}>Delete Selected</button>
+                      </div>
+                    )}
+                  </div>
                   <div className="table-container" style={{ marginTop: '16px' }}>
                     <table className="activity-table" style={{ width: '100%', tableLayout: 'fixed', minWidth: '800px' }}>
                       <thead>
                         <tr>
+                          <th style={{ width: '40px' }}>
+                            <input
+                              type="checkbox"
+                              className="custom-checkbox"
+                              checked={smsHistory.length > 0 && selectedSms.length === smsHistory.slice(0, 10).length}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedSms(smsHistory.slice(0, 10).map(s => s.id));
+                                } else {
+                                  setSelectedSms([]);
+                                }
+                              }}
+                            />
+                          </th>
                           <th style={{ width: '20%' }}>Created Date</th>
-                          <th style={{ width: '25%' }}>Customer Name</th>
+                          <th style={{ width: '20%' }}>Customer Name</th>
                           <th style={{ width: '15%' }}>Phone Number</th>
                           <th style={{ width: '20%' }}>SMS Sent Time</th>
                           <th style={{ width: '10%' }}>Status</th>
@@ -908,7 +951,21 @@ function App() {
                       </thead>
                       <tbody>
                         {smsHistory.slice(0, 10).map(msg => (
-                          <tr key={msg.id}>
+                          <tr key={msg.id} className={selectedSms.includes(msg.id) ? 'row-selected' : ''}>
+                            <td>
+                              <input
+                                type="checkbox"
+                                className="custom-checkbox"
+                                checked={selectedSms.includes(msg.id)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedSms(prev => [...prev, msg.id]);
+                                  } else {
+                                    setSelectedSms(prev => prev.filter(id => id !== msg.id));
+                                  }
+                                }}
+                              />
+                            </td>
                             <td title={formatDateTime(msg.createdAt || msg.id)}>{formatDateTime(msg.createdAt || msg.id)}</td>
                             <td style={{ fontWeight: 700 }} title={msg.customerName}>{msg.customerName}</td>
                             <td title={msg.phone}>{msg.phone}</td>
@@ -925,12 +982,12 @@ function App() {
                                     try {
                                       await fetchWithAuth(`/sms-queue/${msg.id}`, { method: 'DELETE' });
                                       setSmsHistory(prev => prev.filter(s => s.id !== msg.id));
-                                      showToast('Activity record deleted');
+                                      setSelectedSms(prev => prev.filter(id => id !== msg.id));
+                                      showToast('Deleted successfully');
                                       refreshData(true);
-                                    } catch (err) { showToast(err.message, 'danger'); }
+                                    } catch (err) { showToast(err.message, 'error'); }
                                   }}
                                 >
-                                  <TrashIcon />
                                   Delete
                                 </button>
                               </div>
@@ -938,7 +995,7 @@ function App() {
                           </tr>
                         ))}
                         {smsHistory.length === 0 && (
-                          <tr><td colSpan="6" style={{ textAlign: 'center', padding: '40px' }}>No recent activity</td></tr>
+                          <tr><td colSpan="7" style={{ textAlign: 'center', padding: '40px' }}>No recent activity</td></tr>
                         )}
                       </tbody>
                     </table>
@@ -1029,7 +1086,15 @@ function App() {
 
                 <div className="card" style={{ marginTop: '24px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', alignItems: 'center' }}>
-                    <h3>Customer Directory</h3>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                      <h3>Customer Directory</h3>
+                      {selectedCustomers.length > 0 && (
+                        <div className="bulk-selection-bar">
+                          <span className="selection-count">{selectedCustomers.length} items selected</span>
+                          <button className="btn-delete bulk-delete-btn" onClick={() => handleBulkDelete('customer', selectedCustomers)}>Delete Selected</button>
+                        </div>
+                      )}
+                    </div>
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <input className="form-control" placeholder="Search customers..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{ width: '250px' }} />
                     </div>
@@ -1038,10 +1103,27 @@ function App() {
                     <table className="activity-table" style={{ tableLayout: 'fixed', minWidth: '800px' }}>
                       <thead>
                         <tr>
+                          <th style={{ width: '40px' }}>
+                            <input
+                              type="checkbox"
+                              className="custom-checkbox"
+                              checked={customers.length > 0 && selectedCustomers.length === customers.filter(c => (c.name.toLowerCase().includes(searchTerm.toLowerCase()) || c.phone.includes(searchTerm))).length}
+                              onChange={(e) => {
+                                const filteredIds = customers
+                                  .filter(c => (c.name.toLowerCase().includes(searchTerm.toLowerCase()) || c.phone.includes(searchTerm)))
+                                  .map(c => c.id);
+                                if (e.target.checked) {
+                                  setSelectedCustomers(filteredIds);
+                                } else {
+                                  setSelectedCustomers([]);
+                                }
+                              }}
+                            />
+                          </th>
                           <th style={{ width: '20%' }}>Created Date</th>
-                          <th style={{ width: '30%' }}>Customer Name</th>
+                          <th style={{ width: '25%' }}>Customer Name</th>
                           <th style={{ width: '20%' }}>Phone Number</th>
-                          <th style={{ width: '15%' }}>Visit Count</th>
+                          <th style={{ width: '10%' }}>Visit Count</th>
                           <th style={{ width: '15%' }}>Actions</th>
                         </tr>
                       </thead>
@@ -1049,7 +1131,21 @@ function App() {
                         {customers
                           .filter(c => (c.name.toLowerCase().includes(searchTerm.toLowerCase()) || c.phone.includes(searchTerm)))
                           .map(customer => (
-                            <tr key={customer.id}>
+                            <tr key={customer.id} className={selectedCustomers.includes(customer.id) ? 'row-selected' : ''}>
+                              <td>
+                                <input
+                                  type="checkbox"
+                                  className="custom-checkbox"
+                                  checked={selectedCustomers.includes(customer.id)}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setSelectedCustomers(prev => [...prev, customer.id]);
+                                    } else {
+                                      setSelectedCustomers(prev => prev.filter(id => id !== customer.id));
+                                    }
+                                  }}
+                                />
+                              </td>
                               <td title={formatDateTime(customer.createdAt || customer.created_at || customer.timestamp || customer.id)}>{formatDateTime(customer.createdAt || customer.created_at || customer.timestamp || customer.id)}</td>
                               <td style={{ fontWeight: 700 }} title={customer.name}>{customer.name}</td>
                               <td title={customer.phone}>{customer.phone}</td>
@@ -1061,21 +1157,19 @@ function App() {
                                     try {
                                       await fetchWithAuth(`/customers/${customer.id}`, { method: 'DELETE' });
                                       setCustomers(prev => prev.filter(c => c.id !== customer.id));
-                                      showToast('Customer deleted');
+                                      setSelectedCustomers(prev => prev.filter(id => id !== customer.id));
+                                      showToast('Deleted successfully');
                                       refreshData(true);
-                                    } catch (err) {
-                                      showToast(err.message, 'danger');
-                                    }
+                                    } catch (err) { showToast(err.message, 'error'); }
                                   }}
                                 >
-                                  <TrashIcon />
                                   Delete
                                 </button>
                               </td>
                             </tr>
                           ))}
-                        {customers.length === 0 && (
-                          <tr><td colSpan="5" style={{ textAlign: 'center', padding: '40px' }}>No customers found</td></tr>
+                        {customers.filter(c => (c.name.toLowerCase().includes(searchTerm.toLowerCase()) || c.phone.includes(searchTerm))).length === 0 && (
+                          <tr><td colSpan="6" style={{ textAlign: 'center', padding: '40px' }}>No customers found</td></tr>
                         )}
                       </tbody>
                     </table>
@@ -1364,7 +1458,7 @@ function App() {
 
                           {!showResetConfirm ? (
                             <button className="btn-delete" type="button" onClick={() => setShowResetConfirm(true)}>
-                              <TrashIcon /> Reset All Business Data
+                              Reset All Business Data
                             </button>
                           ) : (
                             <div className="card" style={{ background: 'var(--danger-light)', border: '1px solid var(--danger)', padding: '24px' }}>
@@ -1403,7 +1497,7 @@ function App() {
                                       onClick={handleAccountReset}
                                       disabled={securityOTP.length < 6}
                                     >
-                                      <TrashIcon /> Confirm Permanent Reset
+                                      Confirm Permanent Reset
                                     </button>
                                     <button className="admin-action-btn" type="button" onClick={() => { setShowResetConfirm(false); setOtpSent(false); setSecurityOTP(''); }}>
                                       Cancel
@@ -1542,8 +1636,8 @@ function App() {
         <footer style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', borderTop: '1px solid var(--border)' }}>
           © 2026 MikrodCAP | MikrodTech Customer Appreciation Platform
         </footer>
-      </div>
-    </ErrorBoundary>
+      </div >
+    </ErrorBoundary >
   )
 }
 

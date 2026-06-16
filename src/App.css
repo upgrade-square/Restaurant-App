@@ -846,9 +846,53 @@ h4 {
   color: var(--danger);
 }
 
-.btn-delete svg {
+/* --- Bulk Selection UI --- */
+.bulk-selection-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--danger-light);
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--danger);
+  animation: slideDown 250ms ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.selection-count {
+  font-weight: 700;
+  color: var(--danger);
+  font-size: 0.85rem;
+}
+
+.bulk-delete-btn {
+  background: var(--danger) !important;
+  color: white !important;
+  border-radius: 4px;
+  padding: 4px 10px;
+}
+
+.row-selected {
+  background-color: #fff1f2 !important;
+  /* Extremely light red for selected rows */
+}
+
+.custom-checkbox {
   width: 16px;
   height: 16px;
+  cursor: pointer;
+  accent-color: var(--danger);
 }
 
 /* For icon-only variant */
