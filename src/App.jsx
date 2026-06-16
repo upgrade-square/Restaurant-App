@@ -969,10 +969,10 @@ function App() {
                             <input
                               type="checkbox"
                               className="custom-checkbox"
-                              checked={smsHistory.length > 0 && selectedSms.length === smsHistory.slice(0, 10).length}
+                              checked={smsHistory.length > 0 && selectedSms.length === smsHistory.slice(0, 100).length}
                               onChange={(e) => {
                                 if (e.target.checked) {
-                                  setSelectedSms(smsHistory.slice(0, 10).map(s => s.id));
+                                  setSelectedSms(smsHistory.slice(0, 100).map(s => s.id));
                                 } else {
                                   setSelectedSms([]);
                                 }
@@ -988,7 +988,7 @@ function App() {
                         </tr>
                       </thead>
                       <tbody>
-                        {smsHistory.slice(0, 10).map(msg => (
+                        {smsHistory.slice(0, 100).map(msg => (
                           <tr key={msg.id} className={selectedSms.includes(msg.id) ? 'row-selected' : ''}>
                             <td>
                               <input
@@ -1007,8 +1007,10 @@ function App() {
                             <td title={formatDateTime(msg.createdAt || msg.id)}>{formatDateTime(msg.createdAt || msg.id)}</td>
                             <td style={{ fontWeight: 700 }} title={msg.customerName}>{msg.customerName}</td>
                             <td title={msg.phone}>{msg.phone}</td>
-                            <td title={formatDateTime(msg.sentAt)}>{formatDateTime(msg.sentAt)}</td>
-                            <td><StatusBadge status={msg.status} /></td>
+                            <td title={msg.sentAt ? formatDateTime(msg.sentAt) : 'Pending'}>
+                              {msg.sentAt ? formatDateTime(msg.sentAt) : <span className="badge badge-pending">Pending</span>}
+                            </td>
+                            <td title={msg.status}><StatusBadge status={msg.status} /></td>
                             <td>
                               <div style={{ display: 'flex', gap: '8px' }}>
                                 {msg.status === 'Failed' && (
