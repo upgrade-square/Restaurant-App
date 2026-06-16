@@ -37,6 +37,7 @@ function App() {
   const [mpesaPhone, setMpesaPhone] = useState('')
   const [isProcessingMpesa, setIsProcessingMpesa] = useState(false)
   const [selectedCustomers, setSelectedCustomers] = useState([])
+  const [selectedSms, setSelectedSms] = useState([])
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
