@@ -333,10 +333,18 @@ h4 {
 }
 
 .activity-table td.customer-name-cell,
-.activity-table th.customer-name-cell {
+.activity-table th.customer-name-cell,
+.activity-table td.date-cell,
+.activity-table th.date-cell {
   white-space: nowrap;
   overflow: visible;
   text-overflow: clip;
+}
+
+.activity-table td.date-cell {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
 }
 
 .table-container {

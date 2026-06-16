@@ -816,49 +816,43 @@ function App() {
     return `KES ${num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   }
 
-  const getRelativeTime = (timestamp) => {
+  const formatActivityDate = (timestamp) => {
     if (!timestamp) return "---";
-    const now = new Date();
     const date = new Date(timestamp);
     if (isNaN(date.getTime())) return "---";
 
-    const diffInSeconds = Math.floor((now - date) / 1000);
+    const nairobiOptions = { timeZone: "Africa/Nairobi", hour12: false };
+    const now = new Date();
 
-    // Timezone specific formatting helpers
-    const nairobiOptions = { timeZone: "Africa/Nairobi" };
-    const formatDate = (d, options) => d.toLocaleString("en-KE", { ...nairobiOptions, ...options });
+    // Check buckets in Nairobi time
+    const formatDate = (d, opts) => d.toLocaleString("en-KE", { ...nairobiOptions, ...opts });
 
-    // Immediate relative buckets
-    if (diffInSeconds < 0) return formatDate(date, { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false }); // Future
-    if (diffInSeconds < 60) return "Just now";
-    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} mins ago`;
-
-    // Calendar day checks
     const nowParts = formatDate(now, { year: 'numeric', month: 'numeric', day: 'numeric' });
     const targetParts = formatDate(date, { year: 'numeric', month: 'numeric', day: 'numeric' });
+    const timeString = formatDate(date, { hour: '2-digit', minute: '2-digit' });
 
+    // Today
+    if (nowParts === targetParts) return timeString;
+
+    // Yesterday
     const yesterday = new Date(now);
     yesterday.setDate(now.getDate() - 1);
     const yesterdayParts = formatDate(yesterday, { year: 'numeric', month: 'numeric', day: 'numeric' });
+    if (yesterdayParts === targetParts) return `Yesterday, ${timeString}`;
 
-    const timeString = formatDate(date, { hour: '2-digit', minute: '2-digit', hour12: false });
+    // This Year vs Other Year
+    const nowYear = formatDate(now, { year: 'numeric' });
+    const targetYear = formatDate(date, { year: 'numeric' });
 
-    if (nowParts === targetParts) return `Today ${timeString}`;
-    if (yesterdayParts === targetParts) return `Yesterday ${timeString}`;
+    if (nowYear === targetYear) {
+      return formatDate(date, { day: 'numeric', month: 'short' }) + `, ${timeString}`;
+    }
 
-    // Fallback
-    return formatDate(date, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false
-    });
+    return formatDate(date, { day: 'numeric', month: 'short', year: 'numeric' }) + `, ${timeString}`;
   };
 
   const formatDateTime = (timestamp) => {
-    return getRelativeTime(timestamp);
+    return formatActivityDate(timestamp);
   };
 
   const normalizePhone = (phone) => {
@@ -1017,10 +1011,10 @@ function App() {
                                 }}
                               />
                             </td>
-                            <td title={formatDateTime(msg.createdAt || msg.id)}>{formatDateTime(msg.createdAt || msg.id)}</td>
+                            <td className="date-cell" title={formatDateTime(msg.createdAt || msg.id)}>{formatDateTime(msg.createdAt || msg.id)}</td>
                             <td className="customer-name-cell" style={{ fontWeight: 700 }} title={msg.customerName}>{msg.customerName}</td>
                             <td title={msg.phone}>{msg.phone}</td>
-                            <td title={msg.sentAt ? formatDateTime(msg.sentAt) : 'Pending'}>
+                            <td className="date-cell" title={msg.sentAt ? formatDateTime(msg.sentAt) : 'Pending'}>
                               {msg.sentAt ? formatDateTime(msg.sentAt) : <span className="badge badge-pending">Pending</span>}
                             </td>
                             <td title={msg.status}><StatusBadge status={msg.status} /></td>
@@ -1205,7 +1199,7 @@ function App() {
                                   }}
                                 />
                               </td>
-                              <td title={formatDateTime(customer.createdAt || customer.created_at || customer.timestamp || customer.id)}>{formatDateTime(customer.createdAt || customer.created_at || customer.timestamp || customer.id)}</td>
+                              <td className="date-cell" title={formatDateTime(customer.createdAt || customer.created_at || customer.timestamp || customer.id)}>{formatDateTime(customer.createdAt || customer.created_at || customer.timestamp || customer.id)}</td>
                               <td className="customer-name-cell" style={{ fontWeight: 700 }} title={customer.name}>{customer.name}</td>
                               <td title={customer.phone}>{customer.phone}</td>
                               <td>{customer.visitCount || 1}</td>
@@ -1342,7 +1336,7 @@ function App() {
                             <td title={pay.plan}>{pay.plan}</td>
                             <td>KES {pay.amount?.toLocaleString()}</td>
                             <td>1 Month</td>
-                            <td title={formatDateTime(pay.date)}>{formatDateTime(pay.date)}</td>
+                            <td className="date-cell" title={formatDateTime(pay.date)}>{formatDateTime(pay.date)}</td>
                             <td><span className="badge badge-sent">Processed</span></td>
                           </tr>
                         ))}
@@ -1657,8 +1651,8 @@ function App() {
                                 <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{res.id}</td>
                                 <td>{res.subscriptionPlan}</td>
                                 <td><StatusBadge status={res.subscriptionStatus} /></td>
-                                <td>{res.subscriptionExpiryDate ? formatDateTime(res.subscriptionExpiryDate) : 'N/A'}</td>
-                                <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{formatDateTime(res.createdAt)}</td>
+                                <td className="date-cell">{res.subscriptionExpiryDate ? formatDateTime(res.subscriptionExpiryDate) : 'N/A'}</td>
+                                <td className="date-cell" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{formatDateTime(res.createdAt)}</td>
                                 <td className="actions">
                                   <div style={{ display: 'flex', gap: '4px' }}>
                                     <button className="admin-action-btn" onClick={() => fetchResDetails(res.id)}>View Details</button>
