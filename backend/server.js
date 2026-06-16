@@ -356,6 +356,15 @@ app.post('/customers', authenticateToken, checkSubscription, (req, res) => {
             // New Requirement: Update customer name if provided, and increment visit count
             if (name) customer.name = name;
             customer.visitCount = (customer.visitCount || 0) + 1;
+
+            // If this is the FIRST visit (new or after reset), set the createdAt date
+            if (customer.visitCount === 1) {
+                customer.createdAt = nowUTC();
+                // Remove legacy keys if they exist
+                delete customer.created_at;
+                delete customer.timestamp;
+            }
+
             customer.lastSeen = nowUTC();
             customer.active = true;
 
@@ -471,6 +480,15 @@ app.post('/payments/incoming', authenticateToken, (req, res) => {
             // New Requirement: Update customer name if provided, and increment visit count
             if (customerName) customer.name = customerName;
             customer.visitCount = (customer.visitCount || 0) + 1;
+
+            // If this is the FIRST visit (new or after reset), set the createdAt date
+            if (customer.visitCount === 1) {
+                customer.createdAt = nowUTC();
+                // Remove legacy keys if they exist
+                delete customer.created_at;
+                delete customer.timestamp;
+            }
+
             customer.lastSeen = nowUTC();
             customer.active = true;
 
@@ -1301,6 +1319,7 @@ authRouter.post('/reset-account', authenticateToken, async (req, res) => {
                     ...c,
                     visitCount: 0,
                     lastSeen: null,
+                    createdAt: null, // Forces a new enrollment date on next payment
                     active: true // Ensure they stay in the directory
                 };
             }
