@@ -969,10 +969,10 @@ function App() {
                             <input
                               type="checkbox"
                               className="custom-checkbox"
-                              checked={smsHistory.length > 0 && selectedSms.length === smsHistory.slice(0, 10).length}
+                              checked={smsHistory.length > 0 && selectedSms.length === smsHistory.slice(0, 100).length}
                               onChange={(e) => {
                                 if (e.target.checked) {
-                                  setSelectedSms(smsHistory.slice(0, 10).map(s => s.id));
+                                  setSelectedSms(smsHistory.slice(0, 100).map(s => s.id));
                                 } else {
                                   setSelectedSms([]);
                                 }
@@ -988,7 +988,7 @@ function App() {
                         </tr>
                       </thead>
                       <tbody>
-                        {smsHistory.slice(0, 10).map(msg => (
+                        {smsHistory.slice(0, 100).map(msg => (
                           <tr key={msg.id} className={selectedSms.includes(msg.id) ? 'row-selected' : ''}>
                             <td>
                               <input

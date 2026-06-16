@@ -318,8 +318,15 @@ h4 {
   padding: 12px 16px;
   border-bottom: 1px solid var(--border);
   font-size: 0.875rem;
-  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.activity-table td.allow-wrap {
+  white-space: normal;
   word-break: break-all;
+  line-height: 1.4;
 }
 
 .activity-table tr:hover {
