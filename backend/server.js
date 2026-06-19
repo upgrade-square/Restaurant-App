@@ -8,8 +8,13 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { sendOTPEmail, validateEmailConfig, testEmailConnection } = require('./services/emailService');
 const { initiateSTKPush, validateConfig: validateMpesaConfig, maskPhone } = require('./services/mpesaService');
+const TemplateService = require('./services/templateService');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'restaurant-sms-saas-secret-key-2026';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+    console.error('[CRITICAL] Missing JWT_SECRET in environment variables. Server cannot start.');
+    process.exit(1);
+}
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -134,6 +139,8 @@ const readData = (file) => {
     }
 };
 
+
+
 // Helper to write data
 const writeData = (file, data) => {
     fs.writeFileSync(file, JSON.stringify(data, null, 2));
@@ -197,34 +204,11 @@ const normalizePhone = (phone) => {
     return cleaned;
 };
 
-// Template Processor: Dynamic Business Name Injection
-const normalizeMessage = (template, data, settings) => {
-    if (!template) return "";
-    let msg = template;
-    const bizName = settings.restaurantName || "our business";
-
-    // Support multiple placeholder formats and aliases
-    const placeholders = {
-        name: data.firstName || data.name?.split(' ')[0] || "Customer",
-        customer_name: data.name || "Customer",
-        customerName: data.name || "Customer",
-        business_name: bizName,
-        businessName: bizName,
-        restaurant_name: bizName,
-        restaurantName: bizName,
-        company_name: bizName,
-        companyName: bizName
-    };
-
-    Object.keys(placeholders).forEach(key => {
-        const value = placeholders[key];
-        // Handle {{placeholder}}
-        msg = msg.replace(new RegExp(`{{${key}}}`, 'g'), value);
-        // Handle {placeholder}
-        msg = msg.replace(new RegExp(`{${key}}`, 'g'), value);
+// Template Processor: Centralized Placeholder Engine
+const normalizeMessage = (template, data, restaurant) => {
+    return TemplateService.render(template, data, {
+        business_name: restaurant.business_name || "Business Account"
     });
-
-    return msg;
 };
 
 // Admin Role Migration
@@ -247,6 +231,8 @@ migrateAdmin();
 const authenticateToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
+
+
 
     if (!token) {
         return res.status(401).json({ error: 'Access denied. No token provided.' });
@@ -353,11 +339,11 @@ app.post('/customers', authenticateToken, checkSubscription, (req, res) => {
         const customers = readData(DATA_FILE);
         const smsQueue = readData(SMS_DATA_FILE);
         const activityLog = readData(ACTIVITY_LOG_FILE);
-        const allSettings = readData(SETTINGS_FILE);
+        const allRestaurants = readData(RESTAURANTS_FILE);
         const allTemplates = readData(TEMPLATES_FILE);
 
-        const settings = allSettings[restaurantId] || (allSettings.restaurantName ? allSettings : allSettings[DEFAULT_RESTAURANT_ID]);
-        const templates = allTemplates[restaurantId] || (allTemplates.thankYou ? allTemplates : allTemplates[DEFAULT_RESTAURANT_ID]);
+        const restaurant = allRestaurants.find(r => r.id === restaurantId) || allRestaurants.find(r => r.id === DEFAULT_RESTAURANT_ID);
+        const templates = allTemplates[restaurantId] || allTemplates[DEFAULT_RESTAURANT_ID] || {};
 
         // 1. Create/Update Customer (Phone is Unique Identifier)
         let customer = customers.find(c => c.phone === normalizedPhone);
@@ -402,18 +388,16 @@ app.post('/customers', authenticateToken, checkSubscription, (req, res) => {
         }
 
         // 2. Prepare message using standardized template engine
-        // Use CANONICAL name from the customer record
-        const displayName = customer.name;
-        const firstName = displayName.split(' ')[0];
-        let template = templates.thankYou || settings.defaultThanks || "Thank you {{name}} for your payment to {{businessName}}!";
-        const message = normalizeMessage(template, { name: displayName, firstName }, settings);
+        // Priority: custom template > restaurant default > platform default
+        const template = templates.thankYou || restaurant.default_template || TemplateService.getPlatformDefault();
+        const message = normalizeMessage(template, customer, restaurant);
 
         // 3. Create SMS Queue Entry
         const newSmsEntry = {
             id: Date.now() + 1,
             restaurantId,
             customerId: customer.id,
-            customerName: displayName, // Store canonical name in records for consistency
+            customerName: customer.name, // Store canonical name in records for consistency
             phone: normalizedPhone,
             amount: amount,
             message: message,
@@ -529,17 +513,13 @@ app.post('/payments/incoming', authenticateToken, (req, res) => {
         writeData(DATA_FILE, customers);
 
         // 5. Generate SMS using standardized template engine
-        // Use CANONICAL name from the customer record
-        const displayName = customer.name;
-        const firstName = displayName.split(' ')[0];
-
         const allTemplates = readData(TEMPLATES_FILE);
-        const allSettings = readData(SETTINGS_FILE);
-        const settings = allSettings[restaurantId] || allSettings[DEFAULT_RESTAURANT_ID] || {};
+        const allRestaurants = readData(RESTAURANTS_FILE);
+        const restaurant = allRestaurants.find(r => r.id === restaurantId) || allRestaurants.find(r => r.id === DEFAULT_RESTAURANT_ID);
         const templates = allTemplates[restaurantId] || allTemplates[DEFAULT_RESTAURANT_ID] || {};
 
-        const template = templates.thankYou || settings.defaultThanks || "Thank you {{name}} for your payment to {{businessName}}!";
-        const message = normalizeMessage(template, { name: displayName, firstName }, settings);
+        const template = templates.thankYou || restaurant.default_template || TemplateService.getPlatformDefault();
+        const message = normalizeMessage(template, customer, restaurant);
 
         // 6. Add to SMS Queue
         console.log(`[PAYMENT] Queuing SMS for ${normalizedPhone}`);
@@ -548,7 +528,7 @@ app.post('/payments/incoming', authenticateToken, (req, res) => {
             id: Date.now() + 1,
             restaurantId,
             customerId: customer.id,
-            customerName: displayName, // Store canonical name in records
+            customerName: customer.name, // Store canonical name in records
             phone: normalizedPhone,
             amount: amount,
             message: message,
@@ -857,8 +837,16 @@ app.get('/settings', authenticateToken, (req, res) => {
     try {
         const restaurantId = req.user.restaurantId;
         const allSettings = readData(SETTINGS_FILE);
-        const settings = allSettings[restaurantId] || (allSettings.restaurantName ? allSettings : allSettings[DEFAULT_RESTAURANT_ID]);
-        res.json(settings);
+        const settings = allSettings[restaurantId] || allSettings[DEFAULT_RESTAURANT_ID] || {};
+
+        const restaurants = readData(RESTAURANTS_FILE);
+        const restaurant = restaurants.find(r => r.id === restaurantId);
+
+        res.json({
+            ...settings,
+            default_template: restaurant?.default_template || TemplateService.getPlatformDefault(),
+            business_name: restaurant?.business_name || "Business Account"
+        });
     } catch (error) {
         res.status(500).json({ error: 'Failed to read settings' });
     }
@@ -875,19 +863,32 @@ app.post('/settings', authenticateToken, checkSubscription, (req, res) => {
         allSettings[restaurantId] = settings;
         writeData(SETTINGS_FILE, allSettings);
 
-        // Sync Business Name to Restaurants list for Profile/Header synchronization
+        // Sync Business Name and Default Template to Restaurants list
         const restaurants = readData(RESTAURANTS_FILE);
         const rIndex = restaurants.findIndex(r => r.id === restaurantId);
         let updatedRestaurant = null;
         if (rIndex > -1) {
-            restaurants[rIndex].name = settings.restaurantName;
+            const bName = settings.business_name || settings.restaurantName;
+            if (bName) {
+                restaurants[rIndex].name = bName;
+                restaurants[rIndex].business_name = bName;
+            }
+
+            if (settings.default_template) {
+                const validation = TemplateService.validate(settings.default_template);
+                if (!validation.valid) {
+                    return res.status(400).json({ error: validation.error });
+                }
+                restaurants[rIndex].default_template = settings.default_template;
+            }
+
             updatedRestaurant = restaurants[rIndex];
             writeData(RESTAURANTS_FILE, restaurants);
         }
 
         res.json({
             message: 'Settings saved',
-            name: settings.restaurantName,
+            name: settings.business_name || settings.restaurantName,
             restaurant: updatedRestaurant
         });
     } catch (error) {
@@ -902,7 +903,13 @@ app.get('/templates', authenticateToken, (req, res) => {
     try {
         const restaurantId = req.user.restaurantId;
         const allTemplates = readData(TEMPLATES_FILE);
-        const templates = allTemplates[restaurantId] || (allTemplates.thankYou ? allTemplates : allTemplates[DEFAULT_RESTAURANT_ID]);
+        let templates = allTemplates[restaurantId] || (allTemplates.thankYou ? allTemplates : allTemplates[DEFAULT_RESTAURANT_ID] || {});
+
+        // Ensure thankYou is never empty
+        if (!templates.thankYou || templates.thankYou.trim().length === 0) {
+            templates.thankYou = TemplateService.getPlatformDefault();
+        }
+
         res.json(templates);
     } catch (error) {
         res.status(500).json({ error: 'Failed to read templates' });
@@ -916,10 +923,21 @@ app.post('/templates', authenticateToken, checkSubscription, (req, res) => {
     try {
         const restaurantId = req.user.restaurantId;
         const templates = req.body;
+
+        // Validate templates
+        for (const key in templates) {
+            if (templates[key]) {
+                const validation = TemplateService.validate(templates[key]);
+                if (!validation.valid) {
+                    return res.status(400).json({ error: `Invalid ${key} template: ${validation.error}` });
+                }
+            }
+        }
+
         const allTemplates = readData(TEMPLATES_FILE);
         allTemplates[restaurantId] = templates;
         writeData(TEMPLATES_FILE, allTemplates);
-        res.json({ message: 'Templates updated' });
+        res.json({ success: true, message: 'Templates updated' });
     } catch (error) {
         res.status(500).json({ error: 'Failed to save templates' });
     }
@@ -1077,10 +1095,7 @@ authRouter.post('/login', async (req, res) => {
                 restaurantId: user.restaurantId,
                 role: user.role
             },
-            restaurant: restaurant ? {
-                id: restaurant.id,
-                name: restaurant.name
-            } : null
+            restaurant: restaurant || null
         });
     } catch (error) {
         res.status(500).json({ error: 'Login failed' });
@@ -1406,8 +1421,10 @@ app.use('/auth', authRouter);
  */
 app.post('/onboarding/register', async (req, res) => {
     try {
-        const { restaurantName, ownerName, email, password, otp } = req.body;
-        if (!restaurantName || !ownerName || !email || !password || !otp) {
+        const { business_name, restaurantName, ownerName, email, password, otp } = req.body;
+        const finalRestaurantName = business_name || restaurantName;
+
+        if (!finalRestaurantName || !ownerName || !email || !password || !otp) {
             return res.status(400).json({ error: 'All fields are required, including verification code' });
         }
 
@@ -1423,17 +1440,19 @@ app.post('/onboarding/register', async (req, res) => {
         if (users.find(u => u.email === email)) return res.status(400).json({ error: 'Email already registered' });
 
         // Generate Domain-safe Restaurant ID
-        const restaurantId = restaurantName.toLowerCase().replace(/[^a-z0-9]/g, '-') + '-' + Math.floor(Math.random() * 1000);
+        const restaurantId = finalRestaurantName.toLowerCase().replace(/[^a-z0-9]/g, '-') + '-' + Math.floor(Math.random() * 1000);
 
         // 1. Create Restaurant
         const restaurants = readData(RESTAURANTS_FILE);
         const newRestaurant = {
             id: restaurantId,
-            name: restaurantName,
+            name: finalRestaurantName,
+            business_name: finalRestaurantName,
             plan: null,
             duration: '0 Days',
             subscriptionStatus: 'Not Activated',
             subscriptionExpiry: null,
+            default_template: TemplateService.getPlatformDefault(),
             createdAt: nowUTC(),
             onboardingStatus: 'active'
         };
@@ -1464,8 +1483,8 @@ app.post('/onboarding/register', async (req, res) => {
         // 3. Bootstrap Default Settings
         const allSettings = readData(SETTINGS_FILE);
         allSettings[restaurantId] = {
-            restaurantName,
-            defaultThanks: 'Thank you for your payment. We appreciate your support and look forward to serving you again.',
+            restaurantName: finalRestaurantName,
+            defaultThanks: TemplateService.getPlatformDefault(),
             address: '',
             phone: ''
         };
@@ -1473,7 +1492,9 @@ app.post('/onboarding/register', async (req, res) => {
 
         // 4. Bootstrap Default Templates
         const allTemplates = readData(TEMPLATES_FILE);
-        allTemplates[restaurantId] = {};
+        allTemplates[restaurantId] = {
+            thankYou: newRestaurant.default_template
+        };
         writeData(TEMPLATES_FILE, allTemplates);
 
         // 5. Generate Instant Token
@@ -1799,6 +1820,7 @@ app.post('/subscription/verify', authenticateToken, (req, res) => {
             return res.status(400).json({ error: 'Transaction code and plan required' });
         }
 
+
         const restaurants = readData(RESTAURANTS_FILE);
         const restaurantIndex = restaurants.findIndex(r => r.id === req.user.restaurantId);
 
@@ -1889,6 +1911,7 @@ app.post('/subscriptions/mpesa/initiate', authenticateToken, async (req, res) =>
             console.warn('[MPESA_INIT] Validation failed - missing fields');
             return res.status(400).json({ error: 'Plan, phone, and amount are required' });
         }
+
 
         // Step 2: Config Check
         console.log('[MPESA_INIT] Running config check');

@@ -1,30 +1,30 @@
 {
-  "thankYou": "Hi {{name}}, thank you for your payment at {{restaurantName}}. We appreciate your support and look forward to serving you again!",
-  "reservation": "Hi {{name}}, your appointment at {{restaurantName}} is confirmed.",
-  "promotional": "Hi {{name}}, we have a special offer for you at {{restaurantName}}! Show this message to get 10% off.",
+  "thankYou": "Hi {name}, thank you for your payment at {business_name}. We appreciate your support and look forward to serving you again!",
+  "reservation": "Hi {name}, your appointment at {business_name} is confirmed.",
+  "promotional": "Hi {name}, we have a special offer for you at {business_name}! Show this message to get 10% off.",
   "test-restaurant-425": {
-    "thankYou": "Hi {{name}}, thank you for your payment at Test Business. We appreciate your support and look forward to serving you again!",
-    "reservation": "Hi {{name}}, your appointment at Test Business is confirmed.",
+    "thankYou": "Hi {name}, thank you for your payment at Test Business. We appreciate your support and look forward to serving you again!",
+    "reservation": "Hi {name}, your appointment at Test Business is confirmed.",
     "promotional": "Special offer from Test Business! Use code WELCOME for 10% off."
   },
   "upgrade-square-210": {
-    "thankYou": "Hi {{name}}, thank you for your payment at Upgrade Square. We hope to see you again soon!",
-    "reservation": "Hi {{name}}, your appointment at Upgrade Square is confirmed.",
+    "thankYou": "Hi {name}, thank you for your payment at {business_name} . We hope to see you again soon!",
+    "reservation": "Hi {name}, your appointment at Upgrade Square is confirmed.",
     "promotional": "Special offer from Upgrade Square! Use code WELCOME for 10% off."
   },
   "rahlah-691": {
-    "thankYou": "Hi {{name}}, thank you for your payment at {{businessName}}. We hope to see you again soon! Karibu tena.",
-    "reservation": "Hi {{name}}, your appointment at RAHLAH is confirmed.",
+    "thankYou": "Hi {name}, thank you for your payment at {business_name}. We hope to see you again soon! Karibu tena.",
+    "reservation": "Hi {name}, your appointment at RAHLAH is confirmed.",
     "promotional": "Special offer from RAHLAH! Use code WELCOME for 10% off."
   },
   "yendor-551": {
-    "thankYou": "Hi {{name}}, thank you for your payment at Yendor. We hope to see you again soon!",
-    "reservation": "Hi {{name}}, your appointment at Yendor is confirmed.",
+    "thankYou": "Hi {name}, thank you for your payment at Yendor. We hope to see you again soon!",
+    "reservation": "Hi {name}, your appointment at Yendor is confirmed.",
     "promotional": "Special offer from Yendor! Use code WELCOME for 10% off."
   },
   "mikrodcap-598": {
-    "thankYou": "Hi {{name}}, thank you for your payment at MikrodCAP. We hope to see you again soon!",
-    "reservation": "Hi {{name}}, your appointment at MikrodCAP is confirmed.",
+    "thankYou": "Hi {name}, thank you for your payment at MikrodCAP. We hope to see you again soon!",
+    "reservation": "Hi {name}, your appointment at MikrodCAP is confirmed.",
     "promotional": "Special offer from MikrodCAP! Use code WELCOME for 10% off."
   },
   "yyy-419": {},

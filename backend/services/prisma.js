@@ -44,7 +44,11 @@ const prismaService = {
     async onboardingRegister(resData, ownerData, settings, templates) {
         return await prisma.$transaction(async (tx) => {
             const restaurant = await tx.restaurant.create({
-                data: resData
+                data: {
+                    ...resData,
+                    business_name: resData.business_name || resData.name,
+                    default_template: resData.default_template || "Hello {name}, thank you for choosing {business_name}. We appreciate your support."
+                }
             });
 
             const user = await tx.user.create({
@@ -57,7 +61,8 @@ const prismaService = {
             await tx.smsTemplate.create({
                 data: {
                     ...templates,
-                    restaurantId: restaurant.id
+                    restaurantId: restaurant.id,
+                    thankYou: templates.thankYou || restaurant.default_template
                 }
             });
 

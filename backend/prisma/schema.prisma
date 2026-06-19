@@ -7,15 +7,16 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 model Restaurant {
   id                 String      @id
-  name               String
+  name               String      @default("Our Business")
+  business_name      String      @default("Our Business")
   plan               String      @default("Starter")
   subscriptionStatus String      @default("Trial")
   subscriptionExpiry DateTime?
+  default_template   String      @default("Hello {name}, thank you for choosing {business_name}. We appreciate your support.")
   createdAt          DateTime    @default(now())
   
   users              User[]

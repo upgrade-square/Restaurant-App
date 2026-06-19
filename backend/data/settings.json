@@ -15,7 +15,9 @@
     "restaurantName": "DENIM & DIAMOND",
     "defaultThanks": "Thank you for your visit!",
     "address": "",
-    "phone": ""
+    "phone": "0769320029",
+    "default_template": "Thank you for your visit!",
+    "business_name": "DENIM "
   },
   "rahlah-691": {
     "restaurantName": "Tourist Hotel",

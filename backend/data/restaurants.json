@@ -6,7 +6,9 @@
     "subscriptionStatus": "trial",
     "subscriptionExpiry": "2026-06-14T12:47:55.452Z",
     "payoutHistory": [],
-    "createdAt": "6/3/2026, 12:34:20 PM"
+    "createdAt": "6/3/2026, 12:34:20 PM",
+    "business_name": "MikrodTech Business",
+    "default_template": "Hello {name}, thank you for choosing {business_name}. We appreciate your support."
   },
   {
     "id": "test-restaurant-425",
@@ -14,15 +16,19 @@
     "plan": "Starter",
     "subscriptionStatus": "active",
     "subscriptionExpiry": "2026-07-10T13:00:47.000Z",
-    "createdAt": "2026-06-03T13:00:47.396Z"
+    "createdAt": "2026-06-03T13:00:47.396Z",
+    "business_name": "Test Restaurant",
+    "default_template": "Thank you for your visit!"
   },
   {
     "id": "upgrade-square-210",
-    "name": "DENIM & DIAMOND",
+    "name": "DENIM ",
     "plan": "Professional",
     "subscriptionStatus": "Active",
     "subscriptionExpiry": "2026-07-03T13:02:21Z",
-    "createdAt": "2026-06-03T13:02:21.964Z"
+    "createdAt": "2026-06-03T13:02:21.964Z",
+    "business_name": "DENIM ",
+    "default_template": "Thank you for your visit!"
   },
   {
     "id": "rahlah-691",
@@ -30,7 +36,9 @@
     "plan": "Enterprise",
     "subscriptionStatus": "active",
     "subscriptionExpiry": "2026-08-02T13:49:17.000Z",
-    "createdAt": "2026-06-03T13:49:17.702Z"
+    "createdAt": "2026-06-03T13:49:17.702Z",
+    "business_name": "Tourist Hotel",
+    "default_template": "Thank you for your visit!"
   },
   {
     "id": "yendor-551",
@@ -38,7 +46,9 @@
     "plan": "Professional",
     "subscriptionStatus": "Expired",
     "subscriptionExpiry": "2026-06-01T15:39:59Z",
-    "createdAt": "2026-06-03T15:39:59.311Z"
+    "createdAt": "2026-06-03T15:39:59.311Z",
+    "business_name": "RAHLAH Resort",
+    "default_template": "Thank you for your visit!"
   },
   {
     "id": "mikrodcap-598",
@@ -47,7 +57,9 @@
     "subscriptionStatus": "Trial",
     "subscriptionExpiry": "2026-06-26T12:20:49.427Z",
     "createdAt": "2026-06-12T12:20:49.427Z",
-    "onboardingStatus": "active"
+    "onboardingStatus": "active",
+    "business_name": "MikrodCAP",
+    "default_template": "Thank you for your visit!"
   },
   {
     "id": "yyy-419",
@@ -57,7 +69,9 @@
     "subscriptionStatus": "Not Activated",
     "subscriptionExpiry": null,
     "createdAt": "2026-06-13T13:53:11.075Z",
-    "onboardingStatus": "active"
+    "onboardingStatus": "active",
+    "business_name": "yyy",
+    "default_template": "Thank you for your payment. We appreciate your support and look forward to serving you again."
   },
   {
     "id": "hello-861",
@@ -67,6 +81,8 @@
     "subscriptionStatus": "Not Activated",
     "subscriptionExpiry": null,
     "createdAt": "2026-06-13T17:25:17.668Z",
-    "onboardingStatus": "active"
+    "onboardingStatus": "active",
+    "business_name": "Hello",
+    "default_template": "Thank you for your payment. We appreciate your support and look forward to serving you again."
   }
 ]
