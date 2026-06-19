@@ -4,6 +4,8 @@ import API_URL from './config/api'
 import ErrorBoundary from './components/ErrorBoundary'
 import { getRelativeTime, formatActivityDate, formatDateTime } from './utils/dateUtils'
 
+const DEFAULT_TEMPLATE = "Hello {name}, thank you for choosing {business_name}. We appreciate your support.";
+
 const EyeIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
@@ -64,6 +66,20 @@ const normalizePhone = (phone) => {
   return cleaned;
 };
 
+const renderPreview = (template, customer = { name: 'Jane' }, business = { business_name: 'Business Account' }) => {
+  if (!template) return "";
+  let rendered = template;
+  const placeholders = {
+    name: customer.name || "Customer",
+    business_name: business.business_name || "Business Account"
+  };
+  Object.keys(placeholders).forEach(key => {
+    const regex = new RegExp(`{${key}}`, 'gi');
+    rendered = rendered.replace(regex, placeholders[key]);
+  });
+  return rendered.replace(/\s+/g, ' ').trim();
+};
+
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard')
   const [smsHistory, setSmsHistory] = useState([])
@@ -88,10 +104,10 @@ function App() {
   const [restaurant, setRestaurant] = useState(JSON.parse(localStorage.getItem('restaurant') || 'null'))
   const [authMode, setAuthMode] = useState('login')
   const [onboardingStep, setOnboardingStep] = useState(1)
-  const [signupData, setSignupData] = useState({ restaurantName: '', ownerName: '', email: '', password: '', plan: 'Starter', duration: '1 Month' })
+  const [signupData, setSignupData] = useState({ business_name: '', ownerName: '', email: '', password: '', plan: 'Starter', duration: '1 Month' })
 
-  const [settings, setSettings] = useState({ restaurantName: '', phone: '', address: '', email: '' })
-  const [templates, setTemplates] = useState({ thankYou: '' })
+  const [settings, setSettings] = useState({ business_name: '', phone: '', address: '', email: '', default_template: DEFAULT_TEMPLATE })
+  const [templates, setTemplates] = useState({ thankYou: DEFAULT_TEMPLATE })
   const [metrics, setMetrics] = useState({ totalCustomers: 0, totalSent: 0, sentToday: 0, pending: 0, failed: 0 })
   const [gatewayStatus, setGatewayStatus] = useState({ status: 'Offline', lastSeen: null, batteryLevel: 0, isCharging: false, deviceName: 'N/A' })
 
@@ -116,7 +132,9 @@ function App() {
   const isProfessional = restaurant?.plan === 'Professional' || restaurant?.plan === 'Enterprise' || isAdmin;
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [isSaving, setIsSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState(null);
+  const [saveStatus, setSaveStatus] = useState('idle'); // idle | success | error
+  const [isTemplateSaving, setIsTemplateSaving] = useState(false);
+  const [templateSaveStatus, setTemplateSaveStatus] = useState('idle'); // idle | success | error
 
   const [passwordData, setPasswordData] = useState({ current: '', new: '', confirm: '' });
   const [resetData, setResetData] = useState({ password: '', confirmed: false });
@@ -127,6 +145,22 @@ function App() {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const [forgotStep, setForgotStep] = useState(1);
+
+  // Template Normalization Utility
+  const normalizeTemplate = (text) => {
+    if (!text) return text;
+    return text
+      .replace(/\{\{name\}\}/gi, '{name}')
+      .replace(/\{\{business_name\}\}/gi, '{business_name}')
+      .replace(/\{\{businessName\}\}/gi, '{business_name}')
+      .replace(/\{\{restaurantName\}\}/gi, '{business_name}')
+      .replace(/\{restaurantName\}/gi, '{business_name}')
+      .replace(/\{businessName\}/gi, '{business_name}')
+      .replace(/\{\{name\}/gi, '{name}')
+      .replace(/\{name\}\}/gi, '{name}')
+      .replace(/\{\{business_name\}/gi, '{business_name}')
+      .replace(/\{business_name\}\}/gi, '{business_name}');
+  };
   const [forgotEmail, setForgotEmail] = useState('');
   const [showRecoveryPassword, setShowRecoveryPassword] = useState(false);
 
@@ -157,13 +191,16 @@ function App() {
     try {
       const response = await fetch(`${API_URL}${endpoint}`, { ...options, headers })
 
-      if (response.status === 401) {
+      if (response.status === 401 || response.status === 403) {
         const errorData = await response.json().catch(() => ({}));
         const isSecurityMismatch = errorData.error && errorData.error.includes('Session invalidated');
+        const isInvalidToken = response.status === 403;
 
-        handleLogout(isSecurityMismatch
-          ? 'Your session has expired because your account security settings changed. Please sign in again.'
-          : 'Your session has expired. Please sign in again.'
+        handleLogout(isInvalidToken
+          ? 'Your session has expired. Please sign in again.'
+          : isSecurityMismatch
+            ? 'Your session has expired because your account security settings changed. Please sign in again.'
+            : 'Your session has expired. Please sign in again.'
         );
         throw new Error(errorData.error || 'Session expired');
       }
@@ -437,8 +474,19 @@ function App() {
       setCustomers(results[3])
 
       if (!isDashboardHeartbeat) {
-        setSettings(results[4])
-        setTemplates(results[5])
+        const settingsRes = results[4];
+        if (settingsRes) {
+          settingsRes.default_template = settingsRes.default_template?.trim() ? settingsRes.default_template : DEFAULT_TEMPLATE;
+          settingsRes.business_name = settingsRes.business_name || settingsRes.restaurantName || restaurant?.business_name || "Business Account";
+        }
+        setSettings(settingsRes || { business_name: restaurant?.business_name || "Business Account", default_template: DEFAULT_TEMPLATE });
+
+        const templatesRes = results[5];
+        if (templatesRes) {
+          templatesRes.thankYou = templatesRes.thankYou?.trim() ? templatesRes.thankYou : DEFAULT_TEMPLATE;
+        }
+        setTemplates(templatesRes || { thankYou: DEFAULT_TEMPLATE });
+
         setSubscriptionHistory(results[6])
 
         // Sync restaurant state (subscription status, plan, etc)
@@ -447,6 +495,11 @@ function App() {
           if (me && me.restaurant) {
             setRestaurant(me.restaurant);
             localStorage.setItem('restaurant', JSON.stringify(me.restaurant));
+
+            setSettings(prev => ({
+              ...prev,
+              business_name: prev.business_name || me.restaurant.business_name || "Business Account"
+            }));
           }
         } catch (meError) {
           console.warn('Failed to sync profile', meError);
@@ -497,6 +550,12 @@ function App() {
 
   const handleVerifyPayment = async (e) => {
     e.preventDefault()
+
+    if (selectedPlan !== 'Starter') {
+      showToast('Professional and Enterprise plans will be available soon.');
+      return;
+    }
+
     const data = await fetchWithAuth('/subscription/verify', {
       method: 'POST',
       body: JSON.stringify({ transactionCode, plan: selectedPlan })
@@ -707,7 +766,7 @@ function App() {
                     const email = e.target.email.value;
                     setSignupData({
                       ...signupData,
-                      restaurantName: e.target.resName.value,
+                      business_name: e.target.resName.value,
                       ownerName: e.target.ownerName.value,
                       email: email,
                       password: e.target.password.value,
@@ -717,7 +776,7 @@ function App() {
                       if (success) setShowOTPStep(true);
                     });
                   }}>
-                    <div className="form-group"><label>Business Name</label><input className="form-control" name="resName" placeholder="e.g. Acme Retail Shop" defaultValue={signupData.restaurantName} required /></div>
+                    <div className="form-group"><label>Business Name</label><input className="form-control" name="resName" placeholder="e.g. Acme Retail Shop" defaultValue={signupData.business_name} required /></div>
                     <div className="form-group"><label>Owner Name</label><input className="form-control" name="ownerName" placeholder="Your full name" defaultValue={signupData.ownerName} required /></div>
                     <div className="form-group"><label>Email Address</label><input className="form-control" name="email" type="email" placeholder="owner@business.com" defaultValue={signupData.email} required /></div>
                     <div className="form-group">
@@ -839,7 +898,7 @@ function App() {
 
             <div className="business-info">
               <div className="desktop-only">
-                <div className="business-name">{settings?.restaurantName || restaurant?.name || 'Business Account'}</div>
+                <div className="business-name">{settings.business_name || restaurant?.business_name || 'Business Account'}</div>
               </div>
               <button className="nav-btn logout-btn" style={{ color: 'var(--danger)' }} onClick={() => { handleLogout(); setMenuOpen(false); }}>Logout</button>
             </div>
@@ -1188,26 +1247,67 @@ function App() {
             activeTab === 'templates' && (
               <div className="section card">
                 <h3>Appreciation Template</h3>
-                <p style={{ color: 'var(--text-muted)', marginBottom: '16px' }}>Use <code>{`{{name}}`}</code> for customer name and <code>{`{{businessName}}`}</code> for business name.</p>
+                <p style={{ color: 'var(--text-muted)', marginBottom: '16px' }}>
+                  This template is used when manually or automatically appreciating customers.
+                </p>
                 <div className="form-group">
-                  <textarea className="form-control" style={{ height: '150px' }} value={templates.thankYou} onChange={e => setTemplates({ ...templates, thankYou: e.target.value })} />
+                  <div className="placeholder-buttons" style={{ marginBottom: '8px', display: 'flex', gap: '8px' }}>
+                    <button type="button" className="secondary-btn" style={{ fontSize: '0.75rem', padding: '4px 8px' }} onClick={() => setTemplates({ ...templates, thankYou: templates.thankYou + '{name}' })}>+ {`{name}`}</button>
+                    <button type="button" className="secondary-btn" style={{ fontSize: '0.75rem', padding: '4px 8px' }} onClick={() => setTemplates({ ...templates, thankYou: templates.thankYou + '{business_name}' })}>+ {`{business_name}`}</button>
+                  </div>
+                  <textarea
+                    className="form-control"
+                    style={{ height: '150px', fontFamily: 'monospace' }}
+                    value={templates.thankYou?.trim() ? templates.thankYou : DEFAULT_TEMPLATE}
+                    onChange={e => setTemplates({ ...templates, thankYou: e.target.value })}
+                  />
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                    Supported placeholders: <code>{`{name}`}</code>, <code>{`{business_name}`}</code>.
+                  </p>
                 </div>
+
+                <div className="preview-box" style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '24px' }}>
+                  <span style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: '#64748b', fontWeight: 700, display: 'block', marginBottom: '8px' }}>Real-time Preview</span>
+                  <p style={{ margin: 0, fontSize: '0.9rem', color: '#1e293b', fontStyle: templates.thankYou?.trim() ? 'normal' : 'italic' }}>
+                    {templates.thankYou?.trim() ? renderPreview(templates.thankYou, { name: 'Jane' }, { business_name: settings.business_name || restaurant?.business_name || 'Business Account' }) : renderPreview(DEFAULT_TEMPLATE, { name: 'Jane' }, { business_name: settings.business_name || restaurant?.business_name || 'Business Account' })}
+                  </p>
+                </div>
+
                 <button
                   className="login-btn"
                   style={{ width: '200px' }}
-                  disabled={isSaving}
-                  onClick={() => {
-                    setIsSaving(true);
-                    fetchWithAuth('/templates', { method: 'POST', body: JSON.stringify(templates) })
-                      .then(() => {
-                        showToast('Templates saved');
-                        setSaveStatus('saved');
-                        setTimeout(() => setSaveStatus(null), 3000);
-                      })
-                      .finally(() => setIsSaving(false));
+                  disabled={isTemplateSaving}
+                  onClick={async () => {
+                    setIsTemplateSaving(true);
+                    setTemplateSaveStatus('idle');
+                    try {
+                      // Normalize all templates before save
+                      const normalizedTemplates = { ...templates };
+                      for (const key in normalizedTemplates) {
+                        if (typeof normalizedTemplates[key] === 'string') {
+                          normalizedTemplates[key] = normalizeTemplate(normalizedTemplates[key]);
+                        }
+                      }
+
+                      const data = await fetchWithAuth('/templates', { method: 'POST', body: JSON.stringify(normalizedTemplates) });
+                      if (!data?.success) throw new Error('Save failed');
+
+                      showToast('Templates saved successfully.');
+                      setTemplateSaveStatus('success');
+
+                      setTimeout(() => {
+                        refreshData(true);
+                        setTemplateSaveStatus('idle');
+                      }, 3000);
+                    } catch (err) {
+                      setTemplateSaveStatus('error');
+                      showToast('Unable to save templates. Please try again.', 'danger');
+                    } finally {
+                      setIsTemplateSaving(false);
+                    }
                   }}
                 >
-                  {isSaving ? 'Saving...' : saveStatus === 'saved' ? 'Saved ✓' : 'Save Changes'}
+                  {isTemplateSaving ? 'Saving...' : templateSaveStatus === 'success' ? 'Saved ✓' : 'Save Changes'}
                 </button>
               </div>
             )
@@ -1285,6 +1385,10 @@ function App() {
                         className="btn-security-primary"
                         style={{ padding: '12px 32px' }}
                         onClick={() => {
+                          if (selectedPlan !== 'Starter') {
+                            showToast('Professional and Enterprise plans will be available soon.');
+                            return;
+                          }
                           setMpesaPhone(restaurant?.phone || '');
                           setShowMpesaModal(true);
                         }}
@@ -1416,27 +1520,77 @@ function App() {
                   <form onSubmit={e => {
                     e.preventDefault();
                     setIsSaving(true);
-                    fetchWithAuth('/settings', { method: 'POST', body: JSON.stringify(settings) })
+                    setSaveStatus('idle');
+
+                    // Normalize template before save
+                    const normalizedSettings = {
+                      ...settings,
+                      default_template: normalizeTemplate(settings.default_template)
+                    };
+
+                    fetchWithAuth('/settings', { method: 'POST', body: JSON.stringify(normalizedSettings) })
                       .then((data) => {
-                        showToast('Settings saved');
-                        setSaveStatus('saved');
+                        showToast('Settings saved successfully.');
+                        setSaveStatus('success');
                         if (data.restaurant) {
                           localStorage.setItem('restaurant', JSON.stringify(data.restaurant));
                           setRestaurant(data.restaurant);
                         }
-                        setTimeout(() => setSaveStatus(null), 3000);
+                        setTimeout(() => {
+                          setSaveStatus('idle');
+                        }, 3000);
                         refreshData(true);
                       })
-                      .finally(() => setIsSaving(false));
+                      .catch(err => {
+                        setSaveStatus('error');
+                        showToast('Unable to save settings. Please try again.', 'danger');
+                      })
+                      .finally(() => {
+                        setIsSaving(false);
+                      });
                   }} style={{ marginTop: '16px' }}>
-                    <div className="form-group"><label>Business Name</label><input className="form-control" value={settings.restaurantName} onChange={e => setSettings({ ...settings, restaurantName: e.target.value })} required /></div>
+                    <div className="form-group"><label>Business Name</label><input className="form-control" value={settings.business_name} onChange={e => setSettings({ ...settings, business_name: e.target.value })} required /></div>
                     <div className="form-group"><label>Contact Phone</label><input className="form-control" type="tel" value={settings.phone} onChange={e => setSettings({ ...settings, phone: e.target.value })} /></div>
                     <div className="form-group"><label>Official Email</label><input className="form-control" type="email" value={settings.email} onChange={e => setSettings({ ...settings, email: e.target.value })} /></div>
                     <div className="form-group"><label>Operating Address</label><input className="form-control" value={settings.address} onChange={e => setSettings({ ...settings, address: e.target.value })} /></div>
+
                     <button className="login-btn" style={{ width: '200px' }} type="submit" disabled={isSaving}>
-                      {isSaving ? 'Saving...' : saveStatus === 'saved' ? 'Saved ✓' : 'Save Changes'}
+                      {isSaving ? 'Saving...' : saveStatus === 'success' ? 'Saved ✓' : 'Save Changes'}
                     </button>
                   </form>
+                </div>
+
+                <div className="card" style={{ marginTop: '24px' }}>
+                  <h3>Messaging Configuration</h3>
+                  <p className="tagline">Set your mandatory default message template and manage placeholders.</p>
+
+                  <div style={{ marginTop: '16px' }}>
+                    <div className="form-group">
+                      <label>Default Message Template</label>
+                      <div className="placeholder-buttons" style={{ marginBottom: '8px', display: 'flex', gap: '8px' }}>
+                        <button type="button" className="secondary-btn" style={{ fontSize: '0.75rem', padding: '4px 8px' }} onClick={() => setSettings({ ...settings, default_template: settings.default_template + '{name}' })}>+ {`{name}`}</button>
+                        <button type="button" className="secondary-btn" style={{ fontSize: '0.75rem', padding: '4px 8px' }} onClick={() => setSettings({ ...settings, default_template: settings.default_template + '{business_name}' })}>+ {`{business_name}`}</button>
+                      </div>
+                      <textarea
+                        className="form-control"
+                        style={{ height: '100px', fontFamily: 'monospace' }}
+                        value={settings.default_template?.trim() ? settings.default_template : DEFAULT_TEMPLATE}
+                        onChange={e => setSettings({ ...settings, default_template: e.target.value })}
+                        placeholder="e.g. Hello {name}, thank you for choosing {business_name}."
+                      />
+                      <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
+                        Supported placeholders: <code>{`{name}`}</code>, <code>{`{business_name}`}</code>.
+                        Placeholders are case-insensitive.
+                      </p>
+                    </div>
+
+                    <div className="preview-box" style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0', marginTop: '16px' }}>
+                      <span style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: '#64748b', fontWeight: 700, display: 'block', marginBottom: '8px' }}>Real-time Preview</span>
+                      <p style={{ margin: 0, fontSize: '0.9rem', color: '#1e293b', fontStyle: settings.default_template?.trim() ? 'normal' : 'italic' }}>
+                        {settings.default_template?.trim() ? renderPreview(settings.default_template, { name: 'Jane' }, { business_name: settings.business_name || 'Business Account' }) : renderPreview(DEFAULT_TEMPLATE, { name: 'Jane' }, { business_name: settings.business_name || 'Business Account' })}
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="card" style={{ marginTop: '24px' }}>
