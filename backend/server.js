@@ -2233,24 +2233,28 @@ app.post('/gateway/heartbeat', authenticateToken, (req, res) => {
         }
 
         const previousLastSeen = devices[index].lastSeen;
-        devices[index].lastSeen = nowUTC();
+        const now = nowUTC();
+        devices[index].lastSeen = now;
+        devices[index].status = 'Online'; // Maintain for compatibility but logic should be dynamic
         if (batteryLevel !== undefined) devices[index].batteryLevel = batteryLevel;
         if (appVersion !== undefined) devices[index].appVersion = appVersion;
         if (isCharging !== undefined) devices[index].isCharging = isCharging;
 
-        console.log(`[Heartbeat ACCEPTED] Time: ${devices[index].lastSeen} | DeviceID: ${deviceId} | RestaurantID: ${restaurantId} | Previous Seen: ${previousLastSeen} | Battery: ${batteryLevel}% | Charging: ${isCharging}`);
+        console.log(`[Heartbeat ACCEPTED] Device: ${deviceId} | Restaurant: ${restaurantId} | New Seen: ${now} | Battery: ${batteryLevel}%`);
 
-        // Emit real-time update
+        // Emit real-time update with dynamic status calculation
         io.to(restaurantId).emit("gateway-status", {
             deviceId,
             status: "Online",
-            lastSeen: devices[index].lastSeen,
+            lastSeen: now,
             batteryLevel: devices[index].batteryLevel,
-            isCharging: devices[index].isCharging
+            isCharging: devices[index].isCharging,
+            timestamp: Date.now()
         });
 
         writeData(GATEWAY_FILE, devices);
-        res.json({ message: 'Heartbeat received and timestamp updated' });
+        res.json({ message: 'Heartbeat received' });
+
 
     } catch (error) {
         console.error('Heartbeat processing error:', error);
@@ -2297,7 +2301,9 @@ app.get('/gateway/status', authenticateToken, (req, res) => {
     try {
         const restaurantId = req.user.restaurantId;
         const allDevices = readData(GATEWAY_FILE);
+        res.setHeader('Cache-Control', 'no-store');
         const now = new Date();
+
 
         console.log(`[Status Request] restaurantId: ${restaurantId}`);
 
@@ -2309,21 +2315,36 @@ app.get('/gateway/status', authenticateToken, (req, res) => {
             return res.json({ status: 'No Gateway', message: 'No devices paired to this account' });
         }
 
-        // Calculate actual status based on ownership and time
+        // Calculate actual status based on ownership and time (Strictly Dynamic)
         const lastSeenDate = new Date(selectedDevice.lastSeen);
-        const diffSeconds = Math.floor((now - lastSeenDate) / 1000);
+        const nowMs = Date.now();
+        const lastSeenMs = lastSeenDate.getTime();
+        const diffMs = nowMs - lastSeenMs;
+        const diffSeconds = Math.floor(diffMs / 1000);
+
         let status = diffSeconds <= 120 ? 'Online' : 'Offline';
 
         if (selectedDevice.restaurantId === null) {
             status = 'Unregistered';
         }
 
-        console.log(`[Status Result] Device: ${selectedDevice.deviceId} | Restaurant: ${restaurantId} | Status: ${status} | Last Seen: ${selectedDevice.lastSeen} (${diffSeconds}s ago)`);
+        // [DIAGNOSTIC LOG]
+        console.log('[Status Computation]', {
+            deviceId: selectedDevice.deviceId,
+            restaurantId: restaurantId,
+            lastSeen: selectedDevice.lastSeen,
+            now: new Date().toISOString(),
+            diffSeconds: diffSeconds,
+            threshold: 120,
+            finalStatus: status
+        });
 
         res.json({
             ...selectedDevice,
-            status: status
+            status: status,
+            diffSeconds: diffSeconds
         });
+
     } catch (error) {
         console.error('Failed to fetch status', error);
         res.status(500).json({ error: 'Failed to fetch status' });
