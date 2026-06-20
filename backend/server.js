@@ -55,7 +55,36 @@ if (!mpesaStatus.valid) {
 }
 
 app.use(cors());
+
+app.use((req, res, next) => {
+    if (req.url.includes('/gateway')) {
+        console.log('[RAW_GATEWAY_REQUEST]', {
+            method: req.method,
+            url: req.originalUrl,
+            contentType: req.headers['content-type'],
+            authorization: !!req.headers.authorization,
+            timestamp: new Date().toISOString()
+        });
+    }
+    next();
+});
+
 app.use(bodyParser.json());
+
+app.use((err, req, res, next) => {
+    if (err) {
+        console.error('[BODY_PARSER_ERROR]', {
+            url: req.originalUrl,
+            error: err.message
+        });
+
+        return res.status(400).json({
+            error: 'Invalid JSON payload'
+        });
+    }
+    next();
+});
+
 
 // 1. Global Request Logger
 app.use((req, res, next) => {
