@@ -9,6 +9,9 @@ const bcrypt = require('bcryptjs');
 const { sendOTPEmail, validateEmailConfig, testEmailConnection } = require('./services/emailService');
 const { initiateSTKPush, validateConfig: validateMpesaConfig, maskPhone } = require('./services/mpesaService');
 const TemplateService = require('./services/templateService');
+const http = require('http');
+const { Server } = require('socket.io');
+
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -17,7 +20,13 @@ if (!JWT_SECRET) {
 }
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+    cors: { origin: "*" }
+});
+
 const PORT = process.env.PORT || 5000;
+
 const DATA_DIR = path.join(__dirname, 'data');
 
 // Timezone Utility: Force UTC ISO-8601 for all storage
@@ -35,6 +44,59 @@ const OTPS_FILE = path.join(DATA_DIR, 'otps.json');
 const PENDING_MPESA_FILE = path.join(DATA_DIR, 'pending_mpesa.json');
 
 const DEFAULT_RESTAURANT_ID = 'default';
+
+// Socket.IO Room Management
+io.on("connection", (socket) => {
+    console.log(`[Socket] New connection: ${socket.id}`);
+
+    socket.on("subscribe", (restaurantId) => {
+        if (restaurantId) {
+            socket.join(restaurantId);
+            console.log(`[Socket] ${socket.id} subscribed to restaurant: ${restaurantId}`);
+        }
+    });
+
+    socket.on("disconnect", () => {
+        console.log(`[Socket] Disconnected: ${socket.id}`);
+    });
+});
+
+// Offline Device Detector (Runs every 30s)
+setInterval(() => {
+    try {
+        const devices = readData(GATEWAY_FILE);
+        const now = new Date();
+        let updated = false;
+
+        devices.forEach(device => {
+            if (device.restaurantId) {
+                const lastSeenDate = new Date(device.lastSeen);
+                const diffSeconds = Math.floor((now - lastSeenDate) / 1000);
+
+                if (diffSeconds > 120 && device.status !== 'Offline' && device.status !== 'Unregistered') {
+                    console.log(`[Socket] Pushing OFFLINE status for device: ${device.deviceId}`);
+                    device.status = 'Offline';
+                    updated = true;
+
+                    io.to(device.restaurantId).emit("gateway-status", {
+                        deviceId: device.deviceId,
+                        status: "Offline",
+                        lastSeen: device.lastSeen,
+                        batteryLevel: device.batteryLevel,
+                        isCharging: device.isCharging
+                    });
+                }
+            }
+        });
+
+        if (updated) {
+            writeData(GATEWAY_FILE, devices);
+        }
+    } catch (err) {
+        console.error('[OfflineDetector] Error:', err);
+    }
+}, 30000);
+
 
 // --- MPESA ENVIRONMENT VALIDATION ---
 // --- MPESA ENVIRONMENT VALIDATION ---
@@ -2178,8 +2240,18 @@ app.post('/gateway/heartbeat', authenticateToken, (req, res) => {
 
         console.log(`[Heartbeat ACCEPTED] Time: ${devices[index].lastSeen} | DeviceID: ${deviceId} | RestaurantID: ${restaurantId} | Previous Seen: ${previousLastSeen} | Battery: ${batteryLevel}% | Charging: ${isCharging}`);
 
+        // Emit real-time update
+        io.to(restaurantId).emit("gateway-status", {
+            deviceId,
+            status: "Online",
+            lastSeen: devices[index].lastSeen,
+            batteryLevel: devices[index].batteryLevel,
+            isCharging: devices[index].isCharging
+        });
+
         writeData(GATEWAY_FILE, devices);
         res.json({ message: 'Heartbeat received and timestamp updated' });
+
     } catch (error) {
         console.error('Heartbeat processing error:', error);
         res.status(500).json({ error: 'Failed to process heartbeat' });
@@ -2295,7 +2367,7 @@ app.use((req, res) => {
     res.status(404).send('Not Found');
 });
 
-app.listen(PORT, async () => {
+server.listen(PORT, async () => {
     console.log(`Server running on http://localhost:${PORT}`);
 
     // Startup Health Checks

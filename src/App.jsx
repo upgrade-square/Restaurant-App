@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import './App.css'
 import API_URL from './config/api'
 import ErrorBoundary from './components/ErrorBoundary'
+import { io } from 'socket.io-client'
 import { getRelativeTime, formatActivityDate, formatDateTime } from './utils/dateUtils'
 
 const DEFAULT_TEMPLATE = "Hello {name}, thank you for choosing {business_name}. We appreciate your support.";
@@ -455,9 +456,9 @@ function App() {
       const baseEndpoints = [
         '/sms-queue/history',
         '/metrics',
-        '/gateway/status',
         '/customers'
       ];
+
 
       const extraEndpoints = [
         '/settings',
@@ -470,24 +471,24 @@ function App() {
 
       setSmsHistory(results[0])
       setMetrics(results[1])
-      setGatewayStatus(results[2])
-      setCustomers(results[3])
+      setCustomers(results[2])
 
       if (!isDashboardHeartbeat) {
-        const settingsRes = results[4];
+        const settingsRes = results[3];
         if (settingsRes) {
           settingsRes.default_template = settingsRes.default_template?.trim() ? settingsRes.default_template : DEFAULT_TEMPLATE;
           settingsRes.business_name = settingsRes.business_name || settingsRes.restaurantName || restaurant?.business_name || "Business Account";
         }
         setSettings(settingsRes || { business_name: restaurant?.business_name || "Business Account", default_template: DEFAULT_TEMPLATE });
 
-        const templatesRes = results[5];
+        const templatesRes = results[4];
         if (templatesRes) {
           templatesRes.thankYou = templatesRes.thankYou?.trim() ? templatesRes.thankYou : DEFAULT_TEMPLATE;
         }
         setTemplates(templatesRes || { thankYou: DEFAULT_TEMPLATE });
 
-        setSubscriptionHistory(results[6])
+        setSubscriptionHistory(results[5]);
+
 
         // Sync restaurant state (subscription status, plan, etc)
         try {
@@ -540,6 +541,33 @@ function App() {
       if (interval) clearInterval(interval);
     };
   }, [token, activeTab])
+
+  // Socket.IO Real-time Gateway Updates
+  useEffect(() => {
+    if (!token || !restaurant) return;
+
+    const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://app.mikrodtech.co.ke';
+    const socket = io(API_BASE_URL);
+
+    socket.on('connect', () => {
+      console.log('[Socket] Dashboard connected, subscribing to:', restaurant.id);
+      socket.emit('subscribe', restaurant.id);
+    });
+
+    socket.on('gateway-status', (data) => {
+      console.log('[Socket] Status update received:', data);
+      setGatewayStatus(data);
+    });
+
+    socket.on('disconnect', () => {
+      console.log('[Socket] Dashboard disconnected');
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [token, restaurant]);
+
 
   const handleResend = async (id) => {
     try {
