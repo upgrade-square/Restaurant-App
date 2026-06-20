@@ -2137,18 +2137,20 @@ app.post('/gateway/heartbeat', authenticateToken, (req, res) => {
         const index = devices.findIndex(d => d.deviceId === deviceId && d.restaurantId === restaurantId);
 
         if (index === -1) {
-            console.log(`[Heartbeat Rejected] Device ${deviceId} not found or not owned by ${restaurantId}`);
-            return res.status(404).json({ error: 'Device not found or access denied' });
+            console.warn(`[Heartbeat REJECTED] Time: ${nowUTC()} | DeviceID: ${deviceId} | Reason: Ownership mismatch or device not found | RestaurantID: ${restaurantId}`);
+            return res.status(404).json({ error: 'Device not found or access denied (ownership mismatch)' });
         }
 
-        console.log(`[Heartbeat] Received from device ${deviceId} (Restaurant: ${restaurantId}) Battery: ${batteryLevel}% Charging: ${isCharging}`);
+        const previousLastSeen = devices[index].lastSeen;
         devices[index].lastSeen = nowUTC();
         if (batteryLevel !== undefined) devices[index].batteryLevel = batteryLevel;
         if (appVersion !== undefined) devices[index].appVersion = appVersion;
         if (isCharging !== undefined) devices[index].isCharging = isCharging;
 
+        console.log(`[Heartbeat ACCEPTED] Time: ${devices[index].lastSeen} | DeviceID: ${deviceId} | RestaurantID: ${restaurantId} | Previous Seen: ${previousLastSeen} | Battery: ${batteryLevel}% | Charging: ${isCharging}`);
+
         writeData(GATEWAY_FILE, devices);
-        res.json({ message: 'Heartbeat received' });
+        res.json({ message: 'Heartbeat received and timestamp updated' });
     } catch (error) {
         console.error('Heartbeat processing error:', error);
         res.status(500).json({ error: 'Failed to process heartbeat' });
@@ -2200,20 +2202,11 @@ app.get('/gateway/status', authenticateToken, (req, res) => {
 
         // 1. Try to find the device specifically owned by this restaurant
         let selectedDevice = allDevices.find(d => d.restaurantId === restaurantId);
-        let reason = "Owned device found";
 
-        // 2. If no owned device, there is NO fallback.
         if (!selectedDevice) {
-            console.log(`[Status Result] Result: No Gateway for restaurant ${restaurantId}`);
+            console.warn(`[Status Result] Result: No Gateway for restaurant ${restaurantId}`);
             return res.json({ status: 'No Gateway', message: 'No devices paired to this account' });
         }
-
-        if (!selectedDevice) {
-            console.log(`[Status Result] Result: No Gateway, Reason: ${reason}`);
-            return res.json({ status: 'No Gateway', message: 'No devices available' });
-        }
-
-        console.log(`[Status Result] Device: ${selectedDevice.deviceId}, Reason: ${reason}`);
 
         // Calculate actual status based on ownership and time
         const lastSeenDate = new Date(selectedDevice.lastSeen);
@@ -2223,6 +2216,8 @@ app.get('/gateway/status', authenticateToken, (req, res) => {
         if (selectedDevice.restaurantId === null) {
             status = 'Unregistered';
         }
+
+        console.log(`[Status Result] Device: ${selectedDevice.deviceId} | Restaurant: ${restaurantId} | Status: ${status} | Last Seen: ${selectedDevice.lastSeen} (${diffSeconds}s ago)`);
 
         res.json({
             ...selectedDevice,
