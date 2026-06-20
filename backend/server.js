@@ -2180,10 +2180,17 @@ app.post('/subscriptions/mpesa/callback', async (req, res) => {
  * @api {post} /gateway/register Register Gateway Device
  */
 app.post('/gateway/register', authenticateToken, (req, res) => {
+    const { deviceId, deviceName, appVersion, batteryLevel, isCharging } = req.body;
+    const restaurantId = req.user.restaurantId;
+    const userId = req.user.id; // From authenticateToken
+
+    console.log(`[REGISTER_ATTEMPT] Device: ${deviceId} | Restaurant: ${restaurantId} | User: ${userId}`);
+
     try {
-        const { deviceId, deviceName, appVersion, batteryLevel, isCharging } = req.body;
-        const restaurantId = req.user.restaurantId;
-        if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
+        if (!deviceId) {
+            console.error('[REGISTER_FAILURE] Missing deviceId');
+            return res.status(400).json({ error: 'deviceId is required' });
+        }
 
         const devices = readData(GATEWAY_FILE);
         const index = devices.findIndex(d => d.deviceId === deviceId);
@@ -2197,31 +2204,30 @@ app.post('/gateway/register', authenticateToken, (req, res) => {
             batteryLevel: batteryLevel !== undefined ? batteryLevel : 100,
             isCharging: isCharging || false,
             status: 'Online',
-            isPrimary: false // Explicitly false for account-bound devices
+            isPrimary: false
         };
 
         if (index > -1) {
-            // Requirement: Device ownership follows current login session.
-            // If device was previously owned by another restaurant, it now belongs to the current one.
             const oldOwner = devices[index].restaurantId;
             if (oldOwner && oldOwner !== restaurantId) {
-                console.log(`[Registration] Ownership Transfer: Device ${deviceId} moved from ${oldOwner} to ${restaurantId}`);
+                console.log(`[REGISTER_SUCCESS] Ownership Transfer: Device ${deviceId} moved from ${oldOwner} to ${restaurantId}`);
             } else {
-                console.log(`[Registration] Device ${deviceId} re-registered for ${restaurantId}`);
+                console.log(`[REGISTER_SUCCESS] Device ${deviceId} re-registered for ${restaurantId}`);
             }
             devices[index] = { ...devices[index], ...deviceData };
         } else {
-            console.log(`[Registration] New Device ${deviceId} registered for ${restaurantId}`);
+            console.log(`[REGISTER_SUCCESS] New Device ${deviceId} registered for ${restaurantId}`);
             devices.push(deviceData);
         }
 
         writeData(GATEWAY_FILE, devices);
         res.json({ message: 'Device registered and paired', device: deviceData });
     } catch (error) {
-        console.error('Registration error:', error);
+        console.error('[REGISTER_FAILURE] Internal Error:', error);
         res.status(500).json({ error: 'Failed to register device' });
     }
 });
+
 
 /**
  * @api {post} /gateway/heartbeat Receive Gateway Heartbeat
@@ -2236,7 +2242,7 @@ app.post('/gateway/heartbeat', authenticateToken, (req, res) => {
         const index = devices.findIndex(d => d.deviceId === deviceId && d.restaurantId === restaurantId);
 
         if (index === -1) {
-            console.warn(`[Heartbeat REJECTED] Time: ${nowUTC()} | DeviceID: ${deviceId} | Reason: Ownership mismatch or device not found | RestaurantID: ${restaurantId}`);
+            console.warn(`[HEARTBEAT_REJECTED] DeviceID: ${deviceId} | RestaurantID: ${restaurantId} | Reason: Ownership mismatch or device not found`);
             return res.status(404).json({ error: 'Device not found or access denied (ownership mismatch)' });
         }
 
@@ -2248,7 +2254,8 @@ app.post('/gateway/heartbeat', authenticateToken, (req, res) => {
         if (appVersion !== undefined) devices[index].appVersion = appVersion;
         if (isCharging !== undefined) devices[index].isCharging = isCharging;
 
-        console.log(`[Heartbeat ACCEPTED] Device: ${deviceId} | Restaurant: ${restaurantId} | New Seen: ${now} | Battery: ${batteryLevel}%`);
+        console.log(`[HEARTBEAT_ACCEPTED] Device: ${deviceId} | Restaurant: ${restaurantId} | New Seen: ${now}`);
+
 
         // Emit real-time update with dynamic status calculation
         io.to(restaurantId).emit("gateway-status", {
