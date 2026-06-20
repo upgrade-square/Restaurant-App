@@ -91,7 +91,8 @@ setInterval(() => {
                         status: "Offline",
                         lastSeen: device.lastSeen,
                         batteryLevel: device.batteryLevel,
-                        isCharging: device.isCharging
+                        isCharging: device.isCharging,
+                        deviceName: device.deviceName || `Android Gateway (${device.deviceId})`
                     });
                 }
             }
@@ -425,11 +426,18 @@ app.get('/customers', authenticateToken, checkSubscription, (req, res) => {
  * @api {post} /customers Create Customer
  */
 app.post('/customers', authenticateToken, checkSubscription, (req, res) => {
+    const { name, phone, amount } = req.body;
+    const restaurantId = req.user.restaurantId;
+
+    console.log(`[CUSTOMER_ENTRY_SUBMITTED] customer=${name}`);
+
     try {
-        const { name, phone, amount } = req.body;
-        const restaurantId = req.user.restaurantId;
         if (!name || !phone) {
-            return res.status(400).json({ error: 'Missing required fields' });
+            console.warn(`[CUSTOMER_ENTRY_FAILED] reason=Missing required fields`);
+            return res.status(400).json({
+                success: false,
+                message: 'Name and phone number are required.'
+            });
         }
 
         // Normalize Phone
@@ -498,7 +506,7 @@ app.post('/customers', authenticateToken, checkSubscription, (req, res) => {
             customerId: customer.id,
             customerName: customer.name, // Store canonical name in records for consistency
             phone: normalizedPhone,
-            amount: amount,
+            amount: amount, // Still support if provided (e.g. from gateway)
             message: message,
             status: 'Pending',
             retryCount: 0,
@@ -522,10 +530,18 @@ app.post('/customers', authenticateToken, checkSubscription, (req, res) => {
         writeData(SMS_DATA_FILE, smsQueue);
         writeData(ACTIVITY_LOG_FILE, activityLog);
 
-        res.status(201).json(customer);
+        console.log(`[CUSTOMER_ENTRY_SUCCESS] customer=${name}`);
+        res.status(201).json({
+            success: true,
+            message: 'Customer entry submitted successfully.',
+            customer: customer
+        });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Failed to save customer data' });
+        console.error(`[CUSTOMER_ENTRY_FAILED] reason=${error.message}`);
+        res.status(500).json({
+            success: false,
+            message: 'Unable to submit customer entry. Please try again.'
+        });
     }
 });
 
@@ -1718,15 +1734,27 @@ app.get('/admin/restaurants/:id', authenticateToken, (req, res) => {
 
         if (!restaurant) return res.status(404).json({ error: 'Restaurant not found' });
 
+        const gateways = readData(GATEWAY_FILE);
+        const gateway = gateways.find(g => g.restaurantId === id);
+
         res.json({
             id: restaurant.id,
             name: restaurant.name,
             createdAt: restaurant.createdAt,
             subscriptionPlan: restaurant.plan,
             subscriptionStatus: restaurant.subscriptionStatus,
-            subscriptionExpiryDate: restaurant.subscriptionExpiry
+            subscriptionExpiryDate: restaurant.subscriptionExpiry,
+            gateway: gateway ? {
+                deviceId: gateway.deviceId,
+                deviceName: gateway.deviceName || `Android Gateway (${gateway.deviceId})`,
+                lastSeen: gateway.lastSeen,
+                batteryLevel: gateway.batteryLevel,
+                isCharging: gateway.isCharging,
+                appVersion: gateway.appVersion
+            } : null
         });
     } catch (error) {
+        console.error('Failed to fetch restaurant details', error);
         res.status(500).json({ error: 'Failed to fetch restaurant details' });
     }
 });
@@ -2195,10 +2223,13 @@ app.post('/gateway/register', authenticateToken, (req, res) => {
         const devices = readData(GATEWAY_FILE);
         const index = devices.findIndex(d => d.deviceId === deviceId);
 
+        const newDeviceName = deviceName || 'Android Gateway';
+        console.log(`[GATEWAY_REGISTERED] deviceName=${newDeviceName}`);
+
         const deviceData = {
             deviceId,
             restaurantId,
-            deviceName: deviceName || 'Android Gateway',
+            deviceName: newDeviceName,
             appVersion: appVersion || '1.0.0',
             lastSeen: nowUTC(),
             batteryLevel: batteryLevel !== undefined ? batteryLevel : 100,
@@ -2246,6 +2277,9 @@ app.post('/gateway/heartbeat', authenticateToken, (req, res) => {
             return res.status(404).json({ error: 'Device not found or access denied (ownership mismatch)' });
         }
 
+        const deviceName = devices[index].deviceName || 'Android Gateway';
+        console.log(`[GATEWAY_HEARTBEAT] deviceName=${deviceName}`);
+
         const previousLastSeen = devices[index].lastSeen;
         const now = nowUTC();
         devices[index].lastSeen = now;
@@ -2264,6 +2298,7 @@ app.post('/gateway/heartbeat', authenticateToken, (req, res) => {
             lastSeen: now,
             batteryLevel: devices[index].batteryLevel,
             isCharging: devices[index].isCharging,
+            deviceName: devices[index].deviceName, // Ensure deviceName is included in emit
             timestamp: Date.now()
         });
 
@@ -2343,6 +2378,11 @@ app.get('/gateway/status', authenticateToken, (req, res) => {
             status = 'Unregistered';
         }
 
+        // Priority 1: deviceName (already stores manufacturer + model if sent by Android)
+        // Priority 2: fallback to "Android Gateway (<deviceId>)"
+        const deviceName = selectedDevice.deviceName || `Android Gateway (${selectedDevice.deviceId})`;
+        console.log(`[GATEWAY_DASHBOARD_RENDER] deviceName=${deviceName}`);
+
         // [DIAGNOSTIC LOG]
         console.log('[Status Computation]', {
             deviceId: selectedDevice.deviceId,
@@ -2357,7 +2397,8 @@ app.get('/gateway/status', authenticateToken, (req, res) => {
         res.json({
             ...selectedDevice,
             status: status,
-            diffSeconds: diffSeconds
+            diffSeconds: diffSeconds,
+            deviceName: deviceName // Explicitly return the name with fallback applied
         });
 
     } catch (error) {

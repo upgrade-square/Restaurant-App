@@ -86,7 +86,7 @@ function App() {
   const [smsHistory, setSmsHistory] = useState([])
   const [customers, setCustomers] = useState([])
   const [filterStatus, setFilterStatus] = useState('All')
-  const [formData, setFormData] = useState({ name: '', phone: '', amount: '' })
+  const [formData, setFormData] = useState({ name: '', phone: '' })
   const [transactionCode, setTransactionCode] = useState('')
   const [selectedPlan, setSelectedPlan] = useState('Professional')
   const [subscriptionHistory, setSubscriptionHistory] = useState([])
@@ -146,6 +146,7 @@ function App() {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const [forgotStep, setForgotStep] = useState(1);
+  const [isCustomerSubmitting, setIsCustomerSubmitting] = useState(false);
 
   // Template Normalization Utility
   const normalizeTemplate = (text) => {
@@ -976,7 +977,9 @@ function App() {
                     {(gatewayStatus.status === 'Online' || gatewayStatus.status === 'Connected') && gatewayStatus.deviceId && (
                       <div style={{ textAlign: 'center', marginTop: '4px' }}>
                         <div style={{ fontSize: '0.85rem', color: 'var(--text-main)', fontWeight: 600 }}>
-                          {gatewayStatus.deviceName || 'Android Gateway'}
+                          {gatewayStatus.deviceName && gatewayStatus.deviceName !== 'N/A'
+                            ? gatewayStatus.deviceName
+                            : `Android Gateway (${gatewayStatus.deviceId})`}
                         </div>
                         <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
                           Last seen: {gatewayStatus.lastSeen ? getRelativeTime(gatewayStatus.lastSeen) : 'Never'}
@@ -1102,8 +1105,10 @@ function App() {
                       <span className="badge badge-active" style={{ fontSize: '0.7rem' }}>✓ Recognized Customer</span>
                     )}
                   </div>
-                  <form onSubmit={e => {
+                  <form onSubmit={async e => {
                     e.preventDefault();
+                    if (isCustomerSubmitting) return;
+
                     const normalized = normalizePhone(formData.phone);
                     const existing = customers.find(c => normalizePhone(c.phone) === normalized);
                     const finalData = {
@@ -1112,26 +1117,45 @@ function App() {
                       phone: normalized
                     };
 
-                    fetchWithAuth('/customers', { method: 'POST', body: JSON.stringify(finalData) })
-                      .then((data) => {
-                        setFormData({ name: '', phone: '', amount: '' });
+                    try {
+                      setIsCustomerSubmitting(true);
+                      const data = await fetchWithAuth('/customers', {
+                        method: 'POST',
+                        body: JSON.stringify(finalData)
+                      });
+
+                      if (data.success) {
+                        setFormData({ name: '', phone: '' });
+                        const customerData = data.customer;
                         setCustomers(prev => {
-                          const exists = prev.find(c => c.id === data.id);
-                          if (exists) return prev.map(c => c.id === data.id ? data : c);
-                          return [...prev, data];
+                          const exists = prev.find(c => c.id === customerData.id);
+                          if (exists) return prev.map(c => c.id === customerData.id ? customerData : c);
+                          return [...prev, customerData];
                         });
                         setMetrics(prev => {
-                          const customerExists = customers.find(c => c.id === data.id);
+                          const customerExists = customers.find(c => c.id === customerData.id);
                           if (customerExists) return prev;
                           return { ...prev, totalCustomers: prev.totalCustomers + 1 };
                         });
-                        showToast('Appreciation Sent');
+                        showToast(data.message || 'Customer entry submitted successfully.');
                         refreshData(true);
-                      });
+
+                        // Return focus to the first input field
+                        const firstInput = document.getElementById('manual-entry-phone');
+                        if (firstInput) firstInput.focus();
+                      } else {
+                        showToast(data.message || 'Unable to submit customer entry. Please try again.', 'error');
+                      }
+                    } catch (err) {
+                      showToast(err.message || 'Unable to submit customer entry. Please try again.', 'error');
+                    } finally {
+                      setIsCustomerSubmitting(false);
+                    }
                   }} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginTop: '16px' }}>
                     <div className="form-group">
                       <label>Phone Number</label>
                       <input
+                        id="manual-entry-phone"
                         className="form-control"
                         placeholder="e.g. 0712345678"
                         value={formData.phone}
@@ -1145,6 +1169,7 @@ function App() {
                             name: existing ? existing.name : (formData.name === existing?.name ? '' : formData.name)
                           });
                         }}
+                        disabled={isCustomerSubmitting}
                         required
                       />
                     </div>
@@ -1155,16 +1180,23 @@ function App() {
                         placeholder="Full Name"
                         value={formData.name}
                         onChange={e => setFormData({ ...formData, name: e.target.value })}
+                        disabled={isCustomerSubmitting}
                         required
                       />
                       {formData.phone.length >= 9 && customers.find(c => normalizePhone(c.phone) === normalizePhone(formData.phone)) && (
                         <p style={{ fontSize: '0.7rem', color: 'var(--success)', marginTop: '4px' }}>✓ Recognized Customer (Name will be updated if changed)</p>
                       )}
                     </div>
-                    {isProfessional && (
-                      <div className="form-group"><label>Bill Amount (KES)</label><input className="form-control" type="number" value={formData.amount} onChange={e => setFormData({ ...formData, amount: e.target.value })} required={isProfessional} /></div>
-                    )}
-                    <div className="form-group" style={{ display: 'flex', alignItems: 'flex-end' }}><button className="login-btn" style={{ width: '100%', marginTop: 0 }} type="submit">Submit Entry</button></div>
+                    <div className="form-group" style={{ display: 'flex', alignItems: 'flex-end' }}>
+                      <button
+                        className="login-btn"
+                        style={{ width: '100%', marginTop: 0 }}
+                        type="submit"
+                        disabled={isCustomerSubmitting}
+                      >
+                        {isCustomerSubmitting ? 'Submitting...' : 'Submit Entry'}
+                      </button>
+                    </div>
                   </form>
                 </div>
 
@@ -1916,6 +1948,18 @@ function App() {
                       <div className="modal-field"><label>Status</label><p><StatusBadge status={selectedRes.subscriptionStatus} /></p></div>
                       <div className="modal-field"><label>Expiry Date</label><p>{formatDateTime(selectedRes.subscriptionExpiryDate)}</p></div>
                     </div>
+                    {selectedRes.gateway && (
+                      <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid var(--border)' }}>
+                        <h4 style={{ marginBottom: '16px' }}>Connected Gateway</h4>
+                        <div className="modal-grid">
+                          <div className="modal-field"><label>Device Name</label><p>{selectedRes.gateway.deviceName}</p></div>
+                          <div className="modal-field"><label>Device ID</label><p style={{ fontSize: '0.8rem' }}>{selectedRes.gateway.deviceId}</p></div>
+                          <div className="modal-field"><label>Battery</label><p>{selectedRes.gateway.batteryLevel}% {selectedRes.gateway.isCharging ? '(Charging)' : ''}</p></div>
+                          <div className="modal-field"><label>App Version</label><p>{selectedRes.gateway.appVersion}</p></div>
+                          <div className="modal-field"><label>Last Seen</label><p>{getRelativeTime(selectedRes.gateway.lastSeen)}</p></div>
+                        </div>
+                      </div>
+                    )}
                   </Modal>
                 )}
 
