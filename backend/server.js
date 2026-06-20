@@ -22,7 +22,11 @@ if (!JWT_SECRET) {
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
-    cors: { origin: "*" }
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    },
+    transports: ['websocket', 'polling']
 });
 
 const PORT = process.env.PORT || 5000;
@@ -47,17 +51,21 @@ const DEFAULT_RESTAURANT_ID = 'default';
 
 // Socket.IO Room Management
 io.on("connection", (socket) => {
-    console.log(`[Socket] New connection: ${socket.id}`);
+    console.log(`[SOCKET] CONNECTED: ${socket.id} | IP: ${socket.handshake.address}`);
 
     socket.on("subscribe", (restaurantId) => {
         if (restaurantId) {
             socket.join(restaurantId);
-            console.log(`[Socket] ${socket.id} subscribed to restaurant: ${restaurantId}`);
+            console.log(`[SOCKET] SUBSCRIBE: Room=${restaurantId} | Socket=${socket.id}`);
         }
     });
 
-    socket.on("disconnect", () => {
-        console.log(`[Socket] Disconnected: ${socket.id}`);
+    socket.on("disconnect", (reason) => {
+        console.log(`[SOCKET] DISCONNECTED: Socket=${socket.id} | Reason=${reason}`);
+    });
+
+    socket.on("error", (error) => {
+        console.error(`[SOCKET] ERROR: Socket=${socket.id} | Error=`, error);
     });
 });
 
