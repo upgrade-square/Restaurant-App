@@ -580,9 +580,6 @@ app.post('/payments/incoming', authenticateToken, (req, res) => {
         // 2. Normalize Phone (07XXXXXXXX or 01XXXXXXXX)
         const normalizedPhone = normalizePhone(customerPhone);
 
-        // 3. First Name Logic
-        const originalFirstName = customerName.split(' ')[0];
-
         // 4. Create/Update Customer (Phone is Unique Identifier)
         const customers = readData(DATA_FILE);
         let customer = customers.find(c => c.phone === normalizedPhone);

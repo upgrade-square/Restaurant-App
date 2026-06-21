@@ -3,6 +3,20 @@
  * Centralized engine for message generation and placeholder replacement.
  */
 
+function getFirstName(fullName) {
+    if (!fullName || typeof fullName !== "string") {
+        return "Customer";
+    }
+
+    const cleaned = fullName.trim().replace(/\s+/g, " ");
+
+    if (!cleaned) {
+        return "Customer";
+    }
+
+    return cleaned.split(" ")[0];
+}
+
 const PLATFORM_DEFAULT_TEMPLATE = "Hello {name}, thank you for choosing {business_name}. We appreciate your support.";
 
 const TemplateService = {
@@ -21,17 +35,34 @@ const TemplateService = {
 
         let rendered = template;
 
+        const firstName = getFirstName(customer.name);
+
+        console.log("[SMS_NAME_FORMAT]", {
+            fullName: customer.name,
+            firstName: firstName
+        });
+
         // Supported Placeholders
         const placeholders = {
-            name: (customer.name || "Customer").trim(),
+            name: firstName,
+            customerName: firstName,
             business_name: (business.business_name || "Business Account").trim()
         };
 
         // Case-insensitive replacement
         Object.keys(placeholders).forEach(key => {
-            const regex = new RegExp(`{${key}}`, 'gi');
-            rendered = rendered.replace(regex, placeholders[key]);
+            // Replace {{key}} FIRST to avoid partial matches on {key}
+            const doubleRegex = new RegExp(`{{${key}}}`, 'gi');
+            rendered = rendered.replace(doubleRegex, placeholders[key]);
+
+            // Replace {key}
+            const singleRegex = new RegExp(`{${key}}`, 'gi');
+            rendered = rendered.replace(singleRegex, placeholders[key]);
         });
+
+        // Specialized placeholders from audit scope
+        rendered = rendered.replace(/customer\.name/gi, firstName);
+        rendered = rendered.replace(/transaction\.customerName/gi, firstName);
 
         // Remove excessive whitespace
         rendered = rendered.replace(/\s+/g, ' ').trim();

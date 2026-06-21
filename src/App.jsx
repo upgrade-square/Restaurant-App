@@ -107,7 +107,7 @@ function App() {
   const [onboardingStep, setOnboardingStep] = useState(1)
   const [signupData, setSignupData] = useState({ business_name: '', ownerName: '', email: '', password: '', plan: 'Starter', duration: '1 Month' })
 
-  const [settings, setSettings] = useState({ business_name: '', phone: '', address: '', email: '', default_template: DEFAULT_TEMPLATE })
+  const [settings, setSettings] = useState({ business_name: '', phone: '', address: '', email: '' })
   const [templates, setTemplates] = useState({ thankYou: DEFAULT_TEMPLATE })
   const [metrics, setMetrics] = useState({ totalCustomers: 0, totalSent: 0, sentToday: 0, pending: 0, failed: 0 })
   const [gatewayStatus, setGatewayStatus] = useState({ status: 'Offline', lastSeen: null, batteryLevel: 0, isCharging: false, deviceName: 'N/A' })
@@ -477,10 +477,9 @@ function App() {
       if (!isDashboardHeartbeat) {
         const settingsRes = results[3];
         if (settingsRes) {
-          settingsRes.default_template = settingsRes.default_template?.trim() ? settingsRes.default_template : DEFAULT_TEMPLATE;
           settingsRes.business_name = settingsRes.business_name || settingsRes.restaurantName || restaurant?.business_name || "Business Account";
         }
-        setSettings(settingsRes || { business_name: restaurant?.business_name || "Business Account", default_template: DEFAULT_TEMPLATE });
+        setSettings(settingsRes || { business_name: restaurant?.business_name || "Business Account" });
 
         const templatesRes = results[4];
         if (templatesRes) {
@@ -1306,9 +1305,9 @@ function App() {
           {
             activeTab === 'templates' && (
               <div className="section card">
-                <h3>Appreciation Template</h3>
+                <h3>Manage appreciation messages</h3>
                 <p style={{ color: 'var(--text-muted)', marginBottom: '16px' }}>
-                  This template is used when manually or automatically appreciating customers.
+                  Configure your customer appreciation templates and personalize outgoing messages.
                 </p>
                 <div className="form-group">
                   <div className="placeholder-buttons" style={{ marginBottom: '8px', display: 'flex', gap: '8px' }}>
@@ -1575,17 +1574,15 @@ function App() {
             activeTab === 'settings' && (
               <div className="section">
                 <div className="card">
-                  <h3>Configuration</h3>
-                  <p className="tagline">Basic business details and contact information.</p>
+                  <h3>Application and account configuration</h3>
+                  <p className="tagline">Manage your business profile, contact details, and system security.</p>
                   <form onSubmit={e => {
                     e.preventDefault();
                     setIsSaving(true);
                     setSaveStatus('idle');
 
-                    // Normalize template before save
                     const normalizedSettings = {
-                      ...settings,
-                      default_template: normalizeTemplate(settings.default_template)
+                      ...settings
                     };
 
                     fetchWithAuth('/settings', { method: 'POST', body: JSON.stringify(normalizedSettings) })
@@ -1620,38 +1617,6 @@ function App() {
                   </form>
                 </div>
 
-                <div className="card" style={{ marginTop: '24px' }}>
-                  <h3>Messaging Configuration</h3>
-                  <p className="tagline">Set your mandatory default message template and manage placeholders.</p>
-
-                  <div style={{ marginTop: '16px' }}>
-                    <div className="form-group">
-                      <label>Default Message Template</label>
-                      <div className="placeholder-buttons" style={{ marginBottom: '8px', display: 'flex', gap: '8px' }}>
-                        <button type="button" className="secondary-btn" style={{ fontSize: '0.75rem', padding: '4px 8px' }} onClick={() => setSettings({ ...settings, default_template: settings.default_template + '{name}' })}>+ {`{name}`}</button>
-                        <button type="button" className="secondary-btn" style={{ fontSize: '0.75rem', padding: '4px 8px' }} onClick={() => setSettings({ ...settings, default_template: settings.default_template + '{business_name}' })}>+ {`{business_name}`}</button>
-                      </div>
-                      <textarea
-                        className="form-control"
-                        style={{ height: '100px', fontFamily: 'monospace' }}
-                        value={settings.default_template?.trim() ? settings.default_template : DEFAULT_TEMPLATE}
-                        onChange={e => setSettings({ ...settings, default_template: e.target.value })}
-                        placeholder="e.g. Hello {name}, thank you for choosing {business_name}."
-                      />
-                      <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                        Supported placeholders: <code>{`{name}`}</code>, <code>{`{business_name}`}</code>.
-                        Placeholders are case-insensitive.
-                      </p>
-                    </div>
-
-                    <div className="preview-box" style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0', marginTop: '16px' }}>
-                      <span style={{ fontSize: '0.7rem', textTransform: 'uppercase', color: '#64748b', fontWeight: 700, display: 'block', marginBottom: '8px' }}>Real-time Preview</span>
-                      <p style={{ margin: 0, fontSize: '0.9rem', color: '#1e293b', fontStyle: settings.default_template?.trim() ? 'normal' : 'italic' }}>
-                        {settings.default_template?.trim() ? renderPreview(settings.default_template, { name: 'Jane' }, { business_name: settings.business_name || 'Business Account' }) : renderPreview(DEFAULT_TEMPLATE, { name: 'Jane' }, { business_name: settings.business_name || 'Business Account' })}
-                      </p>
-                    </div>
-                  </div>
-                </div>
 
                 <div className="card" style={{ marginTop: '24px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
