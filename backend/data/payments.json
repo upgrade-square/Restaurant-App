@@ -247,5 +247,25 @@
     "source": "manual",
     "status": "successful",
     "recordedBy": 1780494557796
+  },
+  {
+    "id": 1782162968431,
+    "restaurantId": "rahlah-691",
+    "transactionCode": "TEST_FAIL_1",
+    "name": "Test Fail",
+    "phone": "0769329029",
+    "amount": "100",
+    "smsSent": false,
+    "createdAt": "2026-06-22T21:16:08.431Z"
+  },
+  {
+    "id": 1782163079243,
+    "restaurantId": "rahlah-691",
+    "transactionCode": "FINAL_TEST_1",
+    "name": "Final User",
+    "phone": "0769329029",
+    "amount": "100",
+    "smsSent": false,
+    "createdAt": "2026-06-22T21:17:59.243Z"
   }
 ]

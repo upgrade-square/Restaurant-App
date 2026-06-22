@@ -434,7 +434,7 @@ app.post('/customers', authenticateToken, checkSubscription, (req, res) => {
     const { name, phone, amount } = req.body;
     const restaurantId = req.user.restaurantId;
 
-    console.log(`[CUSTOMER_ENTRY_SUBMITTED] customer=${name}`);
+    console.log(`[PAYMENT_RECEIVED] Manual entry submitted for customer=${name}`);
 
     try {
         if (!name || !phone) {
@@ -521,6 +521,10 @@ app.post('/customers', authenticateToken, checkSubscription, (req, res) => {
             createdAt: nowUTC(),
             sentAt: null
         };
+        console.log(`[QUEUE_CREATED] SMS record initialized`);
+        console.log(`[QUEUE_RECORD_ID] ${newSmsEntry.id}`);
+        console.log(`[QUEUE_PHONE] ${newSmsEntry.phone}`);
+        console.log(`[QUEUE_RESTAURANT] ${newSmsEntry.restaurantId}`);
 
         // 4. Log Appreciation Event for Historical Metrics
         const logEntry = {
@@ -585,21 +589,23 @@ app.post('/customers', authenticateToken, checkSubscription, (req, res) => {
 app.post('/payments/incoming', authenticateToken, (req, res) => {
     const transactionCode = req.body.transactionCode;
     const customerName = req.body.customerName || req.body.name;
-    const customerPhone = req.body.customerPhone || req.body.phone;
+    const customerPhone = req.body.customerPhone || req.body.phone || req.body.phoneNumber;
     const amount = req.body.amount || req.body.billAmount || 'M-Pesa';
     const restaurantId = req.user.restaurantId;
+    console.log(`[PAYMENT_RECEIVED] Trace: ${transactionCode} | Name: ${customerName} | Phone: ${customerPhone} | Restaurant: ${restaurantId}`);
 
     if (req.body.name || req.body.phone) {
         console.log(`[PAYMENT_FORMAT] legacy_android_payload=true`);
     }
 
-    console.log(`[PAYMENT_RECEIVED] Trace: ${transactionCode} | Name: ${customerName} | Phone: ${customerPhone} | Restaurant: ${restaurantId}`);
-
     try {
         if (!transactionCode || !customerName || !customerPhone) {
             console.log(`[PAYMENT_REJECTED] Reason: Missing required fields`);
+            console.log(`[PAYMENT_VALIDATION_FAILED] Missing identification fields for trace=${transactionCode}`);
             return res.status(400).json({ error: 'Missing required fields' });
         }
+
+        console.log(`[PAYMENT_TRIGGERED] Trace: ${transactionCode}`);
 
         const paymentsPath = path.join(DATA_DIR, 'payments.json');
         const payments = readData(paymentsPath);
@@ -663,8 +669,20 @@ app.post('/payments/incoming', authenticateToken, (req, res) => {
         const restaurant = allRestaurants.find(r => r.id === restaurantId) || allRestaurants.find(r => r.id === DEFAULT_RESTAURANT_ID);
         const templates = allTemplates[restaurantId] || allTemplates[DEFAULT_RESTAURANT_ID] || {};
 
+        console.log(`[APPRECIATION_START] Triggered by payment ${transactionCode} for customer ${customer.id}`);
         const template = templates.thankYou || restaurant.default_template || TemplateService.getPlatformDefault();
-        const message = normalizeMessage(template, customer, restaurant);
+        console.log(`[APPRECIATION_TEMPLATE_SELECTED] Using template for restaurant ${restaurantId}`);
+
+        let message;
+        try {
+            message = normalizeMessage(template, customer, restaurant);
+            console.log(`[APPRECIATION_MESSAGE_GENERATED] Length: ${message.length}`);
+            console.log(`[TEMPLATE_RENDER_SUCCESS] Message generated for ${customer.id}`);
+        } catch (templateErr) {
+            console.error(`[TEMPLATE_ERROR] Failed to render for ${customer.id}: ${templateErr.message}`);
+            console.log(`[TEMPLATE_RENDER_FAILED] Trace: ${transactionCode}`);
+            throw templateErr;
+        }
 
         const plan = (restaurant?.plan || 'Starter').toLowerCase();
         const isProfessional = plan === 'professional' || plan === 'enterprise' || req.user.role === 'admin';
@@ -685,9 +703,21 @@ app.post('/payments/incoming', authenticateToken, (req, res) => {
             createdAt: nowUTC(),
             sentAt: null
         };
+        console.log(`[QUEUE_CREATED] SMS record initialized`);
+        console.log(`[QUEUE_RECORD_ID] ${newSmsEntry.id}`);
+        console.log(`[QUEUE_PHONE] ${newSmsEntry.phone}`);
+        console.log(`[QUEUE_RESTAURANT] ${newSmsEntry.restaurantId}`);
         smsQueue.push(newSmsEntry);
         writeData(SMS_DATA_FILE, smsQueue);
         console.log(`[PAYMENT_SMS_QUEUED] ${newSmsEntry.id}`);
+
+        // Verify storage
+        const verifyQueue = readData(SMS_DATA_FILE);
+        if (verifyQueue.find(q => q.id === newSmsEntry.id)) {
+            console.log(`[QUEUE_VERIFY_SUCCESS] Record ${newSmsEntry.id} confirmed in storage`);
+        } else {
+            console.log(`[QUEUE_VERIFY_FAILED] Record ${newSmsEntry.id} NOT found in storage!`);
+        }
 
         // 7. Log Appreciation Event for Historical Metrics
         const activityLog = readData(ACTIVITY_LOG_FILE);
@@ -714,7 +744,10 @@ app.post('/payments/incoming', authenticateToken, (req, res) => {
                 createdAt: nowUTC()
             });
             writeData(paymentsPath, payments);
+            console.log(`[PAYMENT_STORED] Audit record saved for ${transactionCode}`);
             console.log(`[PAYMENT_SUCCESS] ${transactionCode}`);
+        } else {
+            console.log(`[APPRECIATION_SKIPPED] Audit record not saved (not Professional plan)`);
         }
 
         res.json({
@@ -882,8 +915,11 @@ app.get('/sms-queue', authenticateToken, checkSubscription, (req, res) => {
 app.get('/sms-queue/pending', authenticateToken, checkSubscription, (req, res) => {
     try {
         const restaurantId = req.user.restaurantId;
+        console.log(`[PENDING_SMS_QUERY] Initiated by restaurant ${restaurantId}`);
         const smsQueue = readData(SMS_DATA_FILE);
         const pendingSms = smsQueue.filter(sms => sms.status === 'Pending' && (sms.restaurantId === restaurantId || (!sms.restaurantId && restaurantId === DEFAULT_RESTAURANT_ID)));
+        console.log(`[PENDING_SMS_COUNT] ${pendingSms.length}`);
+        console.log(`[PENDING_SMS_RESTAURANT] ${restaurantId}`);
         res.json(pendingSms);
     } catch (error) {
         res.status(500).json({ error: 'Failed to read pending SMS records' });
@@ -949,6 +985,7 @@ app.put('/sms-queue/:id', authenticateToken, checkSubscription, (req, res) => {
         }
 
         writeData(SMS_DATA_FILE, smsQueue);
+        console.log(`[STATUS_UPDATE_SUCCESS] Record ${id} changed to ${status}`);
         res.json(sms);
     } catch (error) {
         res.status(500).json({ error: 'Failed to update SMS record' });

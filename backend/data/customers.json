@@ -29,30 +29,17 @@
   },
   {
     "id": 1780433173130,
-    "name": "John",
+    "name": "Final User",
     "phone": "0769329029",
     "amount": "100",
     "sms_status": "Sent",
-    "timestamp": "6/2/2026, 11:46:13 PM",
-    "sent_at": "2026-06-15T14:25:35.718Z",
-    "visitCount": 24,
-    "lastSeen": "2026-06-15T14:40:09.905Z",
+    "sent_at": "2026-06-22T21:22:15.813Z",
+    "visitCount": 3,
+    "lastSeen": "2026-06-22T21:17:59.155Z",
     "active": true,
     "servedBy": [
       "default"
-    ]
-  },
-  {
-    "id": 1782135509169,
-    "restaurantId": "rahlah-691",
-    "servedBy": [
-      "rahlah-691"
     ],
-    "name": "Waromi",
-    "phone": "0115427807",
-    "visitCount": 6,
-    "lastSeen": "2026-06-22T17:32:12.175Z",
-    "active": true,
-    "createdAt": "2026-06-22T13:38:29.169Z"
+    "createdAt": "2026-06-22T21:05:05.231Z"
   }
 ]

@@ -285,18 +285,5 @@
     "sentAt": "6/3/2026, 10:14:34 PM",
     "updatedAt": "6/3/2026, 10:14:34 PM",
     "amountPaidSnapshot": null
-  },
-  {
-    "id": 1782149532179,
-    "restaurantId": "rahlah-691",
-    "customerId": 1782135509169,
-    "customerName": "Waromi",
-    "phone": "0115427807",
-    "amountPaidSnapshot": 100,
-    "message": "Hi Waromi, thank you for your payment at Tourist Hotel. We hope to see you again soon! Karibu tena.",
-    "status": "Pending",
-    "retryCount": 0,
-    "createdAt": "2026-06-22T17:32:12.179Z",
-    "sentAt": null
   }
 ]
