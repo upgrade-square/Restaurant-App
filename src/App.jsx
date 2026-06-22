@@ -55,7 +55,7 @@ const formatAmount = (amt) => {
   if (!amt || amt === '-' || amt === 'M-Pesa') return '—'
   const num = parseFloat(amt)
   if (isNaN(num) || num === 0) return '—'
-  return `KSh ${num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  return `KSh ${num.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
 }
 
 const normalizePhone = (phone) => {
@@ -1493,7 +1493,7 @@ function App() {
                       >
                         <h4 className="subscription-card-title" style={{ color: plan.name === 'Professional' ? 'var(--primary-orange)' : 'inherit' }}>{plan.name}</h4>
                         <p className="subscription-helper-text">{plan.desc}</p>
-                        <div className="price-display">KSh {plan.price.toLocaleString()}</div>
+                        <div className="price-display">KSh {plan.price.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
                         <div className="subscription-helper-text">per month</div>
                         <button
                           className="btn-security-primary"
@@ -1554,7 +1554,7 @@ function App() {
                           <tr key={pay.id}>
                             <td className="subscription-table-text" style={{ fontWeight: 700 }}>{pay.transactionCode}</td>
                             <td className="subscription-table-text">{pay.plan}</td>
-                            <td className="subscription-table-text">KSh {pay.amount?.toLocaleString()}</td>
+                            <td className="subscription-table-text">KSh {pay.amount?.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
                             <td className="subscription-table-text">{formatActivityDate(pay.date)}</td>
                             <td><span className="subscription-badge badge-sent">Processed</span></td>
                           </tr>
