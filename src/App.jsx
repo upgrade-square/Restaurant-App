@@ -1906,16 +1906,16 @@ function App() {
                     />
                   </div>
 
-                  <div className="table-container">
-                    <table className="activity-table" style={{ tableLayout: 'fixed' }}>
+                  <div className="table-container" style={{ overflowX: 'auto' }}>
+                    <table className="activity-table" style={{ tableLayout: 'auto', minWidth: '1300px', width: '100%' }}>
                       <colgroup>
-                        <col style={{ width: '20%' }} />
-                        <col style={{ width: '15%' }} />
-                        <col style={{ width: '10%' }} />
-                        <col style={{ width: '10%' }} />
-                        <col style={{ width: '15%' }} />
-                        <col style={{ width: '15%' }} />
-                        <col style={{ width: '15%' }} />
+                        <col style={{ width: '220px' }} />
+                        <col style={{ width: '150px' }} />
+                        <col style={{ width: '120px' }} />
+                        <col style={{ width: '120px' }} />
+                        <col style={{ width: '180px' }} />
+                        <col style={{ width: '180px' }} />
+                        <col style={{ width: '380px' }} />
                       </colgroup>
                       <thead>
                         <tr>
@@ -1952,7 +1952,7 @@ function App() {
                                 <td className="date-cell">{res.subscriptionExpiryDate ? formatDateTime(res.subscriptionExpiryDate) : 'N/A'}</td>
                                 <td className="date-cell" style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{formatDateTime(res.createdAt)}</td>
                                 <td className="actions">
-                                  <div style={{ display: 'flex', gap: '4px' }}>
+                                  <div style={{ display: 'flex', gap: '8px' }}>
                                     <button className="admin-action-btn" onClick={() => fetchResDetails(res.id)}>View Details</button>
 
                                     {res.subscriptionStatus?.toLowerCase() === 'active' ? (

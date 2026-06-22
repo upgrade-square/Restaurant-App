@@ -286,6 +286,7 @@ h4 {
 .kpi-payment-amount {
   font-size: 1rem;
   font-weight: 700;
+  margin-top: 10px;
 }
 
 /* --- Activity Section --- */
@@ -816,6 +817,7 @@ h4 {
   border: 1px solid var(--border);
   background: white;
   transition: all 0.2s;
+  white-space: nowrap;
 }
 
 .admin-action-btn:hover {
