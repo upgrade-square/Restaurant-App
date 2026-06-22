@@ -407,15 +407,20 @@ app.get('/customers', authenticateToken, checkSubscription, (req, res) => {
     try {
         const restaurantId = req.user.restaurantId;
         const customers = readData(DATA_FILE);
+
+        const restaurants = readData(RESTAURANTS_FILE);
+        const restaurant = restaurants.find(r => r.id === restaurantId);
+        const plan = (restaurant?.plan || 'Starter').toLowerCase();
+        const isProfessional = plan === 'professional' || plan === 'enterprise' || req.user.role === 'admin';
+
         const filtered = customers.filter(c => {
-            // A customer is visible if they are explicitly assigned to this restaurant
-            // OR if this restaurant is in their servedBy list
             const isMatch = c.restaurantId === restaurantId ||
                 (!c.restaurantId && restaurantId === DEFAULT_RESTAURANT_ID) ||
                 (c.servedBy && c.servedBy.includes(restaurantId));
             const isActive = c.active !== false;
             return isMatch && isActive;
         });
+
         res.json(filtered);
     } catch (error) {
         res.status(500).json({ error: 'Failed to read data' });
@@ -499,6 +504,9 @@ app.post('/customers', authenticateToken, checkSubscription, (req, res) => {
         const template = templates.thankYou || restaurant.default_template || TemplateService.getPlatformDefault();
         const message = normalizeMessage(template, customer, restaurant);
 
+        const plan = (restaurant?.plan || 'Starter').toLowerCase();
+        const isProfessional = plan === 'professional' || plan === 'enterprise' || req.user.role === 'admin';
+
         // 3. Create SMS Queue Entry
         const newSmsEntry = {
             id: Date.now() + 1,
@@ -506,7 +514,7 @@ app.post('/customers', authenticateToken, checkSubscription, (req, res) => {
             customerId: customer.id,
             customerName: customer.name, // Store canonical name in records for consistency
             phone: normalizedPhone,
-            amount: amount, // Still support if provided (e.g. from gateway)
+            amountPaidSnapshot: (isProfessional && amount && amount !== '-' && amount !== 'M-Pesa') ? parseFloat(amount) : null,
             message: message,
             status: 'Pending',
             retryCount: 0,
@@ -525,6 +533,31 @@ app.post('/customers', authenticateToken, checkSubscription, (req, res) => {
 
         smsQueue.push(newSmsEntry);
         activityLog.push(logEntry);
+
+        // Record manual payment if amount is provided (Professional Plan Only)
+        if (amount && parseFloat(amount) > 0) {
+            if (isProfessional) {
+                const paymentsPath = path.join(DATA_DIR, 'payments.json');
+                const payments = readData(paymentsPath);
+
+                const newPayment = {
+                    id: Date.now() + 3,
+                    customerId: customer.id,
+                    restaurantId,
+                    amount: parseFloat(amount),
+                    name: customer.name,
+                    phone: customer.phone,
+                    createdAt: nowUTC(),
+                    source: 'manual',
+                    status: 'successful',
+                    recordedBy: req.user.userId
+                };
+
+                payments.push(newPayment);
+                writeData(paymentsPath, payments);
+                console.log(`[PAYMENT_RECORDED] manual entry for customer=${customer.name} amount=${amount}`);
+            }
+        }
 
         writeData(DATA_FILE, customers);
         writeData(SMS_DATA_FILE, smsQueue);
@@ -633,6 +666,9 @@ app.post('/payments/incoming', authenticateToken, (req, res) => {
         const template = templates.thankYou || restaurant.default_template || TemplateService.getPlatformDefault();
         const message = normalizeMessage(template, customer, restaurant);
 
+        const plan = (restaurant?.plan || 'Starter').toLowerCase();
+        const isProfessional = plan === 'professional' || plan === 'enterprise' || req.user.role === 'admin';
+
         // 6. Add to SMS Queue
         console.log(`[PAYMENT] Queuing SMS for ${normalizedPhone}`);
         const smsQueue = readData(SMS_DATA_FILE);
@@ -642,7 +678,7 @@ app.post('/payments/incoming', authenticateToken, (req, res) => {
             customerId: customer.id,
             customerName: customer.name, // Store canonical name in records
             phone: normalizedPhone,
-            amount: amount,
+            amountPaidSnapshot: (isProfessional && amount && amount !== '-' && amount !== 'M-Pesa') ? parseFloat(amount) : null,
             message: message,
             status: 'Pending',
             retryCount: 0,
@@ -664,19 +700,22 @@ app.post('/payments/incoming', authenticateToken, (req, res) => {
         });
         writeData(ACTIVITY_LOG_FILE, activityLog);
 
-        // 8. Save Payment Record (Audit)
-        console.log(`[PAYMENT] Saving audit record: ${transactionCode}`);
-        payments.push({
-            id: Date.now(),
-            restaurantId,
-            transactionCode,
-            name: customerName,
-            phone: normalizedPhone,
-            smsSent: false,
-            createdAt: nowUTC()
-        });
-        writeData(paymentsPath, payments);
-        console.log(`[PAYMENT_SUCCESS] ${transactionCode}`);
+        // 8. Save Payment Record (Audit) (Professional/Enterprise only)
+        if (isProfessional) {
+            console.log(`[PAYMENT] Saving audit record: ${transactionCode}`);
+            payments.push({
+                id: Date.now(),
+                restaurantId,
+                transactionCode,
+                name: customerName,
+                phone: normalizedPhone,
+                amount: amount, // NEW: Preserve amount in audit record
+                smsSent: false,
+                createdAt: nowUTC()
+            });
+            writeData(paymentsPath, payments);
+            console.log(`[PAYMENT_SUCCESS] ${transactionCode}`);
+        }
 
         res.json({
             success: true,
@@ -687,6 +726,129 @@ app.post('/payments/incoming', authenticateToken, (req, res) => {
         console.error('Payment processing failed', error);
         console.log(`[PAYMENT_REJECTED] Reason: Internal server error`);
         res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+/**
+ * @api {get} /revenue/analytics Revenue Analytics for Professional Plan
+ */
+app.get('/revenue/analytics', authenticateToken, checkSubscription, (req, res) => {
+    try {
+        const restaurantId = req.user.restaurantId;
+        const restaurants = readData(RESTAURANTS_FILE);
+        const restaurant = restaurants.find(r => r.id === restaurantId);
+
+        if (!restaurant) {
+            return res.status(404).json({ error: 'Business account not found' });
+        }
+
+        // Access Control: Professional and Enterprise plans only
+        const plan = (restaurant.plan || '').toLowerCase();
+        const isProfessional = plan === 'professional' || plan === 'enterprise' || req.user.role === 'admin';
+        if (!isProfessional) {
+            return res.status(403).json({ error: 'Revenue analytics is only available on the Professional Plan.' });
+        }
+
+        const paymentsPath = path.join(DATA_DIR, 'payments.json');
+        const payments = readData(paymentsPath);
+        const restaurantPayments = payments.filter(p => p.restaurantId === restaurantId);
+
+        // Timezone: Africa/Nairobi (UTC+3)
+        const getLocalDate = (date) => {
+            const d = new Date(date);
+            // Offset for EAT (UTC+3)
+            return new Date(d.getTime() + (3 * 60 * 60 * 1000));
+        };
+
+        const now = new Date();
+        const nowEAT = getLocalDate(now);
+
+        const startOfDay = new Date(nowEAT);
+        startOfDay.setUTCHours(0, 0, 0, 0);
+        // Correctly handling "today" in EAT
+        const todayStr = nowEAT.toISOString().split('T')[0];
+
+        // Weekly calculation (Start of week - Monday)
+        const startOfWeek = new Date(nowEAT);
+        const day = startOfWeek.getUTCDay();
+        const diff = (day === 0 ? 6 : day - 1); // Adjust for Monday being start of week
+        startOfWeek.setUTCDate(startOfWeek.getUTCDate() - diff);
+        startOfWeek.setUTCHours(0, 0, 0, 0);
+
+        // Monthly calculation
+        const startOfMonth = new Date(nowEAT);
+        startOfMonth.setUTCDate(1);
+        startOfMonth.setUTCHours(0, 0, 0, 0);
+
+        let todayRevenue = 0;
+        let weekRevenue = 0;
+        let monthRevenue = 0;
+
+        restaurantPayments.forEach(p => {
+            const pDate = new Date(p.createdAt);
+            const pEAT = getLocalDate(pDate);
+            const amt = parseFloat(p.amount) || 0;
+
+            if (pEAT >= startOfDay) todayRevenue += amt;
+            if (pEAT >= startOfWeek) weekRevenue += amt;
+            if (pEAT >= startOfMonth) monthRevenue += amt;
+        });
+
+        res.json({
+            today: Math.round(todayRevenue * 100) / 100,
+            week: Math.round(weekRevenue * 100) / 100,
+            month: Math.round(monthRevenue * 100) / 100,
+            currency: 'KSh'
+        });
+    } catch (error) {
+        console.error('Revenue analytics failed', error);
+        res.status(500).json({ error: 'Failed to calculate revenue metrics' });
+    }
+});
+
+/**
+ * @api {get} /revenue/records Revenue Transaction Records
+ */
+app.get('/revenue/records', authenticateToken, checkSubscription, (req, res) => {
+    try {
+        const restaurantId = req.user.restaurantId;
+        const restaurants = readData(RESTAURANTS_FILE);
+        const restaurant = restaurants.find(r => r.id === restaurantId);
+
+        if (!restaurant) {
+            return res.status(404).json({ error: 'Business account not found' });
+        }
+
+        const plan = (restaurant.plan || '').toLowerCase();
+        const isProfessional = plan === 'professional' || plan === 'enterprise' || req.user.role === 'admin';
+        if (!isProfessional) {
+            return res.status(403).json({ error: 'Revenue record access is restricted.' });
+        }
+
+        const paymentsPath = path.join(DATA_DIR, 'payments.json');
+        const payments = readData(paymentsPath);
+
+        // Filter and Sort newest to oldest
+        let restaurantPayments = payments
+            .filter(p => p.restaurantId === restaurantId)
+            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+        // Pagination
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const startIndex = (page - 1) * limit;
+        const endIndex = page * limit;
+
+        const results = restaurantPayments.slice(startIndex, endIndex);
+
+        res.json({
+            records: results,
+            total: restaurantPayments.length,
+            currentPage: page,
+            totalPages: Math.ceil(restaurantPayments.length / limit)
+        });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch revenue records' });
     }
 });
 
@@ -929,11 +1091,17 @@ app.get('/sms-queue/history', authenticateToken, checkSubscription, (req, res) =
         const customers = readData(DATA_FILE);
         const filtered = smsQueue.filter(sms => sms.restaurantId === restaurantId || (!sms.restaurantId && restaurantId === DEFAULT_RESTAURANT_ID));
 
-        // Extend response with amount from customer records if not present in SMS record
+        const restaurants = readData(RESTAURANTS_FILE);
+        const restaurant = restaurants.find(r => r.id === restaurantId);
+        const plan = (restaurant?.plan || 'Starter').toLowerCase();
+        const isProfessional = plan === 'professional' || plan === 'enterprise' || req.user.role === 'admin';
+
         const enriched = filtered.map(sms => {
-            if (sms.amount) return sms;
             const customer = customers.find(c => c.id === sms.customerId);
-            return { ...sms, amount: customer ? customer.amount : '-' };
+            return {
+                ...sms,
+                amountPaidSnapshot: isProfessional ? (sms.amountPaidSnapshot ?? null) : null
+            };
         });
 
         res.json(enriched.reverse());
@@ -1952,9 +2120,9 @@ app.post('/subscription/verify', authenticateToken, (req, res) => {
 
         // Logic for tiered pricing
         const pricing = {
-            'Starter': 1250,
-            'Professional': 2500,
-            'Enterprise': 5000
+            'Starter': 2000,
+            'Professional': 3500,
+            'Enterprise': 7500
         };
 
         const amount = pricing[plan] || 0;

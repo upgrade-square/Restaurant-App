@@ -283,6 +283,11 @@ h4 {
   line-height: 1;
 }
 
+.kpi-payment-amount {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
 /* --- Activity Section --- */
 .activity-section {
   display: flex;

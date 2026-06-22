@@ -165,5 +165,74 @@
       "error": "Email delivery failed after 3 attempts: Invalid login: 535 Authentication Failed"
     },
     "timestamp": "2026-06-15T20:15:20.006Z"
+  },
+  {
+    "id": 1782129904248,
+    "userId": null,
+    "restaurantId": null,
+    "type": "LOGIN_FAILURE",
+    "details": {
+      "email": "mikrodcap@gmail.com",
+      "reason": "user_not_found"
+    },
+    "timestamp": "2026-06-22T12:05:04.248Z"
+  },
+  {
+    "id": 1782150000632,
+    "userId": null,
+    "restaurantId": null,
+    "type": "OTP_GENERATED",
+    "details": {
+      "email": "upgradesquare@gmail.com"
+    },
+    "timestamp": "2026-06-22T17:40:00.632Z"
+  },
+  {
+    "timestamp": "2026-06-22T17:40:19.401Z",
+    "type": "EMAIL_SYSTEM_FAILURE",
+    "details": {
+      "email": "upgradesquare@gmail.com",
+      "attempts": 3,
+      "lastError": "Invalid login: 535 Authentication Failed"
+    }
+  },
+  {
+    "id": 1782150019403,
+    "userId": null,
+    "restaurantId": null,
+    "type": "OTP_SENT_SUCCESSFULLY",
+    "details": {
+      "email": "upgradesquare@gmail.com"
+    },
+    "timestamp": "2026-06-22T17:40:19.403Z"
+  },
+  {
+    "id": 1782150088185,
+    "userId": null,
+    "restaurantId": null,
+    "type": "OTP_GENERATED",
+    "details": {
+      "email": "upgradesquareke@gmail.com"
+    },
+    "timestamp": "2026-06-22T17:41:28.185Z"
+  },
+  {
+    "timestamp": "2026-06-22T17:41:47.869Z",
+    "type": "EMAIL_SYSTEM_FAILURE",
+    "details": {
+      "email": "upgradesquareke@gmail.com",
+      "attempts": 3,
+      "lastError": "Invalid login: 535 Authentication Failed"
+    }
+  },
+  {
+    "id": 1782150107871,
+    "userId": null,
+    "restaurantId": null,
+    "type": "OTP_SENT_SUCCESSFULLY",
+    "details": {
+      "email": "upgradesquareke@gmail.com"
+    },
+    "timestamp": "2026-06-22T17:41:47.871Z"
   }
 ]

@@ -39,38 +39,20 @@
     "lastSeen": "2026-06-15T14:40:09.905Z",
     "active": true,
     "servedBy": [
-      "default",
-      "rahlah-691"
+      "default"
     ]
   },
   {
-    "id": 1780782925697,
+    "id": 1782135509169,
     "restaurantId": "rahlah-691",
-    "name": "Anne   Simati",
-    "phone": "0792758169",
-    "amount": "M-Pesa",
-    "sms_status": "Sent",
-    "active": true,
-    "createdAt": "2026-06-06T21:55:25.697Z",
-    "sent_at": "6/7/2026, 12:55:28 AM",
-    "visitCount": 1,
     "servedBy": [
       "rahlah-691"
-    ]
-  },
-  {
-    "id": 1780860230752,
-    "restaurantId": "rahlah-691",
-    "name": "COLLINS SIMIYU MODERN",
-    "phone": "0742148605",
-    "amount": "M-Pesa",
-    "sms_status": "Sent",
+    ],
+    "name": "Waromi",
+    "phone": "0115427807",
+    "visitCount": 6,
+    "lastSeen": "2026-06-22T17:32:12.175Z",
     "active": true,
-    "createdAt": "2026-06-07T19:23:50.752Z",
-    "sent_at": "6/7/2026, 10:24:04 PM",
-    "visitCount": 1,
-    "servedBy": [
-      "rahlah-691"
-    ]
+    "createdAt": "2026-06-22T13:38:29.169Z"
   }
 ]

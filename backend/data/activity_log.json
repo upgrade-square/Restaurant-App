@@ -138,5 +138,47 @@
     "restaurantId": "rahlah-691",
     "customerId": 1780433173130,
     "timestamp": "2026-06-15T14:40:09.905Z"
+  },
+  {
+    "id": 1782135509176,
+    "type": "appreciation",
+    "restaurantId": "rahlah-691",
+    "customerId": 1782135509169,
+    "timestamp": "2026-06-22T13:38:29.174Z"
+  },
+  {
+    "id": 1782136094117,
+    "type": "appreciation",
+    "restaurantId": "rahlah-691",
+    "customerId": 1782135509169,
+    "timestamp": "2026-06-22T13:48:14.115Z"
+  },
+  {
+    "id": 1782136137628,
+    "type": "appreciation",
+    "restaurantId": "rahlah-691",
+    "customerId": 1782135509169,
+    "timestamp": "2026-06-22T13:48:57.626Z"
+  },
+  {
+    "id": 1782145185367,
+    "type": "appreciation",
+    "restaurantId": "rahlah-691",
+    "customerId": 1782135509169,
+    "timestamp": "2026-06-22T16:19:45.365Z"
+  },
+  {
+    "id": 1782146623234,
+    "type": "appreciation",
+    "restaurantId": "rahlah-691",
+    "customerId": 1782135509169,
+    "timestamp": "2026-06-22T16:43:43.232Z"
+  },
+  {
+    "id": 1782149532181,
+    "type": "appreciation",
+    "restaurantId": "rahlah-691",
+    "customerId": 1782135509169,
+    "timestamp": "2026-06-22T17:32:12.179Z"
   }
 ]

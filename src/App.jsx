@@ -52,10 +52,10 @@ const getDaysRemaining = (expiry) => {
 }
 
 const formatAmount = (amt) => {
-  if (!amt || amt === '-' || amt === 'M-Pesa') return '-'
+  if (!amt || amt === '-' || amt === 'M-Pesa') return '—'
   const num = parseFloat(amt)
-  if (isNaN(num)) return amt
-  return `KES ${num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  if (isNaN(num) || num === 0) return '—'
+  return `KSh ${num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
 const normalizePhone = (phone) => {
@@ -86,7 +86,7 @@ function App() {
   const [smsHistory, setSmsHistory] = useState([])
   const [customers, setCustomers] = useState([])
   const [filterStatus, setFilterStatus] = useState('All')
-  const [formData, setFormData] = useState({ name: '', phone: '' })
+  const [formData, setFormData] = useState({ name: '', phone: '', amount: '' })
   const [transactionCode, setTransactionCode] = useState('')
   const [selectedPlan, setSelectedPlan] = useState('Professional')
   const [subscriptionHistory, setSubscriptionHistory] = useState([])
@@ -110,6 +110,9 @@ function App() {
   const [settings, setSettings] = useState({ business_name: '', phone: '', address: '', email: '' })
   const [templates, setTemplates] = useState({ thankYou: DEFAULT_TEMPLATE })
   const [metrics, setMetrics] = useState({ totalCustomers: 0, totalSent: 0, sentToday: 0, pending: 0, failed: 0 })
+  const [revenueData, setRevenueData] = useState({ today: 0, week: 0, month: 0, currency: 'KES' })
+  const [revenueRecords, setRevenueRecords] = useState({ records: [], total: 0, currentPage: 1, totalPages: 1 })
+  const [revenueLoading, setRevenueLoading] = useState(false)
   const [gatewayStatus, setGatewayStatus] = useState({ status: 'Offline', lastSeen: null, batteryLevel: 0, isCharging: false, deviceName: 'N/A' })
 
   const [adminMetrics, setAdminMetrics] = useState(null)
@@ -489,7 +492,6 @@ function App() {
 
         setSubscriptionHistory(results[5]);
 
-
         // Sync restaurant state (subscription status, plan, etc)
         try {
           const me = await fetchWithAuth('/auth/me');
@@ -501,6 +503,11 @@ function App() {
               ...prev,
               business_name: prev.business_name || me.restaurant.business_name || "Business Account"
             }));
+
+            // Fetch Revenue Analytics for Professional users
+            if (isProfessional) {
+              fetchRevenueData();
+            }
           }
         } catch (meError) {
           console.warn('Failed to sync profile', meError);
@@ -512,6 +519,11 @@ function App() {
           setAdminMetrics(aMetrics)
           setAdminRestaurants(aRes)
         }
+      } else {
+        // Even in heartbeat, refresh revenue if professional
+        if (isProfessional) {
+          fetchRevenueData(true);
+        }
       }
 
       setError(null)
@@ -521,6 +533,33 @@ function App() {
       if (!isBackground) setLoading(false)
     }
   }
+
+  const fetchRevenueData = async (isBackground = false) => {
+    if (!isProfessional) return;
+    try {
+      if (!isBackground) setRevenueLoading(true);
+      const [analytics, records] = await Promise.all([
+        fetchWithAuth('/revenue/analytics'),
+        fetchWithAuth('/revenue/records?page=1&limit=10')
+      ]);
+      setRevenueData(analytics);
+      setRevenueRecords(records);
+    } catch (err) {
+      console.warn('Revenue fetch failed', err);
+    } finally {
+      if (!isBackground) setRevenueLoading(false);
+    }
+  };
+
+  const fetchRevenueRecords = async (page = 1) => {
+    if (!isProfessional) return;
+    try {
+      const data = await fetchWithAuth(`/revenue/records?page=${page}&limit=10`);
+      setRevenueRecords(data);
+    } catch (err) {
+      showToast('Failed to load transaction records', 'danger');
+    }
+  };
 
   useEffect(() => {
     if (token) {
@@ -987,6 +1026,22 @@ function App() {
                     )}
                   </div>
                 </div>
+                {isProfessional && (
+                  <>
+                    <div className="card kpi-card" style={{ borderLeft: '4px solid var(--success)' }}>
+                      <div className="kpi-label">Today's Payments</div>
+                      <div className="kpi-value kpi-payment-amount">{formatAmount(revenueData.today)}</div>
+                    </div>
+                    <div className="card kpi-card" style={{ borderLeft: '4px solid var(--primary-blue)' }}>
+                      <div className="kpi-label">This Week's Payments</div>
+                      <div className="kpi-value kpi-payment-amount">{formatAmount(revenueData.week)}</div>
+                    </div>
+                    <div className="card kpi-card" style={{ borderLeft: '4px solid var(--primary-orange)' }}>
+                      <div className="kpi-label">This Month's Payments</div>
+                      <div className="kpi-value kpi-payment-amount">{formatAmount(revenueData.month)}</div>
+                    </div>
+                  </>
+                )}
               </div>
 
               <div className="activity-section">
@@ -1004,11 +1059,12 @@ function App() {
                     <table className="activity-table" style={{ width: '100%', tableLayout: 'fixed', minWidth: '950px' }}>
                       <colgroup>
                         <col style={{ width: '50px' }} />
-                        <col style={{ width: '15%' }} />
-                        <col style={{ width: '25%' }} />
-                        <col style={{ width: '15%' }} />
-                        <col style={{ width: '15%' }} />
-                        <col style={{ width: '15%' }} />
+                        <col style={{ width: '12%' }} />
+                        <col style={{ width: '18%' }} />
+                        <col style={{ width: '12%' }} />
+                        {isProfessional && <col style={{ width: '15%' }} />}
+                        <col style={{ width: '12%' }} />
+                        <col style={{ width: '12%' }} />
                         <col style={{ width: '100px' }} />
                       </colgroup>
                       <thead>
@@ -1030,6 +1086,7 @@ function App() {
                           <th>Created Date</th>
                           <th className="customer-name-cell">Customer Name</th>
                           <th>Phone Number</th>
+                          {isProfessional && <th>Amount Paid</th>}
                           <th>SMS Sent Time</th>
                           <th>Status</th>
                           <th>Action</th>
@@ -1055,6 +1112,7 @@ function App() {
                             <td className="date-cell" title={formatDateTime(msg.createdAt || msg.id)}>{formatDateTime(msg.createdAt || msg.id)}</td>
                             <td className="customer-name-cell" style={{ fontWeight: 700 }} title={msg.customerName}>{msg.customerName}</td>
                             <td title={msg.phone}>{msg.phone}</td>
+                            {isProfessional && <td style={{ color: 'var(--success)', fontWeight: 600 }}>{formatAmount(msg.amountPaidSnapshot)}</td>}
                             <td className="date-cell" title={msg.sentAt ? formatDateTime(msg.sentAt) : 'Pending'}>
                               {msg.sentAt ? formatDateTime(msg.sentAt) : <span className="badge badge-pending">Pending</span>}
                             </td>
@@ -1091,8 +1149,7 @@ function App() {
                 </div>
               </div>
             </div>
-          )
-          }
+          )}
 
           {
             activeTab === 'customers' && (
@@ -1112,7 +1169,6 @@ function App() {
                     const existing = customers.find(c => normalizePhone(c.phone) === normalized);
                     const finalData = {
                       ...formData,
-                      name: existing ? existing.name : formData.name,
                       phone: normalized
                     };
 
@@ -1124,7 +1180,7 @@ function App() {
                       });
 
                       if (data.success) {
-                        setFormData({ name: '', phone: '' });
+                        setFormData({ name: '', phone: '', amount: '' });
                         const customerData = data.customer;
                         setCustomers(prev => {
                           const exists = prev.find(c => c.id === customerData.id);
@@ -1186,6 +1242,21 @@ function App() {
                         <p style={{ fontSize: '0.7rem', color: 'var(--success)', marginTop: '4px' }}>✓ Recognized Customer (Name will be updated if changed)</p>
                       )}
                     </div>
+                    {isProfessional && (
+                      <div className="form-group">
+                        <label>Amount Paid (KSh)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          className="form-control"
+                          placeholder="Optional amount"
+                          value={formData.amount || ''}
+                          onChange={e => setFormData({ ...formData, amount: e.target.value })}
+                          disabled={isCustomerSubmitting}
+                        />
+                      </div>
+                    )}
                     <div className="form-group" style={{ display: 'flex', alignItems: 'flex-end' }}>
                       <button
                         className="login-btn"
@@ -1411,9 +1482,9 @@ function App() {
 
                   <div className="kpi-grid">
                     {[
-                      { name: 'Starter', price: 1250, desc: 'Ideal for small cafes' },
-                      { name: 'Professional', price: 2500, desc: 'Perfect for busy restaurants' },
-                      { name: 'Enterprise', price: 5000, desc: 'For large franchises' }
+                      { name: 'Starter', price: 2000, desc: 'Ideal for small cafes' },
+                      { name: 'Professional', price: 3500, desc: 'Perfect for busy restaurants' },
+                      { name: 'Enterprise', price: 7500, desc: 'For large franchises' }
                     ].map(plan => (
                       <div
                         key={plan.name}
@@ -1422,7 +1493,7 @@ function App() {
                       >
                         <h4 className="subscription-card-title" style={{ color: plan.name === 'Professional' ? 'var(--primary-orange)' : 'inherit' }}>{plan.name}</h4>
                         <p className="subscription-helper-text">{plan.desc}</p>
-                        <div className="price-display">KES {plan.price.toLocaleString()}</div>
+                        <div className="price-display">KSh {plan.price.toLocaleString()}</div>
                         <div className="subscription-helper-text">per month</div>
                         <button
                           className="btn-security-primary"
@@ -1452,7 +1523,7 @@ function App() {
                           setShowMpesaModal(true);
                         }}
                       >
-                        Pay KES {selectedPlan === 'Starter' ? '1,250' : selectedPlan === 'Professional' ? '2,500' : '5,000'}
+                        Pay KSh {selectedPlan === 'Starter' ? '2,000' : selectedPlan === 'Professional' ? '3,500' : '7,500'}
                       </button>
                     </div>
                   </div>
@@ -1483,7 +1554,7 @@ function App() {
                           <tr key={pay.id}>
                             <td className="subscription-table-text" style={{ fontWeight: 700 }}>{pay.transactionCode}</td>
                             <td className="subscription-table-text">{pay.plan}</td>
-                            <td className="subscription-table-text">KES {pay.amount?.toLocaleString()}</td>
+                            <td className="subscription-table-text">KSh {pay.amount?.toLocaleString()}</td>
                             <td className="subscription-table-text">{formatActivityDate(pay.date)}</td>
                             <td><span className="subscription-badge badge-sent">Processed</span></td>
                           </tr>
@@ -1512,7 +1583,7 @@ function App() {
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                           <span className="subscription-body">Amount Due:</span>
                           <span className="subscription-table-text" style={{ color: 'var(--primary-blue)', fontWeight: 800 }}>
-                            KES {selectedPlan === 'Starter' ? '1,250' : selectedPlan === 'Professional' ? '2,500' : '5,000'}
+                            KSh {selectedPlan === 'Starter' ? '2,000' : selectedPlan === 'Professional' ? '3,500' : '7,500'}
                           </span>
                         </div>
                       </div>
@@ -1536,7 +1607,7 @@ function App() {
                         onClick={async () => {
                           setIsProcessingMpesa(true);
                           try {
-                            const amount = selectedPlan === 'Starter' ? 1250 : selectedPlan === 'Professional' ? 2500 : 5000;
+                            const amount = selectedPlan === 'Starter' ? 2000 : selectedPlan === 'Professional' ? 3500 : 7500;
                             const res = await fetchWithAuth('/subscriptions/mpesa/initiate', {
                               method: 'POST',
                               body: JSON.stringify({ plan: selectedPlan, phone: mpesaPhone, amount })
@@ -1941,7 +2012,6 @@ function App() {
               </div>
             )
           }
-
         </main >
 
         <footer style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', borderTop: '1px solid var(--border)' }}>

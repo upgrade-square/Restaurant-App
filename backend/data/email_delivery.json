@@ -118,5 +118,97 @@
     "status": "ATTEMPT_FAILURE",
     "attempt": 3,
     "error": "Invalid login: 535 Authentication Failed"
+  },
+  {
+    "timestamp": "2026-06-22T17:40:00.633Z",
+    "email": "upgradesquare@gmail.com",
+    "status": "SENDING_ATTEMPT",
+    "attempt": 1
+  },
+  {
+    "timestamp": "2026-06-22T17:40:07.151Z",
+    "email": "upgradesquare@gmail.com",
+    "status": "ATTEMPT_FAILURE",
+    "attempt": 1,
+    "error": "Invalid login: 535 Authentication Failed"
+  },
+  {
+    "timestamp": "2026-06-22T17:40:08.153Z",
+    "email": "upgradesquare@gmail.com",
+    "status": "SENDING_ATTEMPT",
+    "attempt": 2
+  },
+  {
+    "timestamp": "2026-06-22T17:40:11.551Z",
+    "email": "upgradesquare@gmail.com",
+    "status": "ATTEMPT_FAILURE",
+    "attempt": 2,
+    "error": "Invalid login: 535 Authentication Failed"
+  },
+  {
+    "timestamp": "2026-06-22T17:40:13.552Z",
+    "email": "upgradesquare@gmail.com",
+    "status": "SENDING_ATTEMPT",
+    "attempt": 3
+  },
+  {
+    "timestamp": "2026-06-22T17:40:19.399Z",
+    "email": "upgradesquare@gmail.com",
+    "status": "ATTEMPT_FAILURE",
+    "attempt": 3,
+    "error": "Invalid login: 535 Authentication Failed"
+  },
+  {
+    "timestamp": "2026-06-22T17:40:19.402Z",
+    "email": "upgradesquare@gmail.com",
+    "status": "DELIVERY_FAILURE_FALLBACK",
+    "lastError": "Invalid login: 535 Authentication Failed",
+    "otp_code": "644775"
+  },
+  {
+    "timestamp": "2026-06-22T17:41:28.186Z",
+    "email": "upgradesquareke@gmail.com",
+    "status": "SENDING_ATTEMPT",
+    "attempt": 1
+  },
+  {
+    "timestamp": "2026-06-22T17:41:33.018Z",
+    "email": "upgradesquareke@gmail.com",
+    "status": "ATTEMPT_FAILURE",
+    "attempt": 1,
+    "error": "Invalid login: 535 Authentication Failed"
+  },
+  {
+    "timestamp": "2026-06-22T17:41:34.018Z",
+    "email": "upgradesquareke@gmail.com",
+    "status": "SENDING_ATTEMPT",
+    "attempt": 2
+  },
+  {
+    "timestamp": "2026-06-22T17:41:38.755Z",
+    "email": "upgradesquareke@gmail.com",
+    "status": "ATTEMPT_FAILURE",
+    "attempt": 2,
+    "error": "Invalid login: 535 Authentication Failed"
+  },
+  {
+    "timestamp": "2026-06-22T17:41:40.755Z",
+    "email": "upgradesquareke@gmail.com",
+    "status": "SENDING_ATTEMPT",
+    "attempt": 3
+  },
+  {
+    "timestamp": "2026-06-22T17:41:47.867Z",
+    "email": "upgradesquareke@gmail.com",
+    "status": "ATTEMPT_FAILURE",
+    "attempt": 3,
+    "error": "Invalid login: 535 Authentication Failed"
+  },
+  {
+    "timestamp": "2026-06-22T17:41:47.869Z",
+    "email": "upgradesquareke@gmail.com",
+    "status": "DELIVERY_FAILURE_FALLBACK",
+    "lastError": "Invalid login: 535 Authentication Failed",
+    "otp_code": "874128"
   }
 ]

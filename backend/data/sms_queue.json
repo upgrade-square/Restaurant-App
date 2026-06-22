@@ -9,7 +9,8 @@
     "createdAt": "6/1/2026, 1:49:36 PM",
     "updatedAt": "6/3/2026, 12:13:39 PM",
     "retryCount": 0,
-    "sentAt": "6/3/2026, 12:13:39 PM"
+    "sentAt": "6/3/2026, 12:13:39 PM",
+    "amountPaidSnapshot": null
   },
   {
     "id": 1780311919225,
@@ -21,7 +22,8 @@
     "createdAt": "6/1/2026, 2:05:19 PM",
     "updatedAt": "6/3/2026, 12:14:01 PM",
     "retryCount": 0,
-    "sentAt": "6/3/2026, 12:14:01 PM"
+    "sentAt": "6/3/2026, 12:14:01 PM",
+    "amountPaidSnapshot": null
   },
   {
     "id": 1780311949435,
@@ -33,7 +35,8 @@
     "createdAt": "6/1/2026, 2:05:49 PM",
     "updatedAt": "6/3/2026, 12:12:38 PM",
     "retryCount": 0,
-    "sentAt": "6/3/2026, 12:12:38 PM"
+    "sentAt": "6/3/2026, 12:12:38 PM",
+    "amountPaidSnapshot": null
   },
   {
     "id": 1780417984347,
@@ -45,7 +48,8 @@
     "createdAt": "6/2/2026, 7:33:04 PM",
     "updatedAt": "6/3/2026, 12:12:39 PM",
     "retryCount": 0,
-    "sentAt": "6/3/2026, 12:12:39 PM"
+    "sentAt": "6/3/2026, 12:12:39 PM",
+    "amountPaidSnapshot": null
   },
   {
     "id": 1780419374629,
@@ -57,7 +61,8 @@
     "createdAt": "6/2/2026, 7:56:14 PM",
     "updatedAt": "6/3/2026, 12:12:40 PM",
     "retryCount": 0,
-    "sentAt": "6/3/2026, 12:12:40 PM"
+    "sentAt": "6/3/2026, 12:12:40 PM",
+    "amountPaidSnapshot": null
   },
   {
     "id": 1780420085019,
@@ -69,7 +74,8 @@
     "createdAt": "6/2/2026, 8:08:05 PM",
     "updatedAt": "6/3/2026, 12:13:38 PM",
     "retryCount": 0,
-    "sentAt": "6/3/2026, 12:13:38 PM"
+    "sentAt": "6/3/2026, 12:13:38 PM",
+    "amountPaidSnapshot": null
   },
   {
     "id": 1780423517897,
@@ -81,7 +87,8 @@
     "createdAt": "6/2/2026, 9:05:17 PM",
     "updatedAt": "6/3/2026, 12:03:17 PM",
     "retryCount": 0,
-    "sentAt": "6/3/2026, 12:03:17 PM"
+    "sentAt": "6/3/2026, 12:03:17 PM",
+    "amountPaidSnapshot": null
   },
   {
     "id": 1780427365475,
@@ -93,7 +100,8 @@
     "createdAt": "6/2/2026, 10:09:25 PM",
     "updatedAt": "6/3/2026, 12:02:57 PM",
     "retryCount": 0,
-    "sentAt": "6/3/2026, 12:02:57 PM"
+    "sentAt": "6/3/2026, 12:02:57 PM",
+    "amountPaidSnapshot": null
   },
   {
     "id": 1780428257049,
@@ -105,7 +113,8 @@
     "createdAt": "6/2/2026, 10:24:17 PM",
     "updatedAt": "6/3/2026, 11:55:37 AM",
     "retryCount": 0,
-    "sentAt": "6/3/2026, 11:55:37 AM"
+    "sentAt": "6/3/2026, 11:55:37 AM",
+    "amountPaidSnapshot": null
   },
   {
     "id": 1780432996626,
@@ -117,7 +126,8 @@
     "retryCount": 0,
     "createdAt": "6/2/2026, 11:43:16 PM",
     "sentAt": "6/2/2026, 11:43:31 PM",
-    "updatedAt": "6/2/2026, 11:43:31 PM"
+    "updatedAt": "6/2/2026, 11:43:31 PM",
+    "amountPaidSnapshot": null
   },
   {
     "id": 1780433173131,
@@ -129,7 +139,8 @@
     "retryCount": 0,
     "createdAt": "6/2/2026, 11:46:13 PM",
     "sentAt": "6/2/2026, 11:46:32 PM",
-    "updatedAt": "6/2/2026, 11:46:32 PM"
+    "updatedAt": "6/2/2026, 11:46:32 PM",
+    "amountPaidSnapshot": null
   },
   {
     "id": 1780434761158,
@@ -141,7 +152,8 @@
     "retryCount": 0,
     "createdAt": "6/3/2026, 12:12:41 AM",
     "sentAt": "6/3/2026, 12:12:53 AM",
-    "updatedAt": "6/3/2026, 12:12:53 AM"
+    "updatedAt": "6/3/2026, 12:12:53 AM",
+    "amountPaidSnapshot": null
   },
   {
     "id": 1780434844114,
@@ -153,7 +165,8 @@
     "retryCount": 0,
     "createdAt": "6/3/2026, 12:14:04 AM",
     "sentAt": "6/3/2026, 12:14:12 AM",
-    "updatedAt": "6/3/2026, 12:14:12 AM"
+    "updatedAt": "6/3/2026, 12:14:12 AM",
+    "amountPaidSnapshot": null
   },
   {
     "id": 1780435257455,
@@ -164,7 +177,8 @@
     "status": "Sent",
     "createdAt": "6/3/2026, 12:20:57 AM",
     "sentAt": "6/3/2026, 12:24:54 AM",
-    "updatedAt": "6/3/2026, 12:24:54 AM"
+    "updatedAt": "6/3/2026, 12:24:54 AM",
+    "amountPaidSnapshot": null
   },
   {
     "id": 1780435408967,
@@ -175,7 +189,8 @@
     "status": "Sent",
     "createdAt": "6/3/2026, 12:23:28 AM",
     "sentAt": "6/3/2026, 12:24:55 AM",
-    "updatedAt": "6/3/2026, 12:24:55 AM"
+    "updatedAt": "6/3/2026, 12:24:55 AM",
+    "amountPaidSnapshot": null
   },
   {
     "id": 1780435550245,
@@ -187,7 +202,8 @@
     "retryCount": 0,
     "createdAt": "6/3/2026, 12:25:50 AM",
     "sentAt": "6/3/2026, 12:25:54 AM",
-    "updatedAt": "6/3/2026, 12:25:54 AM"
+    "updatedAt": "6/3/2026, 12:25:54 AM",
+    "amountPaidSnapshot": null
   },
   {
     "id": 1780436035428,
@@ -199,7 +215,8 @@
     "retryCount": 0,
     "createdAt": "6/3/2026, 12:33:55 AM",
     "sentAt": "6/3/2026, 12:34:15 AM",
-    "updatedAt": "6/3/2026, 12:34:15 AM"
+    "updatedAt": "6/3/2026, 12:34:15 AM",
+    "amountPaidSnapshot": null
   },
   {
     "id": 1780472485910,
@@ -211,7 +228,8 @@
     "retryCount": 0,
     "createdAt": "6/3/2026, 10:41:25 AM",
     "sentAt": "6/3/2026, 10:41:32 AM",
-    "updatedAt": "6/3/2026, 10:41:32 AM"
+    "updatedAt": "6/3/2026, 10:41:32 AM",
+    "amountPaidSnapshot": null
   },
   {
     "id": 1780476827302,
@@ -223,20 +241,8 @@
     "retryCount": 0,
     "createdAt": "6/3/2026, 11:53:47 AM",
     "sentAt": "6/3/2026, 11:53:56 AM",
-    "updatedAt": "6/3/2026, 11:53:56 AM"
-  },
-  {
-    "id": 1780494608154,
-    "restaurantId": "rahlah-691",
-    "customerId": 1780494608153,
-    "customerName": "Michael",
-    "phone": "0769329029",
-    "message": "Hi Michael, thank you for dining at RAHLAH. We hope to see you again soon!",
-    "status": "Sent",
-    "retryCount": 0,
-    "createdAt": "6/3/2026, 4:50:08 PM",
-    "sentAt": "6/3/2026, 4:50:27 PM",
-    "updatedAt": "6/3/2026, 4:50:27 PM"
+    "updatedAt": "6/3/2026, 11:53:56 AM",
+    "amountPaidSnapshot": null
   },
   {
     "id": 1780501230105,
@@ -249,33 +255,8 @@
     "retryCount": 2,
     "createdAt": "6/3/2026, 6:40:30 PM",
     "sentAt": "6/3/2026, 10:04:19 PM",
-    "updatedAt": "6/3/2026, 10:04:19 PM"
-  },
-  {
-    "id": 1780501862902,
-    "restaurantId": "rahlah-691",
-    "customerId": 1780501862901,
-    "customerName": "John",
-    "phone": "0769329029",
-    "message": "Hi John, thank you for dining at RAHLAH. We hope to see you again soon!",
-    "status": "Sent",
-    "retryCount": 0,
-    "createdAt": "6/3/2026, 6:51:02 PM",
-    "sentAt": "6/3/2026, 6:55:13 PM",
-    "updatedAt": "6/3/2026, 6:55:13 PM"
-  },
-  {
-    "id": 1780513370019,
-    "restaurantId": "rahlah-691",
-    "customerId": 1780513370018,
-    "customerName": "Simati",
-    "phone": "0769329029",
-    "message": "Hi Simati, thank you for dining at RAHLAH. We hope to see you again soon!",
-    "status": "Sent",
-    "retryCount": 0,
-    "createdAt": "6/3/2026, 10:02:50 PM",
-    "sentAt": "6/3/2026, 10:03:10 PM",
-    "updatedAt": "6/3/2026, 10:03:10 PM"
+    "updatedAt": "6/3/2026, 10:04:19 PM",
+    "amountPaidSnapshot": null
   },
   {
     "id": 1780513531328,
@@ -288,7 +269,8 @@
     "retryCount": 0,
     "createdAt": "6/3/2026, 10:05:31 PM",
     "sentAt": "6/3/2026, 10:05:39 PM",
-    "updatedAt": "6/3/2026, 10:05:39 PM"
+    "updatedAt": "6/3/2026, 10:05:39 PM",
+    "amountPaidSnapshot": null
   },
   {
     "id": 1780513561770,
@@ -301,301 +283,20 @@
     "retryCount": 0,
     "createdAt": "6/3/2026, 10:06:01 PM",
     "sentAt": "6/3/2026, 10:14:34 PM",
-    "updatedAt": "6/3/2026, 10:14:34 PM"
+    "updatedAt": "6/3/2026, 10:14:34 PM",
+    "amountPaidSnapshot": null
   },
   {
-    "id": 1780782862655,
+    "id": 1782149532179,
     "restaurantId": "rahlah-691",
-    "customerId": 1780433173130,
-    "customerName": "Mike",
-    "phone": "0769329029",
-    "message": "Hi Mike, thank you for dining at RAHLAH. We hope to see you again soon!",
-    "status": "Sent",
-    "retryCount": 0,
-    "createdAt": "6/7/2026, 12:54:22 AM",
-    "sentAt": "6/7/2026, 12:54:29 AM",
-    "updatedAt": "6/7/2026, 12:54:29 AM"
-  },
-  {
-    "id": 1780782925700,
-    "restaurantId": "rahlah-691",
-    "customerId": 1780782925697,
-    "customerName": "Anne",
-    "phone": "0792758169",
-    "message": "Hi Anne, thank you for dining at RAHLAH. We hope to see you again soon!",
-    "status": "Sent",
-    "retryCount": 0,
-    "createdAt": "6/7/2026, 12:55:25 AM",
-    "sentAt": "6/7/2026, 12:55:28 AM",
-    "updatedAt": "6/7/2026, 12:55:28 AM"
-  },
-  {
-    "id": 1780782925716,
-    "restaurantId": "rahlah-691",
-    "customerId": 1780433173130,
-    "customerName": "Mike",
-    "phone": "0769329029",
-    "message": "Hi Mike, thank you for dining at RAHLAH. We hope to see you again soon!",
-    "status": "Sent",
-    "retryCount": 0,
-    "createdAt": "6/7/2026, 12:55:25 AM",
-    "sentAt": "6/7/2026, 12:55:29 AM",
-    "updatedAt": "6/7/2026, 12:55:29 AM"
-  },
-  {
-    "id": 1780782925723,
-    "restaurantId": "rahlah-691",
-    "customerId": 1780433173130,
-    "customerName": "Mike",
-    "phone": "0769329029",
-    "message": "Hi Mike, thank you for dining at RAHLAH. We hope to see you again soon!",
-    "status": "Sent",
-    "retryCount": 0,
-    "createdAt": "6/7/2026, 12:55:25 AM",
-    "sentAt": "6/7/2026, 12:55:41 AM",
-    "updatedAt": "6/7/2026, 12:55:41 AM"
-  },
-  {
-    "id": 1780782925731,
-    "restaurantId": "rahlah-691",
-    "customerId": 1780433173130,
-    "customerName": "Mike",
-    "phone": "0769329029",
-    "message": "Hi Mike, thank you for dining at RAHLAH. We hope to see you again soon!",
-    "status": "Sent",
-    "retryCount": 0,
-    "createdAt": "6/7/2026, 12:55:25 AM",
-    "sentAt": "6/7/2026, 12:55:43 AM",
-    "updatedAt": "6/7/2026, 12:55:43 AM"
-  },
-  {
-    "id": 1780782925738,
-    "restaurantId": "rahlah-691",
-    "customerId": 1780433173130,
-    "customerName": "Mike",
-    "phone": "0769329029",
-    "message": "Hi Mike, thank you for dining at RAHLAH. We hope to see you again soon!",
-    "status": "Sent",
-    "retryCount": 0,
-    "createdAt": "6/7/2026, 12:55:25 AM",
-    "sentAt": "6/7/2026, 12:55:45 AM",
-    "updatedAt": "6/7/2026, 12:55:45 AM"
-  },
-  {
-    "id": 1780782925756,
-    "restaurantId": "rahlah-691",
-    "customerId": 1780433173130,
-    "customerName": "Mike",
-    "phone": "0769329029",
-    "message": "Hi Mike, thank you for dining at RAHLAH. We hope to see you again soon!",
-    "status": "Sent",
-    "retryCount": 0,
-    "createdAt": "6/7/2026, 12:55:25 AM",
-    "sentAt": "6/7/2026, 12:55:46 AM",
-    "updatedAt": "6/7/2026, 12:55:46 AM"
-  },
-  {
-    "id": 1780782925762,
-    "restaurantId": "rahlah-691",
-    "customerId": 1780433173130,
-    "customerName": "Mike",
-    "phone": "0769329029",
-    "message": "Hi Mike, thank you for dining at RAHLAH. We hope to see you again soon!",
-    "status": "Sent",
-    "retryCount": 0,
-    "createdAt": "6/7/2026, 12:55:25 AM",
-    "sentAt": "6/7/2026, 12:55:47 AM",
-    "updatedAt": "6/7/2026, 12:55:47 AM"
-  },
-  {
-    "id": 1780783503797,
-    "restaurantId": "rahlah-691",
-    "customerId": 1780433173130,
-    "customerName": "Mike Rodney Wabwile",
-    "phone": "0769329029",
-    "message": "Hi Mike, thank you for dining at RAHLAH. We hope to see you again soon!",
-    "status": "Sent",
-    "retryCount": 0,
-    "createdAt": "6/7/2026, 1:05:03 AM",
-    "sentAt": "6/7/2026, 1:05:09 AM",
-    "updatedAt": "6/7/2026, 1:05:09 AM"
-  },
-  {
-    "id": 1780845823950,
-    "restaurantId": "rahlah-691",
-    "customerId": 1780433173130,
-    "customerName": "Mike Rodney Wabwile",
-    "phone": "0769329029",
-    "message": "Hi Mike, thank you for dining at RAHLAH. We hope to see you again soon!",
-    "status": "Sent",
-    "retryCount": 0,
-    "createdAt": "6/7/2026, 6:23:43 PM",
-    "sentAt": "6/7/2026, 6:23:54 PM",
-    "updatedAt": "6/7/2026, 6:23:54 PM"
-  },
-  {
-    "id": 1780846212426,
-    "restaurantId": "rahlah-691",
-    "customerId": 1780433173130,
-    "customerName": "Mike Rodney Wabwile",
-    "phone": "0769329029",
-    "message": "Hi Mike, thank you for dining at RAHLAH. We hope to see you again soon! Karibu tena.",
-    "status": "Sent",
-    "retryCount": 0,
-    "createdAt": "6/7/2026, 6:30:12 PM",
-    "sentAt": "6/7/2026, 6:30:13 PM",
-    "updatedAt": "6/7/2026, 6:30:13 PM"
-  },
-  {
-    "id": 1780869342477,
-    "restaurantId": "rahlah-691",
-    "customerId": 1780433173130,
-    "customerName": "Mike Rodney Wabwile",
-    "phone": "0769329029",
-    "message": "Hi Mike, thank you for dining at RAHLAH. We hope to see you again soon! Karibu tena.",
-    "status": "Sent",
-    "retryCount": 0,
-    "createdAt": "6/8/2026, 12:55:42 AM",
-    "sentAt": "6/8/2026, 12:55:58 AM",
-    "updatedAt": "6/8/2026, 12:55:58 AM"
-  },
-  {
-    "id": 1781526920675,
-    "restaurantId": "rahlah-691",
-    "customerId": 1780433173130,
-    "customerName": "Rodney",
-    "phone": "0769329029",
-    "amount": "1",
-    "message": "Hi Rodney, thank you for your payment at RAHLAH. We hope to see you again soon! Karibu tena.",
-    "status": "Sent",
-    "retryCount": 0,
-    "createdAt": "2026-06-15T12:35:20.674Z",
-    "sentAt": "2026-06-15T12:35:34.464Z",
-    "updatedAt": "2026-06-15T12:35:34.464Z"
-  },
-  {
-    "id": 1781527005654,
-    "restaurantId": "rahlah-691",
-    "customerId": 1780433173130,
-    "customerName": "Mike",
-    "phone": "0769329029",
-    "amount": "1",
-    "message": "Hi Mike, thank you for your payment at Tourist Hotel. We hope to see you again soon! Karibu tena.",
-    "status": "Sent",
-    "retryCount": 0,
-    "createdAt": "2026-06-15T12:36:45.653Z",
-    "sentAt": "2026-06-15T12:36:54.738Z",
-    "updatedAt": "2026-06-15T12:36:54.737Z"
-  },
-  {
-    "id": 1781527962185,
-    "restaurantId": "rahlah-691",
-    "customerId": 1780433173130,
-    "customerName": "Michael",
-    "phone": "0769329029",
-    "amount": "1",
-    "message": "Hi Michael, thank you for your payment at Tourist Hotel. We hope to see you again soon! Karibu tena.",
-    "status": "Sent",
-    "retryCount": 0,
-    "createdAt": "2026-06-15T12:52:42.184Z",
-    "sentAt": "2026-06-15T12:52:59.577Z",
-    "updatedAt": "2026-06-15T12:52:59.577Z"
-  },
-  {
-    "id": 1781530120733,
-    "restaurantId": "rahlah-691",
-    "customerId": 1780433173130,
-    "customerName": "Rodney",
-    "phone": "0769329029",
-    "amount": "1",
-    "message": "Hi Rodney, thank you for your payment at Tourist Hotel. We hope to see you again soon! Karibu tena.",
-    "status": "Sent",
-    "retryCount": 0,
-    "createdAt": "2026-06-15T13:28:40.732Z",
-    "sentAt": "2026-06-15T13:29:01.436Z",
-    "updatedAt": "2026-06-15T13:29:01.436Z"
-  },
-  {
-    "id": 1781530137894,
-    "restaurantId": "rahlah-691",
-    "customerId": 1780433173130,
-    "customerName": "John",
-    "phone": "0769329029",
-    "amount": "1",
-    "message": "Hi John, thank you for your payment at Tourist Hotel. We hope to see you again soon! Karibu tena.",
-    "status": "Sent",
-    "retryCount": 0,
-    "createdAt": "2026-06-15T13:28:57.893Z",
-    "sentAt": "2026-06-15T13:29:02.521Z",
-    "updatedAt": "2026-06-15T13:29:02.521Z"
-  },
-  {
-    "id": 1781530182655,
-    "restaurantId": "rahlah-691",
-    "customerId": 1780433173130,
-    "customerName": "hj",
-    "phone": "0769329029",
-    "amount": "1",
-    "message": "Hi John, thank you for your payment at Tourist Hotel. We hope to see you again soon! Karibu tena.",
-    "status": "Sent",
-    "retryCount": 0,
-    "createdAt": "2026-06-15T13:29:42.654Z",
-    "sentAt": "2026-06-15T13:30:01.590Z",
-    "updatedAt": "2026-06-15T13:30:01.590Z"
-  },
-  {
-    "id": 1781530199504,
-    "restaurantId": "rahlah-691",
-    "customerId": 1780433173130,
-    "customerName": "dhjdhjd",
-    "phone": "0769329029",
-    "amount": "2",
-    "message": "Hi John, thank you for your payment at Tourist Hotel. We hope to see you again soon! Karibu tena.",
-    "status": "Sent",
-    "retryCount": 0,
-    "createdAt": "2026-06-15T13:29:59.503Z",
-    "sentAt": "2026-06-15T13:30:02.937Z",
-    "updatedAt": "2026-06-15T13:30:02.937Z"
-  },
-  {
-    "id": 1781533513584,
-    "restaurantId": "rahlah-691",
-    "customerId": 1780433173130,
-    "customerName": "JOhn",
-    "phone": "0769329029",
-    "amount": "1",
-    "message": "Hi John, thank you for your payment at Tourist Hotel. We hope to see you again soon! Karibu tena.",
-    "status": "Sent",
-    "retryCount": 0,
-    "createdAt": "2026-06-15T14:25:13.583Z",
-    "sentAt": "2026-06-15T14:25:15.992Z",
-    "updatedAt": "2026-06-15T14:25:15.992Z"
-  },
-  {
-    "id": 1781533529562,
-    "restaurantId": "rahlah-691",
-    "customerId": 1780433173130,
-    "customerName": "345",
-    "phone": "0769329029",
-    "amount": "1",
-    "message": "Hi John, thank you for your payment at Tourist Hotel. We hope to see you again soon! Karibu tena.",
-    "status": "Sent",
-    "retryCount": 0,
-    "createdAt": "2026-06-15T14:25:29.561Z",
-    "sentAt": "2026-06-15T14:25:35.718Z",
-    "updatedAt": "2026-06-15T14:25:35.718Z"
-  },
-  {
-    "id": 1781534392995,
-    "restaurantId": "rahlah-691",
-    "customerId": 1780433173130,
-    "customerName": "dhjd",
-    "phone": "0769329029",
-    "amount": "1",
-    "message": "Hi John, thank you for your payment at Tourist Hotel. We hope to see you again soon! Karibu tena.",
+    "customerId": 1782135509169,
+    "customerName": "Waromi",
+    "phone": "0115427807",
+    "amountPaidSnapshot": 100,
+    "message": "Hi Waromi, thank you for your payment at Tourist Hotel. We hope to see you again soon! Karibu tena.",
     "status": "Pending",
     "retryCount": 0,
-    "createdAt": "2026-06-15T14:39:52.994Z",
+    "createdAt": "2026-06-22T17:32:12.179Z",
     "sentAt": null
   }
 ]
