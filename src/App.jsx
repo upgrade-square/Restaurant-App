@@ -460,7 +460,8 @@ function App() {
       const baseEndpoints = [
         '/sms-queue/history',
         '/metrics',
-        '/customers'
+        '/customers',
+        '/gateway/status'
       ];
 
 
@@ -476,21 +477,22 @@ function App() {
       setSmsHistory(results[0])
       setMetrics(results[1])
       setCustomers(results[2])
+      setGatewayStatus(results[3])
 
       if (!isDashboardHeartbeat) {
-        const settingsRes = results[3];
+        const settingsRes = results[4];
         if (settingsRes) {
           settingsRes.business_name = settingsRes.business_name || settingsRes.restaurantName || restaurant?.business_name || "Business Account";
         }
         setSettings(settingsRes || { business_name: restaurant?.business_name || "Business Account" });
 
-        const templatesRes = results[4];
+        const templatesRes = results[5];
         if (templatesRes) {
           templatesRes.thankYou = templatesRes.thankYou?.trim() ? templatesRes.thankYou : DEFAULT_TEMPLATE;
         }
         setTemplates(templatesRes || { thankYou: DEFAULT_TEMPLATE });
 
-        setSubscriptionHistory(results[5]);
+        setSubscriptionHistory(results[6]);
 
         // Sync restaurant state (subscription status, plan, etc)
         try {
@@ -595,6 +597,21 @@ function App() {
 
     socket.on('gateway-status', (data) => {
       console.log('[Socket] Status update received:', data);
+      setGatewayStatus(data);
+    });
+
+    socket.on('gateway_online', (data) => {
+      console.log('[SOCKET_GATEWAY_ONLINE]', data);
+      setGatewayStatus(data);
+    });
+
+    socket.on('gateway_offline', (data) => {
+      console.log('[SOCKET_GATEWAY_OFFLINE]', data);
+      setGatewayStatus(data);
+    });
+
+    socket.on('gateway_status_changed', (data) => {
+      console.log('[SOCKET_STATUS_CHANGED]', data);
       setGatewayStatus(data);
     });
 

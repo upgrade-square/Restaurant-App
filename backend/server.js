@@ -82,18 +82,27 @@ setInterval(() => {
                 const diffSeconds = Math.floor((now - lastSeenDate) / 1000);
 
                 if (diffSeconds > 120 && device.status !== 'Offline' && device.status !== 'Unregistered') {
-                    console.log(`[Socket] Pushing OFFLINE status for device: ${device.deviceId}`);
+                    console.log(`[GATEWAY_MARKED_OFFLINE] Device: ${device.deviceId} | Restaurant: ${device.restaurantId}`);
+                    console.log(`[OFFLINE_REASON] Heartbeat timeout (Last seen ${diffSeconds}s ago)`);
+                    console.log(`[LAST_HEARTBEAT] ${device.lastSeen}`);
+
                     device.status = 'Offline';
                     updated = true;
 
-                    io.to(device.restaurantId).emit("gateway-status", {
+                    const statusPayload = {
                         deviceId: device.deviceId,
                         status: "Offline",
                         lastSeen: device.lastSeen,
                         batteryLevel: device.batteryLevel,
                         isCharging: device.isCharging,
-                        deviceName: device.deviceName || `Android Gateway (${device.deviceId})`
-                    });
+                        deviceName: device.deviceName || `Android Gateway (${device.deviceId})`,
+                        timestamp: Date.now()
+                    };
+
+                    io.to(device.restaurantId).emit("gateway-status", statusPayload);
+                    io.to(device.restaurantId).emit("gateway_offline", statusPayload);
+                    io.to(device.restaurantId).emit("gateway_status_changed", statusPayload);
+                    console.log(`[SOCKET_GATEWAY_OFFLINE] Emitted for ${device.deviceId}`);
                 }
             }
         });
@@ -2478,6 +2487,8 @@ app.post('/gateway/heartbeat', authenticateToken, (req, res) => {
         const restaurantId = req.user.restaurantId;
         if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
 
+        console.log(`[HEARTBEAT_RECEIVED] Device: ${deviceId} | Restaurant: ${restaurantId}`);
+
         const devices = readData(GATEWAY_FILE);
         const index = devices.findIndex(d => d.deviceId === deviceId && d.restaurantId === restaurantId);
 
@@ -2487,34 +2498,39 @@ app.post('/gateway/heartbeat', authenticateToken, (req, res) => {
         }
 
         const deviceName = devices[index].deviceName || 'Android Gateway';
-        console.log(`[GATEWAY_HEARTBEAT] deviceName=${deviceName}`);
-
-        const previousLastSeen = devices[index].lastSeen;
         const now = nowUTC();
+
         devices[index].lastSeen = now;
-        devices[index].status = 'Online'; // Maintain for compatibility but logic should be dynamic
+        console.log(`[LAST_SEEN_UPDATED] Device: ${deviceId} | New Seen: ${now}`);
+
+        if (devices[index].status !== 'Online') {
+            devices[index].status = 'Online';
+            console.log(`[GATEWAY_MARKED_ONLINE] Device: ${deviceId}`);
+        }
+
         if (batteryLevel !== undefined) devices[index].batteryLevel = batteryLevel;
         if (appVersion !== undefined) devices[index].appVersion = appVersion;
         if (isCharging !== undefined) devices[index].isCharging = isCharging;
 
-        console.log(`[HEARTBEAT_ACCEPTED] Device: ${deviceId} | Restaurant: ${restaurantId} | New Seen: ${now}`);
-
-
-        // Emit real-time update with dynamic status calculation
-        io.to(restaurantId).emit("gateway-status", {
+        // Emit real-time update with multiple event types for audit purposes
+        const statusPayload = {
             deviceId,
             status: "Online",
             lastSeen: now,
             batteryLevel: devices[index].batteryLevel,
             isCharging: devices[index].isCharging,
-            deviceName: devices[index].deviceName, // Ensure deviceName is included in emit
+            deviceName: devices[index].deviceName || `Android Gateway (${deviceId})`,
             timestamp: Date.now()
-        });
+        };
+
+        io.to(restaurantId).emit("gateway-status", statusPayload);
+        io.to(restaurantId).emit("gateway_online", statusPayload);
+        io.to(restaurantId).emit("gateway_status_changed", statusPayload);
+        console.log(`[SOCKET_GATEWAY_ONLINE] Emitted for ${deviceId}`);
+        console.log(`[SOCKET_EVENT_EMITTED] gateway-status, gateway_online, gateway_status_changed`);
 
         writeData(GATEWAY_FILE, devices);
         res.json({ message: 'Heartbeat received' });
-
-
     } catch (error) {
         console.error('Heartbeat processing error:', error);
         res.status(500).json({ error: 'Failed to process heartbeat' });
