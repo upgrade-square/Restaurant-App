@@ -81,7 +81,7 @@ setInterval(() => {
                 const lastSeenDate = new Date(device.lastSeen);
                 const diffSeconds = Math.floor((now - lastSeenDate) / 1000);
 
-                if (diffSeconds > 120 && device.status !== 'Offline' && device.status !== 'Unregistered') {
+                if (diffSeconds > 120 && device.status !== 'Offline' && device.status !== 'Unregistered' && device.status !== 'Inactive') {
                     console.log(`[GATEWAY_MARKED_OFFLINE] Device: ${device.deviceId} | Restaurant: ${device.restaurantId}`);
                     console.log(`[OFFLINE_REASON] Heartbeat timeout (Last seen ${diffSeconds}s ago)`);
                     console.log(`[LAST_HEARTBEAT] ${device.lastSeen}`);
@@ -1953,7 +1953,9 @@ app.get('/admin/restaurants/:id', authenticateToken, (req, res) => {
         if (!restaurant) return res.status(404).json({ error: 'Restaurant not found' });
 
         const gateways = readData(GATEWAY_FILE);
-        const gateway = gateways.find(g => g.restaurantId === id);
+        const restaurantGateways = gateways.filter(g => g.restaurantId === id);
+        restaurantGateways.sort((a, b) => new Date(b.lastSeen) - new Date(a.lastSeen));
+        const gateway = restaurantGateways[0];
 
         res.json({
             id: restaurant.id,
@@ -2424,11 +2426,12 @@ app.post('/subscriptions/mpesa/callback', async (req, res) => {
 
 /**
  * @api {post} /gateway/register Register Gateway Device
+ * Ensures duplicate records are not created and reuses existing device IDs.
  */
 app.post('/gateway/register', authenticateToken, (req, res) => {
     const { deviceId, deviceName, appVersion, batteryLevel, isCharging } = req.body;
     const restaurantId = req.user.restaurantId;
-    const userId = req.user.id; // From authenticateToken
+    const userId = req.user.id;
 
     console.log(`[REGISTER_ATTEMPT] Device: ${deviceId} | Restaurant: ${restaurantId} | User: ${userId}`);
 
@@ -2439,44 +2442,64 @@ app.post('/gateway/register', authenticateToken, (req, res) => {
         }
 
         const devices = readData(GATEWAY_FILE);
+
+        // Ensure duplicate gateway records are not created - Search for existing device by unique ID
         const index = devices.findIndex(d => d.deviceId === deviceId);
 
         const newDeviceName = deviceName || 'Android Gateway';
-        console.log(`[GATEWAY_REGISTERED] deviceName=${newDeviceName}`);
+        const now = nowUTC();
 
         const deviceData = {
             deviceId,
             restaurantId,
             deviceName: newDeviceName,
             appVersion: appVersion || '1.0.0',
-            lastSeen: nowUTC(),
+            lastSeen: now,
             batteryLevel: batteryLevel !== undefined ? batteryLevel : 100,
             isCharging: isCharging || false,
             status: 'Online',
-            isPrimary: false
+            isPrimary: true
         };
 
         if (index > -1) {
-            const oldOwner = devices[index].restaurantId;
-            if (oldOwner && oldOwner !== restaurantId) {
-                console.log(`[REGISTER_SUCCESS] Ownership Transfer: Device ${deviceId} moved from ${oldOwner} to ${restaurantId}`);
-            } else {
-                console.log(`[REGISTER_SUCCESS] Device ${deviceId} re-registered for ${restaurantId}`);
-            }
+            // Reuse existing device records when the same device reconnects
+            console.log(`[REGISTER_REUSE] Device ${deviceId} already exists. Updating record.`);
             devices[index] = { ...devices[index], ...deviceData };
         } else {
-            console.log(`[REGISTER_SUCCESS] New Device ${deviceId} registered for ${restaurantId}`);
+            console.log(`[REGISTER_NEW] Creating new record for device ${deviceId}`);
             devices.push(deviceData);
         }
 
+        // Cleanup: If multiple gateway records exist for the same restaurant, select newest and mark others inactive
+        let deactivatedCount = 0;
+        devices.forEach(d => {
+            if (d.restaurantId === restaurantId && d.deviceId !== deviceId && d.status !== 'Inactive') {
+                d.status = 'Inactive';
+                d.isPrimary = false;
+                deactivatedCount++;
+            }
+        });
+
+        if (deactivatedCount > 0) {
+            console.log(`[REGISTER_CLEANUP] Marked ${deactivatedCount} older records as Inactive for ${restaurantId}`);
+        }
+
+        // Add audit logging as requested
+        console.log(`[GATEWAY_REGISTER_AUDIT]`, {
+            gatewayId: deviceId,
+            deviceId: deviceId,
+            restaurantId: restaurantId,
+            lastSeen: now,
+            action: index > -1 ? 'REUSE' : 'CREATE'
+        });
+
         writeData(GATEWAY_FILE, devices);
-        res.json({ message: 'Device registered and paired', device: deviceData });
+        res.json({ message: 'Device registered successfully', device: deviceData });
     } catch (error) {
-        console.error('[REGISTER_FAILURE] Internal Error:', error);
+        console.error('[REGISTER_ERROR]', error);
         res.status(500).json({ error: 'Failed to register device' });
     }
 });
-
 
 /**
  * @api {post} /gateway/heartbeat Receive Gateway Heartbeat
@@ -2485,61 +2508,57 @@ app.post('/gateway/heartbeat', authenticateToken, (req, res) => {
     try {
         const { deviceId, batteryLevel, appVersion, isCharging } = req.body;
         const restaurantId = req.user.restaurantId;
+
         if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
 
-        console.log(`[HEARTBEAT_RECEIVED] Device: ${deviceId} | Restaurant: ${restaurantId}`);
-
         const devices = readData(GATEWAY_FILE);
+
+        // Verify the correct device record is updated (must match both deviceId and restaurantId)
         const index = devices.findIndex(d => d.deviceId === deviceId && d.restaurantId === restaurantId);
 
         if (index === -1) {
-            console.warn(`[HEARTBEAT_REJECTED] DeviceID: ${deviceId} | RestaurantID: ${restaurantId} | Reason: Ownership mismatch or device not found`);
-            return res.status(404).json({ error: 'Device not found or access denied (ownership mismatch)' });
+            console.warn(`[HEARTBEAT_REJECTED] Device: ${deviceId} | Restaurant: ${restaurantId} | Reason: Not found or ownership mismatch`);
+            return res.status(404).json({ error: 'Gateway record not found. Please re-register.' });
         }
 
-        const deviceName = devices[index].deviceName || 'Android Gateway';
         const now = nowUTC();
-
         devices[index].lastSeen = now;
-        console.log(`[LAST_SEEN_UPDATED] Device: ${deviceId} | New Seen: ${now}`);
-
-        if (devices[index].status !== 'Online') {
-            devices[index].status = 'Online';
-            console.log(`[GATEWAY_MARKED_ONLINE] Device: ${deviceId}`);
-        }
-
+        devices[index].status = 'Online';
         if (batteryLevel !== undefined) devices[index].batteryLevel = batteryLevel;
         if (appVersion !== undefined) devices[index].appVersion = appVersion;
         if (isCharging !== undefined) devices[index].isCharging = isCharging;
 
-        // Emit real-time update with multiple event types for audit purposes
+        // Add audit logging showing requested fields
+        console.log(`[HEARTBEAT_AUDIT]`, {
+            gatewayId: deviceId,
+            deviceId: deviceId,
+            lastSeen: now,
+            restaurantId: restaurantId,
+            battery: devices[index].batteryLevel
+        });
+
+        // Real-time update via Socket.IO
         const statusPayload = {
             deviceId,
             status: "Online",
             lastSeen: now,
             batteryLevel: devices[index].batteryLevel,
             isCharging: devices[index].isCharging,
-            deviceName: devices[index].deviceName || `Android Gateway (${deviceId})`,
+            deviceName: devices[index].deviceName,
             timestamp: Date.now()
         };
-
         io.to(restaurantId).emit("gateway-status", statusPayload);
-        io.to(restaurantId).emit("gateway_online", statusPayload);
-        io.to(restaurantId).emit("gateway_status_changed", statusPayload);
-        console.log(`[SOCKET_GATEWAY_ONLINE] Emitted for ${deviceId}`);
-        console.log(`[SOCKET_EVENT_EMITTED] gateway-status, gateway_online, gateway_status_changed`);
 
         writeData(GATEWAY_FILE, devices);
-        res.json({ message: 'Heartbeat received' });
+        res.json({ message: 'Heartbeat acknowledged' });
     } catch (error) {
-        console.error('Heartbeat processing error:', error);
-        res.status(500).json({ error: 'Failed to process heartbeat' });
+        console.error('[HEARTBEAT_ERROR]', error);
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
 /**
  * @api {post} /gateway/unregister Release Gateway Device
- * @apiDescription Sets restaurantId to null to allow ownership transfer
  */
 app.post('/gateway/unregister', authenticateToken, (req, res) => {
     try {
@@ -2547,90 +2566,88 @@ app.post('/gateway/unregister', authenticateToken, (req, res) => {
         const restaurantId = req.user.restaurantId;
         if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
 
-        console.log(`[Unregister Request] Device ${deviceId} from restaurant ${restaurantId}`);
         const devices = readData(GATEWAY_FILE);
         const index = devices.findIndex(d => d.deviceId === deviceId && d.restaurantId === restaurantId);
 
         if (index === -1) {
-            console.log(`[Unregister Rejected] Device ${deviceId} not owned by ${restaurantId}`);
-            return res.status(404).json({ error: 'Device not found or not owned by you' });
+            return res.status(404).json({ error: 'Device not found or access denied' });
         }
 
         devices[index].restaurantId = null;
-        devices[index].status = 'Offline';
+        devices[index].status = 'Unregistered';
         devices[index].lastSeen = nowUTC();
 
         writeData(GATEWAY_FILE, devices);
-        console.log(`[Unregister Success] Device ${deviceId} released`);
-        res.json({ message: 'Device released successfully' });
+        console.log(`[UNREGISTER_SUCCESS] Device ${deviceId} released from ${restaurantId}`);
+        res.json({ message: 'Device unregistered successfully' });
     } catch (error) {
-        console.error('Failed to unregister device:', error);
-        res.status(500).json({ error: 'Failed to unregister device' });
+        console.error('[UNREGISTER_ERROR]', error);
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
 
 /**
  * @api {get} /gateway/status Get Gateway Status
+ * Returns the latest active gateway for the restaurant.
  */
 app.get('/gateway/status', authenticateToken, (req, res) => {
     try {
         const restaurantId = req.user.restaurantId;
         const allDevices = readData(GATEWAY_FILE);
         res.setHeader('Cache-Control', 'no-store');
-        const now = new Date();
 
+        // 1. Get all devices for this restaurant
+        const restaurantDevices = allDevices.filter(d => d.restaurantId === restaurantId);
 
-        console.log(`[Status Request] restaurantId: ${restaurantId}`);
-
-        // 1. Try to find the device specifically owned by this restaurant
-        let selectedDevice = allDevices.find(d => d.restaurantId === restaurantId);
-
-        if (!selectedDevice) {
-            console.warn(`[Status Result] Result: No Gateway for restaurant ${restaurantId}`);
+        if (restaurantDevices.length === 0) {
             return res.json({ status: 'No Gateway', message: 'No devices paired to this account' });
         }
 
-        // Calculate actual status based on ownership and time (Strictly Dynamic)
-        const lastSeenDate = new Date(selectedDevice.lastSeen);
-        const nowMs = Date.now();
-        const lastSeenMs = lastSeenDate.getTime();
-        const diffMs = nowMs - lastSeenMs;
-        const diffSeconds = Math.floor(diffMs / 1000);
+        // 2. Prefer the gateway with the most recent lastSeen (Ensure we don't return stale/duplicate records)
+        restaurantDevices.sort((a, b) => new Date(b.lastSeen) - new Date(a.lastSeen));
+        const selectedDevice = restaurantDevices[0];
 
-        let status = diffSeconds <= 120 ? 'Online' : 'Offline';
-
-        if (selectedDevice.restaurantId === null) {
-            status = 'Unregistered';
+        // 3. Mark older duplicates inactive (Cleanup)
+        let cleaned = 0;
+        if (restaurantDevices.length > 1) {
+            allDevices.forEach(d => {
+                if (d.restaurantId === restaurantId && d.deviceId !== selectedDevice.deviceId && d.status !== 'Inactive') {
+                    d.status = 'Inactive';
+                    cleaned++;
+                }
+            });
+            if (cleaned > 0) {
+                writeData(GATEWAY_FILE, allDevices);
+                console.log(`[STATUS_CLEANUP] Deactivated ${cleaned} stale gateway records for ${restaurantId}`);
+            }
         }
 
-        // Priority 1: deviceName (already stores manufacturer + model if sent by Android)
-        // Priority 2: fallback to "Android Gateway (<deviceId>)"
-        const deviceName = selectedDevice.deviceName || `Android Gateway (${selectedDevice.deviceId})`;
-        console.log(`[GATEWAY_DASHBOARD_RENDER] deviceName=${deviceName}`);
+        // 4. Calculate actual status based on heartbeat window
+        const diffSeconds = Math.floor((Date.now() - new Date(selectedDevice.lastSeen)) / 1000);
+        const status = (diffSeconds <= 120 && selectedDevice.status !== 'Inactive') ? 'Online' : 'Offline';
 
-        // [DIAGNOSTIC LOG]
-        console.log('[Status Computation]', {
+        // 5. Add audit logging showing: gateway id selected, device id selected, lastSeen used, restaurant id
+        console.log(`[GATEWAY_STATUS_AUDIT]`, {
+            gatewayId: selectedDevice.deviceId,
             deviceId: selectedDevice.deviceId,
-            restaurantId: restaurantId,
             lastSeen: selectedDevice.lastSeen,
-            now: new Date().toISOString(),
-            diffSeconds: diffSeconds,
-            threshold: 120,
-            finalStatus: status
+            restaurantId: restaurantId,
+            status: status,
+            diffSeconds: diffSeconds
         });
 
         res.json({
             ...selectedDevice,
             status: status,
-            diffSeconds: diffSeconds,
-            deviceName: deviceName // Explicitly return the name with fallback applied
+            diffSeconds: diffSeconds
         });
 
     } catch (error) {
-        console.error('Failed to fetch status', error);
-        res.status(500).json({ error: 'Failed to fetch status' });
+        console.error('[STATUS_ERROR]', error);
+        res.status(500).json({ error: 'Internal server error' });
     }
 });
+
 
 app.get('/restaurants', authenticateToken, (req, res) => {
     try {
