@@ -598,6 +598,30 @@ function App() {
       setGatewayStatus(data);
     });
 
+    socket.on('payment_created', (data) => {
+      console.log('[SOCKET_PAYMENT_RECEIVED]', data);
+      console.log('[DASHBOARD_REFRESHED] Triggered by payment_created');
+      refreshData(true);
+    });
+
+    socket.on('revenue_updated', (data) => {
+      console.log('[SOCKET_REVENUE_RECEIVED]', data);
+      console.log('[DASHBOARD_REFRESHED] Triggered by revenue_updated');
+      refreshData(true);
+    });
+
+    socket.on('customer_updated', (data) => {
+      console.log('[SOCKET_CUSTOMER_RECEIVED]', data);
+      console.log('[DASHBOARD_REFRESHED] Triggered by customer_updated');
+      refreshData(true);
+    });
+
+    socket.on('sms_status_updated', (data) => {
+      console.log('[SOCKET_SMS_RECEIVED]', data);
+      console.log('[DASHBOARD_REFRESHED] Triggered by sms_status_updated');
+      refreshData(true);
+    });
+
     socket.on('disconnect', () => {
       console.log('[Socket] Dashboard disconnected');
     });
