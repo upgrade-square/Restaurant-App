@@ -603,7 +603,12 @@ function App() {
         status: data.status,
         timestamp: new Date().toISOString()
       });
-      setGatewayStatus(data);
+      setGatewayStatus(prev => {
+        if (prev.status !== data.status) {
+          console.log(`[STATUS_TRANSITION] ${prev.status} -> ${data.status} for ${data.deviceId}`);
+        }
+        return data;
+      });
     });
 
     socket.on('gateway_online', (data) => {
@@ -1049,17 +1054,23 @@ function App() {
                   <div className="kpi-label">Gateway Status</div>
                   <div className="kpi-value" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '1.25rem', color: (gatewayStatus.status === 'Online' || gatewayStatus.status === 'Connected') ? 'var(--success)' : 'var(--danger)' }}>
-                        {(gatewayStatus.status === 'Online' || gatewayStatus.status === 'Connected') ? 'Online' : 'Offline'}
+                      <span style={{
+                        fontSize: '1.25rem',
+                        color: gatewayStatus.status === 'ONLINE' ? 'var(--success)' :
+                          gatewayStatus.status === 'NO_INTERNET' ? 'var(--warning)' : 'var(--danger)',
+                        fontWeight: 'bold'
+                      }}>
+                        {gatewayStatus.status === 'ONLINE' ? 'ONLINE' :
+                          gatewayStatus.status === 'NO_INTERNET' ? 'NO INTERNET' : 'OFFLINE'}
                       </span>
-                      {(gatewayStatus.status === 'Online' || gatewayStatus.status === 'Connected') && gatewayStatus.deviceId && (
+                      {(gatewayStatus.status === 'ONLINE' || gatewayStatus.status === 'NO_INTERNET') && gatewayStatus.deviceId && (
                         <span className={`battery-pill ${gatewayStatus.batteryLevel < 30 ? 'critical' : gatewayStatus.batteryLevel < 80 ? 'warning' : 'healthy'}`}>
                           {(() => {
                             // Diagnostic log for render state
                             if (gatewayStatus.deviceId) {
                               console.log('[RENDER_CHARGING_ICON]', {
                                 isCharging: gatewayStatus.isCharging,
-                                type: typeof gatewayStatus.isCharging
+                                status: gatewayStatus.status
                               });
                             }
                             return gatewayStatus.isCharging ? <span className="charging-icon">⚡</span> : null;
@@ -1068,7 +1079,7 @@ function App() {
                         </span>
                       )}
                     </div>
-                    {(gatewayStatus.status === 'Online' || gatewayStatus.status === 'Connected') && gatewayStatus.deviceId && (
+                    {gatewayStatus.deviceId && (
                       <div style={{ textAlign: 'center', marginTop: '4px' }}>
                         <div style={{ fontSize: '0.85rem', color: 'var(--text-main)', fontWeight: 600 }}>
                           {gatewayStatus.deviceName && gatewayStatus.deviceName !== 'N/A'
@@ -1076,7 +1087,9 @@ function App() {
                             : `Android Gateway (${gatewayStatus.deviceId})`}
                         </div>
                         <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                          Last seen: {gatewayStatus.lastSeen ? getRelativeTime(gatewayStatus.lastSeen) : 'Never'}
+                          {gatewayStatus.status === 'NO_INTERNET' ?
+                            <span style={{ color: 'var(--warning)' }}>Connection unstable</span> :
+                            `Last seen: ${gatewayStatus.lastSeen ? getRelativeTime(gatewayStatus.lastSeen) : 'Never'}`}
                         </div>
                       </div>
                     )}
