@@ -596,7 +596,13 @@ function App() {
     });
 
     socket.on('gateway-status', (data) => {
-      console.log('[Socket] Status update received:', data);
+      console.log('[Socket] Status update received:', {
+        deviceId: data.deviceId,
+        isCharging: data.isCharging,
+        type: typeof data.isCharging,
+        status: data.status,
+        timestamp: new Date().toISOString()
+      });
       setGatewayStatus(data);
     });
 
@@ -1048,7 +1054,16 @@ function App() {
                       </span>
                       {(gatewayStatus.status === 'Online' || gatewayStatus.status === 'Connected') && gatewayStatus.deviceId && (
                         <span className={`battery-pill ${gatewayStatus.batteryLevel < 30 ? 'critical' : gatewayStatus.batteryLevel < 80 ? 'warning' : 'healthy'}`}>
-                          {gatewayStatus.isCharging && <span className="charging-icon">⚡</span>}
+                          {(() => {
+                            // Diagnostic log for render state
+                            if (gatewayStatus.deviceId) {
+                              console.log('[RENDER_CHARGING_ICON]', {
+                                isCharging: gatewayStatus.isCharging,
+                                type: typeof gatewayStatus.isCharging
+                              });
+                            }
+                            return gatewayStatus.isCharging ? <span className="charging-icon">⚡</span> : null;
+                          })()}
                           {gatewayStatus.batteryLevel || 0}%
                         </span>
                       )}

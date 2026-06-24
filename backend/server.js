@@ -2456,7 +2456,7 @@ app.post('/gateway/register', authenticateToken, (req, res) => {
             appVersion: appVersion || '1.0.0',
             lastSeen: now,
             batteryLevel: batteryLevel !== undefined ? batteryLevel : 100,
-            isCharging: isCharging || false,
+            isCharging: (isCharging === true || isCharging === 'true' || isCharging === 1),
             status: 'Online',
             isPrimary: true
         };
@@ -2526,7 +2526,19 @@ app.post('/gateway/heartbeat', authenticateToken, (req, res) => {
         devices[index].status = 'Online';
         if (batteryLevel !== undefined) devices[index].batteryLevel = batteryLevel;
         if (appVersion !== undefined) devices[index].appVersion = appVersion;
-        if (isCharging !== undefined) devices[index].isCharging = isCharging;
+        if (isCharging !== undefined) {
+            // Robust boolean conversion to prevent string "false" or 0 from causing issues
+            devices[index].isCharging = (isCharging === true || isCharging === 'true' || isCharging === 1);
+        }
+
+        // Added for Audit: Log the raw heartbeat body with strict typing check
+        console.log(`[HEARTBEAT_INCOMING] ${JSON.stringify({
+            deviceId,
+            isCharging,
+            type: typeof isCharging,
+            restaurantId,
+            timestamp: new Date().toISOString()
+        })}`);
 
         // Add audit logging showing requested fields
         console.log(`[HEARTBEAT_AUDIT]`, {
@@ -2534,7 +2546,9 @@ app.post('/gateway/heartbeat', authenticateToken, (req, res) => {
             deviceId: deviceId,
             lastSeen: now,
             restaurantId: restaurantId,
-            battery: devices[index].batteryLevel
+            battery: devices[index].batteryLevel,
+            isCharging: devices[index].isCharging,
+            receivedIsCharging: isCharging
         });
 
         // Real-time update via Socket.IO
@@ -2547,6 +2561,9 @@ app.post('/gateway/heartbeat', authenticateToken, (req, res) => {
             deviceName: devices[index].deviceName,
             timestamp: Date.now()
         };
+
+        console.log(`[SOCKET_EMIT] Room: ${restaurantId} | Payload: ${JSON.stringify(statusPayload)}`);
+
         io.to(restaurantId).emit("gateway-status", statusPayload);
 
         writeData(GATEWAY_FILE, devices);
@@ -2633,7 +2650,8 @@ app.get('/gateway/status', authenticateToken, (req, res) => {
             lastSeen: selectedDevice.lastSeen,
             restaurantId: restaurantId,
             status: status,
-            diffSeconds: diffSeconds
+            diffSeconds: diffSeconds,
+            isCharging: selectedDevice.isCharging
         });
 
         res.json({
