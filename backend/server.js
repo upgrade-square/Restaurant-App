@@ -49,6 +49,8 @@ const PENDING_MPESA_FILE = path.join(DATA_DIR, 'pending_mpesa.json');
 
 const DEFAULT_RESTAURANT_ID = 'default';
 
+const gatewaySockets = new Map(); // socket.id -> { deviceId, restaurantId }
+
 // Socket.IO Room Management
 io.on("connection", (socket) => {
     console.log(`[SOCKET] CONNECTED: ${socket.id} | IP: ${socket.handshake.address}`);
@@ -60,8 +62,53 @@ io.on("connection", (socket) => {
         }
     });
 
+    socket.on("identify-gateway", (data) => {
+        const { deviceId, restaurantId } = data;
+        if (deviceId && restaurantId) {
+            gatewaySockets.set(socket.id, { deviceId, restaurantId });
+            socket.join(restaurantId);
+            console.log(`[GATEWAY_CONNECTED] ID: ${deviceId} | Restaurant: ${restaurantId} | Socket: ${socket.id}`);
+        }
+    });
+
     socket.on("disconnect", (reason) => {
         console.log(`[SOCKET] DISCONNECTED: Socket=${socket.id} | Reason=${reason}`);
+
+        const gatewayData = gatewaySockets.get(socket.id);
+        if (gatewayData) {
+            const { deviceId, restaurantId } = gatewayData;
+            console.log(`[GATEWAY_DISCONNECTED] ID: ${deviceId} | Restaurant: ${restaurantId} | Reason: ${reason}`);
+            gatewaySockets.delete(socket.id);
+
+            // Immediate Offline Logic
+            try {
+                const devices = readData(GATEWAY_FILE);
+                const index = devices.findIndex(d => d.deviceId === deviceId && d.restaurantId === restaurantId);
+
+                if (index > -1 && devices[index].status !== 'Offline' && devices[index].status !== 'Unregistered' && devices[index].status !== 'Inactive') {
+                    devices[index].status = 'Offline';
+                    writeData(GATEWAY_FILE, devices);
+
+                    const statusPayload = {
+                        deviceId,
+                        status: "Offline",
+                        lastSeen: devices[index].lastSeen,
+                        batteryLevel: devices[index].batteryLevel,
+                        isCharging: devices[index].isCharging,
+                        deviceName: devices[index].deviceName,
+                        timestamp: Date.now(),
+                        reason: "Socket Disconnected"
+                    };
+
+                    io.to(restaurantId).emit("gateway-status", statusPayload);
+                    io.to(restaurantId).emit("gateway_offline", statusPayload);
+                    io.to(restaurantId).emit("gateway_status_changed", statusPayload);
+                    console.log(`[SOCKET_STATUS_EMITTED] Offline status sent for ${deviceId} (Immediate)`);
+                }
+            } catch (err) {
+                console.error('[SocketDisconnect] Status update failed:', err);
+            }
+        }
     });
 
     socket.on("error", (error) => {
@@ -102,7 +149,8 @@ setInterval(() => {
                     io.to(device.restaurantId).emit("gateway-status", statusPayload);
                     io.to(device.restaurantId).emit("gateway_offline", statusPayload);
                     io.to(device.restaurantId).emit("gateway_status_changed", statusPayload);
-                    console.log(`[SOCKET_GATEWAY_OFFLINE] Emitted for ${device.deviceId}`);
+                    console.log(`[OFFLINE_THRESHOLD_TRIGGERED] ID: ${device.deviceId} exceeded 120s threshold`);
+                    console.log(`[SOCKET_STATUS_EMITTED] Offline status sent for ${device.deviceId} (Timeout)`);
                 }
             }
         });
@@ -2494,6 +2542,21 @@ app.post('/gateway/register', authenticateToken, (req, res) => {
         });
 
         writeData(GATEWAY_FILE, devices);
+
+        // Immediate Online Emission on Registration
+        const statusPayload = {
+            deviceId,
+            status: "Online",
+            lastSeen: now,
+            batteryLevel: devices[index].batteryLevel,
+            isCharging: devices[index].isCharging,
+            deviceName: devices[index].deviceName,
+            timestamp: Date.now()
+        };
+        io.to(restaurantId).emit("gateway-status", statusPayload);
+        io.to(restaurantId).emit("gateway_online", statusPayload);
+        console.log(`[SOCKET_STATUS_EMITTED] Online status sent for ${deviceId} (Registration)`);
+
         res.json({ message: 'Device registered successfully', device: deviceData });
     } catch (error) {
         console.error('[REGISTER_ERROR]', error);
@@ -2510,6 +2573,8 @@ app.post('/gateway/heartbeat', authenticateToken, (req, res) => {
         const restaurantId = req.user.restaurantId;
 
         if (!deviceId) return res.status(400).json({ error: 'deviceId is required' });
+
+        console.log(`[HEARTBEAT_RECEIVED] ID: ${deviceId} | Restaurant: ${restaurantId} | Battery: ${batteryLevel}%`);
 
         const devices = readData(GATEWAY_FILE);
 
@@ -2565,6 +2630,7 @@ app.post('/gateway/heartbeat', authenticateToken, (req, res) => {
         console.log(`[SOCKET_EMIT] Room: ${restaurantId} | Payload: ${JSON.stringify(statusPayload)}`);
 
         io.to(restaurantId).emit("gateway-status", statusPayload);
+        console.log(`[SOCKET_STATUS_EMITTED] Online status sent for ${deviceId} (Heartbeat)`);
 
         writeData(GATEWAY_FILE, devices);
         res.json({ message: 'Heartbeat acknowledged' });
