@@ -1514,102 +1514,85 @@ function App() {
 
           {
             activeTab === 'subscription' && (
-              <div className="section">
-                <div className="card" style={{ marginBottom: '32px' }}>
-                  <h3 className="subscription-section-title">Current Subscription Status</h3>
-                  <div className="kpi-grid">
-                    <div className="card">
-                      <div className="subscription-helper-text">Current Plan</div>
-                      <div style={{ fontSize: '1.25rem', fontWeight: 700, marginTop: '4px' }}>{restaurant?.plan === 'Standard' ? 'MikrodCAP Standard' : (restaurant?.plan || 'None')}</div>
-                    </div>
-                    <div className="card">
-                      <div className="subscription-helper-text">Status</div>
-                      <div className={`subscription-badge ${restaurant?.subscriptionStatus === 'Active' ? 'badge-sent' : 'badge-pending'}`} style={{ display: 'inline-block', marginTop: '8px' }}>
+              <div className="section" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '600px', padding: '40px 20px' }}>
+                <div
+                  className="pricing-card selected"
+                  style={{
+                    maxWidth: '550px',
+                    width: '100%',
+                    padding: '60px 40px',
+                    textAlign: 'center',
+                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.15)',
+                    border: '2px solid var(--primary-blue)',
+                    background: '#fff',
+                    borderRadius: '24px',
+                    marginBottom: '60px'
+                  }}
+                >
+                  <h2 style={{ fontSize: '2.25rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-main)' }}>MikrodCAP Standard</h2>
+                  <div className="price-display" style={{ fontSize: '3.5rem', fontWeight: 900, color: 'var(--primary-blue)', margin: '20px 0 10px' }}>KES 2,000</div>
+                  <div className="subscription-helper-text" style={{ fontSize: '1.1rem', marginBottom: '32px' }}>per month</div>
+
+                  <p style={{ fontSize: '1.2rem', color: 'var(--text-muted)', lineHeight: '1.6', marginBottom: '40px' }}>
+                    Everything you need to manage customers, track revenue, understand business performance, and strengthen customer relationships.
+                  </p>
+
+                  <div style={{ textAlign: 'left', display: 'inline-block', width: '100%', maxWidth: '380px', marginBottom: '40px' }}>
+                    <h4 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '24px', textAlign: 'center' }}>Includes:</h4>
+                    {[
+                      'Customer Database',
+                      'Revenue Tracking',
+                      'Daily, Weekly & Monthly Reports',
+                      'Appreciation SMS Integration',
+                      'Customer Analytics',
+                      'Transaction History',
+                      'Future Updates Included'
+                    ].map(feature => (
+                      <div key={feature} style={{ display: 'flex', gap: '12px', marginBottom: '16px', fontSize: '1.1rem', alignItems: 'center', justifyContent: 'center' }}>
+                        <span style={{ color: 'var(--success)', fontWeight: 'bold', fontSize: '1.3rem' }}>✓</span>
+                        <span style={{ fontWeight: 500 }}>{feature}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '16px', marginBottom: '40px', border: '1px solid #e2e8f0' }}>
+                    <p style={{ fontSize: '0.95rem', color: 'var(--text-muted)', lineHeight: '1.5', margin: 0 }}>
+                      SMS credits are purchased directly from your preferred SMS provider and are not included in the subscription fee.
+                    </p>
+                  </div>
+
+                  <button
+                    className="btn-security-primary"
+                    style={{ width: '100%', padding: '20px', fontSize: '1.3rem', borderRadius: '16px', fontWeight: 800, boxShadow: '0 10px 20px -3px rgba(0, 114, 206, 0.4)' }}
+                    onClick={() => {
+                      setSelectedPlan('Standard');
+                      setMpesaPhone(restaurant?.phone || '');
+                      setShowMpesaModal(true);
+                    }}
+                  >
+                    Activate Subscription
+                  </button>
+                </div>
+
+                <div className="card" style={{ maxWidth: '800px', width: '100%', textAlign: 'center', marginBottom: '40px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: '48px', marginBottom: '32px' }}>
+                    <div>
+                      <div className="subscription-helper-text">Account Status</div>
+                      <div className={`subscription-badge ${restaurant?.subscriptionStatus === 'Active' ? 'badge-sent' : 'badge-pending'}`} style={{ marginTop: '8px', fontSize: '1rem', padding: '6px 16px' }}>
                         {restaurant?.subscriptionStatus || 'Inactive'}
                       </div>
                     </div>
                     {restaurant?.subscriptionStatus === 'Active' && (
-                      <>
-                        <div className="card">
-                          <div className="subscription-helper-text">Expiry</div>
-                          <div className="subscription-table-text" style={{ fontWeight: 600, marginTop: '4px' }}>
-                            {restaurant?.subscriptionExpiry ? formatActivityDate(restaurant.subscriptionExpiry) : 'N/A'}
-                          </div>
+                      <div>
+                        <div className="subscription-helper-text">Expires On</div>
+                        <div style={{ fontWeight: 700, color: 'var(--text-main)', marginTop: '8px', fontSize: '1.1rem' }}>
+                          {restaurant?.subscriptionExpiry ? formatActivityDate(restaurant.subscriptionExpiry) : 'N/A'}
                         </div>
-                        <div className="card">
-                          <div className="subscription-helper-text">Days Left</div>
-                          <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--primary-blue)' }}>{getDaysRemaining(restaurant?.subscriptionExpiry)}</div>
-                        </div>
-                      </>
+                      </div>
                     )}
                   </div>
-                </div>
 
-                <div className="card" style={{ marginBottom: '32px' }}>
-                  <h3 className="subscription-section-title">MikrodCAP Standard</h3>
-                  <p className="subscription-body" style={{ marginBottom: '16px', maxWidth: '800px' }}>
-                    A simple, all-inclusive subscription designed for businesses of all sizes. Gain full access to customer management, revenue tracking, analytics, reporting, loyalty tools, and appreciation messaging with one transparent monthly fee.
-                  </p>
-                  <div style={{ background: '#f0f9ff', padding: '20px', borderRadius: '12px', border: '1px solid #bae6fd', marginBottom: '32px', maxWidth: '800px' }}>
-                    <h4 style={{ color: 'var(--primary-blue)', marginBottom: '8px', fontSize: '1rem' }}>SMS Notice</h4>
-                    <p className="subscription-body" style={{ fontSize: '0.9rem', margin: 0 }}>
-                      SMS charges are not included in the subscription fee. Businesses connect their preferred SMS provider and purchase SMS credits directly from that provider. This gives you full control over your SMS usage and costs while allowing MikrodCAP to seamlessly deliver customer engagement and retention messages through your existing SMS account.
-                    </p>
-                  </div>
-
-                  <div style={{ display: 'flex', justifyContent: 'center', width: '100%', padding: '20px 0' }}>
-                    <div
-                      className="pricing-card selected"
-                      style={{
-                        maxWidth: '450px',
-                        width: '100%',
-                        padding: '40px',
-                        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-                        border: '2px solid var(--primary-blue)',
-                        transform: 'scale(1.02)'
-                      }}
-                    >
-                      <h4 className="subscription-card-title" style={{ fontSize: '1.5rem', marginBottom: '12px' }}>MikrodCAP Standard</h4>
-                      <p className="subscription-helper-text" style={{ fontSize: '1rem' }}>Everything you need to grow</p>
-                      <div className="price-display" style={{ fontSize: '2.5rem', margin: '24px 0 8px' }}>KES 2,000</div>
-                      <div className="subscription-helper-text">per month</div>
-
-                      <div className="subscription-features" style={{ marginTop: '32px', textAlign: 'left', borderTop: '1px solid #e2e8f0', paddingTop: '24px' }}>
-                        {[
-                          'Customer Database',
-                          'Revenue Tracking',
-                          'Daily, Weekly & Monthly Reports',
-                          'Appreciation SMS Integration',
-                          'Customer Analytics',
-                          'Transaction History',
-                          'Multiple Staff Accounts',
-                          'Loyalty & Retention Tools',
-                          'Future Updates Included'
-                        ].map(feature => (
-                          <div key={feature} style={{ display: 'flex', gap: '12px', marginBottom: '12px', fontSize: '1rem', alignItems: 'center' }}>
-                            <span style={{ color: 'var(--success)', fontWeight: 'bold' }}>✓</span>
-                            <span>{feature}</span>
-                          </div>
-                        ))}
-                      </div>
-
-                      <button
-                        className="btn-security-primary"
-                        style={{ width: '100%', marginTop: '32px', padding: '16px', fontSize: '1.1rem' }}
-                        onClick={() => {
-                          setSelectedPlan('Standard');
-                          setMpesaPhone(restaurant?.phone || '');
-                          setShowMpesaModal(true);
-                        }}
-                      >
-                        Activate Subscription
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="card">
-                  <h3 className="subscription-section-title">Payment History</h3>
+                  <h3 className="subscription-section-title" style={{ textAlign: 'left', marginTop: '40px' }}>Payment History</h3>
                   <div className="table-container">
                     <table className="activity-table">
                       <colgroup>
@@ -1649,76 +1632,74 @@ function App() {
                     </table>
                   </div>
                 </div>
-
-                {/* M-Pesa Payment Modal */}
-                {showMpesaModal && (
-                  <Modal title="Lipa Na M-Pesa Online" onClose={() => !isProcessingMpesa && setShowMpesaModal(false)}>
-                    <div style={{ padding: '20px' }}>
-                      <div className="modal-payment-card">
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                          <span className="subscription-body">Purchasing:</span>
-                          <span className="subscription-table-text" style={{ fontWeight: 700 }}>{selectedPlan} Plan</span>
-                        </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span className="subscription-body">Amount Due:</span>
-                          <span className="subscription-table-text" style={{ color: 'var(--primary-blue)', fontWeight: 800 }}>
-                            KSh 2,000
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="form-group">
-                        <label className="subscription-card-title">M-Pesa Phone Number</label>
-                        <input
-                          className="form-control"
-                          placeholder="e.g. 0712345678"
-                          value={mpesaPhone}
-                          onChange={e => setMpesaPhone(e.target.value)}
-                          disabled={isProcessingMpesa}
-                        />
-                        <p className="subscription-helper-text" style={{ marginTop: '8px' }}>You will receive an STK Push prompt on this phone.</p>
-                      </div>
-
-                      <button
-                        className="btn-security-primary"
-                        style={{ width: '100%', marginTop: '24px', padding: '14px' }}
-                        disabled={isProcessingMpesa || mpesaPhone.length < 10}
-                        onClick={async () => {
-                          setIsProcessingMpesa(true);
-                          try {
-                            const amount = 2000;
-                            const res = await fetchWithAuth('/subscriptions/mpesa/initiate', {
-                              method: 'POST',
-                              body: JSON.stringify({ plan: 'Standard', phone: mpesaPhone, amount })
-                            });
-
-                            showToast('STK Push sent! Please enter your PIN on your phone.');
-
-                            // Start polling or just wait
-                            setTimeout(() => {
-                              showToast('Payment processing... Please wait.');
-                              setTimeout(() => {
-                                refreshData(true);
-                                setShowMpesaModal(false);
-                                setIsProcessingMpesa(false);
-                                showToast('Subscription activated successfully!', 'success');
-                              }, 5000);
-                            }, 5000);
-
-                          } catch (err) {
-                            showToast(err.message, 'error');
-                            setIsProcessingMpesa(false);
-                          }
-                        }}
-                      >
-                        {isProcessingMpesa ? 'Awaiting M-Pesa PIN...' : 'Pay with M-Pesa'}
-                      </button>
-                    </div>
-                  </Modal>
-                )}
               </div>
-            )
-          }
+            )}
+
+          {showMpesaModal && (
+            <Modal title="Lipa Na M-Pesa Online" onClose={() => !isProcessingMpesa && setShowMpesaModal(false)}>
+              <div style={{ padding: '20px' }}>
+                <div className="modal-payment-card">
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <span className="subscription-body">Purchasing:</span>
+                    <span className="subscription-table-text" style={{ fontWeight: 700 }}>{selectedPlan} Plan</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span className="subscription-body">Amount Due:</span>
+                    <span className="subscription-table-text" style={{ color: 'var(--primary-blue)', fontWeight: 800 }}>
+                      KSh 2,000
+                    </span>
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="subscription-card-title">M-Pesa Phone Number</label>
+                  <input
+                    className="form-control"
+                    placeholder="e.g. 0712345678"
+                    value={mpesaPhone}
+                    onChange={e => setMpesaPhone(e.target.value)}
+                    disabled={isProcessingMpesa}
+                  />
+                  <p className="subscription-helper-text" style={{ marginTop: '8px' }}>You will receive an STK Push prompt on this phone.</p>
+                </div>
+
+                <button
+                  className="btn-security-primary"
+                  style={{ width: '100%', marginTop: '24px', padding: '14px' }}
+                  disabled={isProcessingMpesa || mpesaPhone.length < 10}
+                  onClick={async () => {
+                    setIsProcessingMpesa(true);
+                    try {
+                      const amount = 2000;
+                      const res = await fetchWithAuth('/subscriptions/mpesa/initiate', {
+                        method: 'POST',
+                        body: JSON.stringify({ plan: 'Standard', phone: mpesaPhone, amount })
+                      });
+
+                      showToast('STK Push sent! Please enter your PIN on your phone.');
+
+                      setTimeout(() => {
+                        showToast('Payment processing... Please wait.');
+                        setTimeout(() => {
+                          refreshData(true);
+                          setShowMpesaModal(false);
+                          setIsProcessingMpesa(false);
+                          showToast('Subscription activated successfully!', 'success');
+                        }, 5000);
+                      }, 5000);
+
+                    } catch (err) {
+                      showToast(err.message, 'error');
+                      setIsProcessingMpesa(false);
+                    }
+                  }}
+                >
+                  {isProcessingMpesa ? 'Awaiting M-Pesa PIN...' : 'Pay with M-Pesa'}
+                </button>
+              </div>
+            </Modal>
+          )}
+
 
           {
             activeTab === 'settings' && (
@@ -2091,13 +2072,13 @@ function App() {
               </div>
             )
           }
-        </main >
+        </main>
 
         <footer style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', borderTop: '1px solid var(--border)' }}>
           © 2026 MikrodCAP | MikrodTech Customer Appreciation Platform
         </footer>
-      </div >
-    </ErrorBoundary >
+      </div>
+    </ErrorBoundary>
   )
 }
 
