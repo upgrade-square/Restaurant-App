@@ -1514,90 +1514,85 @@ function App() {
 
           {
             activeTab === 'subscription' && (
-              <div className="section">
-                <div className="card" style={{ marginBottom: '32px' }}>
-                  <h3 className="subscription-section-title">Current Subscription Status</h3>
-                  <div className="kpi-grid">
-                    <div className="card">
-                      <div className="subscription-helper-text">Current Plan</div>
-                      <div style={{ fontSize: '1.25rem', fontWeight: 700, marginTop: '4px' }}>{restaurant?.plan === 'Standard' ? 'MikrodCAP Standard' : (restaurant?.plan || 'None')}</div>
-                    </div>
-                    <div className="card">
-                      <div className="subscription-helper-text">Status</div>
-                      <div className={`subscription-badge ${restaurant?.subscriptionStatus === 'Active' ? 'badge-sent' : 'badge-pending'}`} style={{ display: 'inline-block', marginTop: '8px' }}>
-                        {restaurant?.subscriptionStatus || 'Inactive'}
-                      </div>
-                    </div>
-                    {restaurant?.subscriptionStatus === 'Active' && (
-                      <>
-                        <div className="card">
-                          <div className="subscription-helper-text">Expiry</div>
-                          <div className="subscription-table-text" style={{ fontWeight: 600, marginTop: '4px' }}>
-                            {restaurant?.subscriptionExpiry ? formatActivityDate(restaurant.subscriptionExpiry) : 'N/A'}
-                          </div>
-                        </div>
-                        <div className="card">
-                          <div className="subscription-helper-text">Days Left</div>
-                          <div style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--primary-blue)' }}>{getDaysRemaining(restaurant?.subscriptionExpiry)}</div>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
+              <div className="section" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '600px', padding: '40px 20px' }}>
+                <div
+                  className="pricing-card selected"
+                  style={{
+                    maxWidth: '550px',
+                    width: '100%',
+                    padding: '60px 40px',
+                    textAlign: 'center',
+                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.15)',
+                    border: '2px solid var(--primary-blue)',
+                    background: '#fff',
+                    borderRadius: '24px',
+                    marginBottom: '60px'
+                  }}
+                >
+                  <h2 style={{ fontSize: '2.25rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-main)' }}>MikrodCAP Standard</h2>
+                  <div className="price-display" style={{ fontSize: '3.5rem', fontWeight: 900, color: 'var(--primary-blue)', margin: '20px 0 10px' }}>KES 2,000</div>
+                  <div className="subscription-helper-text" style={{ fontSize: '1.1rem', marginBottom: '32px' }}>per month</div>
 
-                <div className="card" style={{ marginBottom: '32px' }}>
-                  <h3 className="subscription-section-title">Business Subscription Plans</h3>
-                  <p className="subscription-body" style={{ marginBottom: '24px' }}>Choose a plan that fits your business volume. All plans include automated SMS and analytics.</p>
+                  <p style={{ fontSize: '1.2rem', color: 'var(--text-muted)', lineHeight: '1.6', marginBottom: '40px' }}>
+                    Everything you need to manage customers, track revenue, understand business performance, and strengthen customer relationships.
+                  </p>
 
-                  <div className="kpi-grid">
+                  <div style={{ textAlign: 'left', display: 'inline-block', width: '100%', maxWidth: '380px', marginBottom: '40px' }}>
+                    <h4 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '24px', textAlign: 'center' }}>Includes:</h4>
                     {[
-                      { name: 'MikrodCAP Standard', price: 2000, desc: 'Everything you need to grow' }
-                    ].map(plan => (
-                      <div
-                        key={plan.name}
-                        className="pricing-card selected"
-                        style={{ maxWidth: '400px' }}
-                      >
-                        <h4 className="subscription-card-title">{plan.name}</h4>
-                        <p className="subscription-helper-text">{plan.desc}</p>
-                        <div className="price-display">KSh {plan.price.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
-                        <div className="subscription-helper-text">per month</div>
-                        <div className="subscription-features" style={{ marginTop: '20px', textAlign: 'left' }}>
-                          <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', fontSize: '0.9rem' }}>✓ Customer Database</div>
-                          <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', fontSize: '0.9rem' }}>✓ Revenue Tracking</div>
-                          <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', fontSize: '0.9rem' }}>✓ Appreciation SMS</div>
-                          <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', fontSize: '0.9rem' }}>✓ Customer Analytics</div>
-                          <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', fontSize: '0.9rem' }}>✓ Multiple Staff Accounts</div>
-                          <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', fontSize: '0.9rem' }}>✓ Loyalty & Retention Tools</div>
-                          <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', fontSize: '0.9rem' }}>✓ All Future Updates</div>
-                        </div>
+                      'Customer Database',
+                      'Revenue Tracking',
+                      'Daily, Weekly & Monthly Reports',
+                      'Appreciation SMS Integration',
+                      'Customer Analytics',
+                      'Transaction History',
+                      'Future Updates Included'
+                    ].map(feature => (
+                      <div key={feature} style={{ display: 'flex', gap: '12px', marginBottom: '16px', fontSize: '1.1rem', alignItems: 'center', justifyContent: 'center' }}>
+                        <span style={{ color: 'var(--success)', fontWeight: 'bold', fontSize: '1.3rem' }}>✓</span>
+                        <span style={{ fontWeight: 500 }}>{feature}</span>
                       </div>
                     ))}
                   </div>
 
-                  <div style={{ marginTop: '40px', padding: '24px', background: '#f8fafc', borderRadius: '12px', border: '1px solid var(--border)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <h4 className="subscription-card-title">Automated M-Pesa Activation</h4>
-                        <p className="subscription-body">Pay instantly via STK Push. No manual verification required.</p>
-                      </div>
-                      <button
-                        className="btn-security-primary"
-                        style={{ padding: '12px 32px' }}
-                        onClick={() => {
-                          setSelectedPlan('Standard');
-                          setMpesaPhone(restaurant?.phone || '');
-                          setShowMpesaModal(true);
-                        }}
-                      >
-                        Renew Standard Plan
-                      </button>
-                    </div>
+                  <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '16px', marginBottom: '40px', border: '1px solid #e2e8f0' }}>
+                    <p style={{ fontSize: '0.95rem', color: 'var(--text-muted)', lineHeight: '1.5', margin: 0 }}>
+                      SMS credits are purchased directly from your preferred SMS provider and are not included in the subscription fee.
+                    </p>
                   </div>
+
+                  <button
+                    className="btn-security-primary"
+                    style={{ width: '100%', padding: '20px', fontSize: '1.3rem', borderRadius: '16px', fontWeight: 800, boxShadow: '0 10px 20px -3px rgba(0, 114, 206, 0.4)' }}
+                    onClick={() => {
+                      setSelectedPlan('Standard');
+                      setMpesaPhone(restaurant?.phone || '');
+                      setShowMpesaModal(true);
+                    }}
+                  >
+                    Activate Subscription
+                  </button>
                 </div>
 
-                <div className="card">
-                  <h3 className="subscription-section-title">Payment History</h3>
+                <div className="card" style={{ maxWidth: '800px', width: '100%', textAlign: 'center', marginBottom: '40px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: '48px', marginBottom: '32px' }}>
+                    <div>
+                      <div className="subscription-helper-text">Account Status</div>
+                      <div className={`subscription-badge ${restaurant?.subscriptionStatus === 'Active' ? 'badge-sent' : 'badge-pending'}`} style={{ marginTop: '8px', fontSize: '1rem', padding: '6px 16px' }}>
+                        {restaurant?.subscriptionStatus || 'Inactive'}
+                      </div>
+                    </div>
+                    {restaurant?.subscriptionStatus === 'Active' && (
+                      <div>
+                        <div className="subscription-helper-text">Expires On</div>
+                        <div style={{ fontWeight: 700, color: 'var(--text-main)', marginTop: '8px', fontSize: '1.1rem' }}>
+                          {restaurant?.subscriptionExpiry ? formatActivityDate(restaurant.subscriptionExpiry) : 'N/A'}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <h3 className="subscription-section-title" style={{ textAlign: 'left', marginTop: '40px' }}>Payment History</h3>
                   <div className="table-container">
                     <table className="activity-table">
                       <colgroup>
