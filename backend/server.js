@@ -487,8 +487,8 @@ app.get('/customers', authenticateToken, checkSubscription, (req, res) => {
 
         const restaurants = readData(RESTAURANTS_FILE);
         const restaurant = restaurants.find(r => r.id === restaurantId);
-        const plan = (restaurant?.plan || 'Starter').toLowerCase();
-        const isProfessional = plan === 'professional' || plan === 'enterprise' || req.user.role === 'admin';
+        const plan = (restaurant?.plan || 'Standard').toLowerCase();
+        const isProfessional = true; // Phase 3: All active subscriptions grant full access
 
         const filtered = customers.filter(c => {
             const isMatch = c.restaurantId === restaurantId ||
@@ -581,8 +581,8 @@ app.post('/customers', authenticateToken, checkSubscription, (req, res) => {
         const template = templates.thankYou || restaurant.default_template || TemplateService.getPlatformDefault();
         const message = normalizeMessage(template, customer, restaurant);
 
-        const plan = (restaurant?.plan || 'Starter').toLowerCase();
-        const isProfessional = plan === 'professional' || plan === 'enterprise' || req.user.role === 'admin';
+        const plan = (restaurant?.plan || 'Standard').toLowerCase();
+        const isProfessional = true; // Phase 3: All active subscriptions grant full access
 
         // 3. Create SMS Queue Entry
         const newSmsEntry = {
@@ -776,8 +776,8 @@ app.post('/payments/incoming', authenticateToken, (req, res) => {
             throw templateErr;
         }
 
-        const plan = (restaurant?.plan || 'Starter').toLowerCase();
-        const isProfessional = plan === 'professional' || plan === 'enterprise' || req.user.role === 'admin';
+        const plan = (restaurant?.plan || 'Standard').toLowerCase();
+        const isProfessional = true; // Phase 3: All active subscriptions grant full access
 
         // 6. Add to SMS Queue
         const smsQueue = readData(SMS_DATA_FILE);
@@ -908,8 +908,7 @@ app.get('/revenue/analytics', authenticateToken, checkSubscription, (req, res) =
             return res.status(404).json({ error: 'Business account not found' });
         }
 
-        const plan = (restaurant.plan || '').toLowerCase();
-        const isProfessional = plan === 'professional' || plan === 'enterprise' || req.user.role === 'admin';
+        const isProfessional = true; // Phase 3: All active subscriptions grant full access
         if (!isProfessional) {
             return res.status(403).json({ error: 'Revenue analytics is only available on the Professional Plan.' });
         }
@@ -935,8 +934,7 @@ app.get('/revenue/records', authenticateToken, checkSubscription, (req, res) => 
             return res.status(404).json({ error: 'Business account not found' });
         }
 
-        const plan = (restaurant.plan || '').toLowerCase();
-        const isProfessional = plan === 'professional' || plan === 'enterprise' || req.user.role === 'admin';
+        const isProfessional = true; // Phase 3: All active subscriptions grant full access
         if (!isProfessional) {
             return res.status(403).json({ error: 'Revenue record access is restricted.' });
         }
@@ -1214,8 +1212,8 @@ app.get('/sms-queue/history', authenticateToken, checkSubscription, (req, res) =
 
         const restaurants = readData(RESTAURANTS_FILE);
         const restaurant = restaurants.find(r => r.id === restaurantId);
-        const plan = (restaurant?.plan || 'Starter').toLowerCase();
-        const isProfessional = plan === 'professional' || plan === 'enterprise' || req.user.role === 'admin';
+        const plan = (restaurant?.plan || 'Standard').toLowerCase();
+        const isProfessional = true; // Phase 3: All active subscriptions grant full access
 
         const enriched = filtered.map(sms => {
             const customer = customers.find(c => c.id === sms.customerId);
@@ -1849,7 +1847,7 @@ app.post('/onboarding/register', async (req, res) => {
             id: restaurantId,
             name: finalRestaurantName,
             business_name: finalRestaurantName,
-            plan: null,
+            plan: 'Standard',
             duration: '0 Days',
             subscriptionStatus: 'Not Activated',
             subscriptionExpiry: null,
@@ -2158,9 +2156,9 @@ app.post('/admin/restaurants/:id/reactivate', authenticateToken, (req, res) => {
 
         if (expiry > now) {
             // Restore based on expiry
-            restaurants[index].subscriptionStatus = (restaurants[index].plan === 'Starter' && expiry > new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)) ? 'Trial' : 'Active';
+            restaurants[index].subscriptionStatus = (expiry > new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)) ? 'Trial' : 'Active';
             if (restaurants[index].subscriptionStatus === 'Inactive' || restaurants[index].subscriptionStatus === 'Suspended') {
-                restaurants[index].subscriptionStatus = restaurants[index].plan === 'Starter' ? 'Trial' : 'Active';
+                restaurants[index].subscriptionStatus = 'Active';
             }
         } else {
             // Expired, but we can reset to a short trial or just let them stay expired but "Not Suspended"
@@ -2242,10 +2240,9 @@ app.post('/subscription/verify', authenticateToken, (req, res) => {
         if (restaurantIndex === -1) return res.status(404).json({ error: 'Restaurant not found' });
 
         // Logic for tiered pricing
+        // Phase 3: Simplified Standard pricing
         const pricing = {
-            'Starter': 2000,
-            'Professional': 3500,
-            'Enterprise': 7500
+            'Standard': 2000
         };
 
         const amount = pricing[plan] || 0;

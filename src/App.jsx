@@ -88,7 +88,7 @@ function App() {
   const [filterStatus, setFilterStatus] = useState('All')
   const [formData, setFormData] = useState({ name: '', phone: '', amount: '' })
   const [transactionCode, setTransactionCode] = useState('')
-  const [selectedPlan, setSelectedPlan] = useState('Professional')
+  const [selectedPlan, setSelectedPlan] = useState('Standard')
   const [subscriptionHistory, setSubscriptionHistory] = useState([])
   const [showMpesaModal, setShowMpesaModal] = useState(false)
   const [mpesaPhone, setMpesaPhone] = useState('')
@@ -105,7 +105,7 @@ function App() {
   const [restaurant, setRestaurant] = useState(JSON.parse(localStorage.getItem('restaurant') || 'null'))
   const [authMode, setAuthMode] = useState('login')
   const [onboardingStep, setOnboardingStep] = useState(1)
-  const [signupData, setSignupData] = useState({ business_name: '', ownerName: '', email: '', password: '', plan: 'Starter', duration: '1 Month' })
+  const [signupData, setSignupData] = useState({ business_name: '', ownerName: '', email: '', password: '', plan: 'Standard', duration: '1 Month' })
 
   const [settings, setSettings] = useState({ business_name: '', phone: '', address: '', email: '' })
   const [templates, setTemplates] = useState({ thankYou: DEFAULT_TEMPLATE })
@@ -133,7 +133,7 @@ function App() {
   };
 
   const isAdmin = user?.email === 'admin@test.com' || user?.role === 'admin'
-  const isProfessional = restaurant?.plan === 'Professional' || restaurant?.plan === 'Enterprise' || isAdmin;
+  const isProfessional = true; // Phase 3: All features unlocked for standard plan subscribers
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState('idle'); // idle | success | error
@@ -670,9 +670,9 @@ function App() {
   const handleVerifyPayment = async (e) => {
     e.preventDefault()
 
-    if (selectedPlan !== 'Starter') {
-      showToast('Professional and Enterprise plans will be available soon.');
-      return;
+    // Plan logic simplified for Standard plan only
+    if (selectedPlan !== 'Standard') {
+      setSelectedPlan('Standard');
     }
 
     const data = await fetchWithAuth('/subscription/verify', {
@@ -1551,25 +1551,26 @@ function App() {
 
                   <div className="kpi-grid">
                     {[
-                      { name: 'Starter', price: 2000, desc: 'Ideal for small cafes' },
-                      { name: 'Professional', price: 3500, desc: 'Perfect for busy restaurants' },
-                      { name: 'Enterprise', price: 7500, desc: 'For large franchises' }
+                      { name: 'MikrodCAP Standard', price: 2000, desc: 'All features included' }
                     ].map(plan => (
                       <div
                         key={plan.name}
-                        className={`pricing-card ${selectedPlan === plan.name ? 'selected' : ''}`}
-                        onClick={() => setSelectedPlan(plan.name)}
+                        className="pricing-card selected"
+                        style={{ maxWidth: '400px' }}
                       >
-                        <h4 className="subscription-card-title" style={{ color: plan.name === 'Professional' ? 'var(--primary-orange)' : 'inherit' }}>{plan.name}</h4>
+                        <h4 className="subscription-card-title">{plan.name}</h4>
                         <p className="subscription-helper-text">{plan.desc}</p>
                         <div className="price-display">KSh {plan.price.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
                         <div className="subscription-helper-text">per month</div>
-                        <button
-                          className="btn-security-primary"
-                          style={{ width: '100%', marginTop: '16px', background: selectedPlan === plan.name ? '' : '#f1f5f9', color: selectedPlan === plan.name ? '' : '#64748b', border: selectedPlan === plan.name ? '' : '1px solid #e2e8f0' }}
-                        >
-                          {selectedPlan === plan.name ? 'Selected' : 'Select Plan'}
-                        </button>
+                        <div className="subscription-features" style={{ marginTop: '20px', textAlign: 'left' }}>
+                          <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', fontSize: '0.9rem' }}>✓ Customer Database</div>
+                          <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', fontSize: '0.9rem' }}>✓ Revenue Tracking</div>
+                          <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', fontSize: '0.9rem' }}>✓ Appreciation SMS</div>
+                          <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', fontSize: '0.9rem' }}>✓ Customer Analytics</div>
+                          <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', fontSize: '0.9rem' }}>✓ Multiple Staff Accounts</div>
+                          <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', fontSize: '0.9rem' }}>✓ Loyalty & Retention Tools</div>
+                          <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', fontSize: '0.9rem' }}>✓ All Future Updates</div>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -1584,15 +1585,12 @@ function App() {
                         className="btn-security-primary"
                         style={{ padding: '12px 32px' }}
                         onClick={() => {
-                          if (selectedPlan !== 'Starter') {
-                            showToast('Professional and Enterprise plans will be available soon.');
-                            return;
-                          }
+                          setSelectedPlan('Standard');
                           setMpesaPhone(restaurant?.phone || '');
                           setShowMpesaModal(true);
                         }}
                       >
-                        Pay KSh {selectedPlan === 'Starter' ? '2,000' : selectedPlan === 'Professional' ? '3,500' : '7,500'}
+                        Renew Standard Plan
                       </button>
                     </div>
                   </div>
@@ -1652,7 +1650,7 @@ function App() {
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                           <span className="subscription-body">Amount Due:</span>
                           <span className="subscription-table-text" style={{ color: 'var(--primary-blue)', fontWeight: 800 }}>
-                            KSh {selectedPlan === 'Starter' ? '2,000' : selectedPlan === 'Professional' ? '3,500' : '7,500'}
+                            KSh 2,000
                           </span>
                         </div>
                       </div>
@@ -1676,10 +1674,10 @@ function App() {
                         onClick={async () => {
                           setIsProcessingMpesa(true);
                           try {
-                            const amount = selectedPlan === 'Starter' ? 2000 : selectedPlan === 'Professional' ? 3500 : 7500;
+                            const amount = 2000;
                             const res = await fetchWithAuth('/subscriptions/mpesa/initiate', {
                               method: 'POST',
-                              body: JSON.stringify({ plan: selectedPlan, phone: mpesaPhone, amount })
+                              body: JSON.stringify({ plan: 'Standard', phone: mpesaPhone, amount })
                             });
 
                             showToast('STK Push sent! Please enter your PIN on your phone.');

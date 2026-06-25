@@ -2,7 +2,7 @@
   {
     "id": "default",
     "name": "MikrodTech Business",
-    "plan": "Professional",
+    "plan": "Standard",
     "subscriptionStatus": "trial",
     "subscriptionExpiry": "2026-06-14T12:47:55.452Z",
     "payoutHistory": [],
@@ -13,7 +13,7 @@
   {
     "id": "test-restaurant-425",
     "name": "Test Business",
-    "plan": "Starter",
+    "plan": "Standard",
     "subscriptionStatus": "active",
     "subscriptionExpiry": "2026-07-10T13:00:47.000Z",
     "createdAt": "2026-06-03T13:00:47.396Z",
@@ -23,7 +23,7 @@
   {
     "id": "upgrade-square-210",
     "name": "DENIM ",
-    "plan": "Professional",
+    "plan": "Standard",
     "subscriptionStatus": "Active",
     "subscriptionExpiry": "2026-07-03T13:02:21Z",
     "createdAt": "2026-06-03T13:02:21.964Z",
@@ -33,7 +33,7 @@
   {
     "id": "rahlah-691",
     "name": "Tourist Hotel",
-    "plan": "Enterprise",
+    "plan": "Standard",
     "subscriptionStatus": "active",
     "subscriptionExpiry": "2026-08-02T13:49:17.000Z",
     "createdAt": "2026-06-03T13:49:17.702Z",
@@ -43,7 +43,7 @@
   {
     "id": "yendor-551",
     "name": "Yendor",
-    "plan": "Professional",
+    "plan": "Standard",
     "subscriptionStatus": "Expired",
     "subscriptionExpiry": "2026-06-01T15:39:59Z",
     "createdAt": "2026-06-03T15:39:59.311Z",
@@ -53,7 +53,7 @@
   {
     "id": "mikrodcap-598",
     "name": "MikrodCAP",
-    "plan": "Starter",
+    "plan": "Standard",
     "subscriptionStatus": "Trial",
     "subscriptionExpiry": "2026-06-26T12:20:49.427Z",
     "createdAt": "2026-06-12T12:20:49.427Z",
@@ -64,7 +64,7 @@
   {
     "id": "yyy-419",
     "name": "yyy",
-    "plan": null,
+    "plan": "Standard",
     "duration": "0 Days",
     "subscriptionStatus": "Not Activated",
     "subscriptionExpiry": null,
@@ -76,7 +76,7 @@
   {
     "id": "hello-861",
     "name": "Hello",
-    "plan": null,
+    "plan": "Standard",
     "duration": "0 Days",
     "subscriptionStatus": "Not Activated",
     "subscriptionExpiry": null,
