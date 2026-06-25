@@ -615,7 +615,7 @@ app.post('/customers', authenticateToken, checkSubscription, (req, res) => {
         smsQueue.push(newSmsEntry);
         activityLog.push(logEntry);
 
-        // Record manual payment if amount is provided (Professional Plan Only)
+        // Record manual payment if amount is provided (Standard Plan)
         if (amount && parseFloat(amount) > 0) {
             if (isProfessional) {
                 const paymentsPath = path.join(DATA_DIR, 'payments.json');
@@ -809,7 +809,7 @@ app.post('/payments/incoming', authenticateToken, (req, res) => {
         });
         writeData(ACTIVITY_LOG_FILE, activityLog);
 
-        // 8. Save Payment Record (Audit) (Professional/Enterprise only)
+        // 8. Save Payment Record (Audit)
         if (isProfessional) {
             const paymentRecord = {
                 id: Date.now(),
@@ -896,7 +896,7 @@ const getRevenueAnalytics = (restaurantId) => {
 };
 
 /**
- * @api {get} /revenue/analytics Revenue Analytics for Professional Plan
+ * @api {get} /revenue/analytics Revenue Analytics
  */
 app.get('/revenue/analytics', authenticateToken, checkSubscription, (req, res) => {
     try {
@@ -910,7 +910,7 @@ app.get('/revenue/analytics', authenticateToken, checkSubscription, (req, res) =
 
         const isProfessional = true; // Phase 3: All active subscriptions grant full access
         if (!isProfessional) {
-            return res.status(403).json({ error: 'Revenue analytics is only available on the Professional Plan.' });
+            return res.status(403).json({ error: 'Revenue analytics is only available on an active subscription.' });
         }
 
         const analytics = getRevenueAnalytics(restaurantId);
@@ -1816,7 +1816,7 @@ authRouter.post('/reset-account', authenticateToken, async (req, res) => {
 app.use('/auth', authRouter);
 
 /**
- * @api {post} /onboarding/register Professional SaaS Onboarding
+ * @api {post} /onboarding/register Business Onboarding
  */
 app.post('/onboarding/register', async (req, res) => {
     try {

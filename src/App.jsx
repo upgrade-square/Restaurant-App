@@ -506,7 +506,7 @@ function App() {
               business_name: prev.business_name || me.restaurant.business_name || "Business Account"
             }));
 
-            // Fetch Revenue Analytics for Professional users
+            // Fetch Revenue Analytics for active subscribers
             if (isProfessional) {
               fetchRevenueData();
             }
@@ -1520,7 +1520,7 @@ function App() {
                   <div className="kpi-grid">
                     <div className="card">
                       <div className="subscription-helper-text">Current Plan</div>
-                      <div style={{ fontSize: '1.25rem', fontWeight: 700, marginTop: '4px' }}>{restaurant?.plan || 'None'}</div>
+                      <div style={{ fontSize: '1.25rem', fontWeight: 700, marginTop: '4px' }}>{restaurant?.plan === 'Standard' ? 'MikrodCAP Standard' : (restaurant?.plan || 'None')}</div>
                     </div>
                     <div className="card">
                       <div className="subscription-helper-text">Status</div>
@@ -1546,51 +1546,63 @@ function App() {
                 </div>
 
                 <div className="card" style={{ marginBottom: '32px' }}>
-                  <h3 className="subscription-section-title">Business Subscription Plans</h3>
-                  <p className="subscription-body" style={{ marginBottom: '24px' }}>Choose a plan that fits your business volume. All plans include automated SMS and analytics.</p>
-
-                  <div className="kpi-grid">
-                    {[
-                      { name: 'MikrodCAP Standard', price: 2000, desc: 'All features included' }
-                    ].map(plan => (
-                      <div
-                        key={plan.name}
-                        className="pricing-card selected"
-                        style={{ maxWidth: '400px' }}
-                      >
-                        <h4 className="subscription-card-title">{plan.name}</h4>
-                        <p className="subscription-helper-text">{plan.desc}</p>
-                        <div className="price-display">KSh {plan.price.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
-                        <div className="subscription-helper-text">per month</div>
-                        <div className="subscription-features" style={{ marginTop: '20px', textAlign: 'left' }}>
-                          <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', fontSize: '0.9rem' }}>✓ Customer Database</div>
-                          <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', fontSize: '0.9rem' }}>✓ Revenue Tracking</div>
-                          <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', fontSize: '0.9rem' }}>✓ Appreciation SMS</div>
-                          <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', fontSize: '0.9rem' }}>✓ Customer Analytics</div>
-                          <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', fontSize: '0.9rem' }}>✓ Multiple Staff Accounts</div>
-                          <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', fontSize: '0.9rem' }}>✓ Loyalty & Retention Tools</div>
-                          <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', fontSize: '0.9rem' }}>✓ All Future Updates</div>
-                        </div>
-                      </div>
-                    ))}
+                  <h3 className="subscription-section-title">MikrodCAP Standard</h3>
+                  <p className="subscription-body" style={{ marginBottom: '16px', maxWidth: '800px' }}>
+                    A simple, all-inclusive subscription designed for businesses of all sizes. Gain full access to customer management, revenue tracking, analytics, reporting, loyalty tools, and appreciation messaging with one transparent monthly fee.
+                  </p>
+                  <div style={{ background: '#f0f9ff', padding: '20px', borderRadius: '12px', border: '1px solid #bae6fd', marginBottom: '32px', maxWidth: '800px' }}>
+                    <h4 style={{ color: 'var(--primary-blue)', marginBottom: '8px', fontSize: '1rem' }}>SMS Notice</h4>
+                    <p className="subscription-body" style={{ fontSize: '0.9rem', margin: 0 }}>
+                      SMS charges are not included in the subscription fee. Businesses connect their preferred SMS provider and purchase SMS credits directly from that provider. This gives you full control over your SMS usage and costs while allowing MikrodCAP to seamlessly deliver customer engagement and retention messages through your existing SMS account.
+                    </p>
                   </div>
 
-                  <div style={{ marginTop: '40px', padding: '24px', background: '#f8fafc', borderRadius: '12px', border: '1px solid var(--border)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <h4 className="subscription-card-title">Automated M-Pesa Activation</h4>
-                        <p className="subscription-body">Pay instantly via STK Push. No manual verification required.</p>
+                  <div style={{ display: 'flex', justifyContent: 'center', width: '100%', padding: '20px 0' }}>
+                    <div
+                      className="pricing-card selected"
+                      style={{
+                        maxWidth: '450px',
+                        width: '100%',
+                        padding: '40px',
+                        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+                        border: '2px solid var(--primary-blue)',
+                        transform: 'scale(1.02)'
+                      }}
+                    >
+                      <h4 className="subscription-card-title" style={{ fontSize: '1.5rem', marginBottom: '12px' }}>MikrodCAP Standard</h4>
+                      <p className="subscription-helper-text" style={{ fontSize: '1rem' }}>Everything you need to grow</p>
+                      <div className="price-display" style={{ fontSize: '2.5rem', margin: '24px 0 8px' }}>KES 2,000</div>
+                      <div className="subscription-helper-text">per month</div>
+
+                      <div className="subscription-features" style={{ marginTop: '32px', textAlign: 'left', borderTop: '1px solid #e2e8f0', paddingTop: '24px' }}>
+                        {[
+                          'Customer Database',
+                          'Revenue Tracking',
+                          'Daily, Weekly & Monthly Reports',
+                          'Appreciation SMS Integration',
+                          'Customer Analytics',
+                          'Transaction History',
+                          'Multiple Staff Accounts',
+                          'Loyalty & Retention Tools',
+                          'Future Updates Included'
+                        ].map(feature => (
+                          <div key={feature} style={{ display: 'flex', gap: '12px', marginBottom: '12px', fontSize: '1rem', alignItems: 'center' }}>
+                            <span style={{ color: 'var(--success)', fontWeight: 'bold' }}>✓</span>
+                            <span>{feature}</span>
+                          </div>
+                        ))}
                       </div>
+
                       <button
                         className="btn-security-primary"
-                        style={{ padding: '12px 32px' }}
+                        style={{ width: '100%', marginTop: '32px', padding: '16px', fontSize: '1.1rem' }}
                         onClick={() => {
                           setSelectedPlan('Standard');
                           setMpesaPhone(restaurant?.phone || '');
                           setShowMpesaModal(true);
                         }}
                       >
-                        Renew Standard Plan
+                        Activate Subscription
                       </button>
                     </div>
                   </div>
@@ -1620,7 +1632,7 @@ function App() {
                         {subscriptionHistory.map(pay => (
                           <tr key={pay.id}>
                             <td className="subscription-table-text" style={{ fontWeight: 700 }}>{pay.transactionCode}</td>
-                            <td className="subscription-table-text">{pay.plan}</td>
+                            <td className="subscription-table-text">{pay.plan === 'Standard' ? 'MikrodCAP Standard' : pay.plan}</td>
                             <td className="subscription-table-text">KSh {pay.amount?.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
                             <td className="subscription-table-text">{formatActivityDate(pay.date)}</td>
                             <td><span className="subscription-badge badge-sent">Processed</span></td>
