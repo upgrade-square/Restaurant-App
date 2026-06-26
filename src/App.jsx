@@ -1514,56 +1514,58 @@ function App() {
 
           {
             activeTab === 'subscription' && (
-              <div className="section" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '600px', padding: '40px 20px' }}>
+              <div className="section" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', minHeight: '80vh', padding: '20px 20px 40px' }}>
                 <div
                   className="pricing-card selected"
                   style={{
-                    maxWidth: '550px',
+                    maxWidth: '500px',
                     width: '100%',
-                    padding: '60px 40px',
+                    padding: '40px 32px',
                     textAlign: 'center',
                     boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.15)',
                     border: '2px solid var(--primary-blue)',
                     background: '#fff',
                     borderRadius: '24px',
-                    marginBottom: '60px'
+                    marginBottom: '40px'
                   }}
                 >
-                  <h2 style={{ fontSize: '2.25rem', fontWeight: 800, marginBottom: '8px', color: 'var(--text-main)' }}>MikrodCAP Standard</h2>
-                  <div className="price-display" style={{ fontSize: '3.5rem', fontWeight: 900, color: 'var(--primary-blue)', margin: '20px 0 10px' }}>KES 2,000</div>
-                  <div className="subscription-helper-text" style={{ fontSize: '1.1rem', marginBottom: '32px' }}>per month</div>
+                  <h2 style={{ fontSize: '1.75rem', fontWeight: 800, marginBottom: '4px', color: 'var(--text-main)' }}>MikrodCAP Standard</h2>
+                  <div className="price-display" style={{ fontSize: '2.75rem', fontWeight: 900, color: 'var(--primary-blue)', margin: '12px 0 2px' }}>KES 2,000</div>
+                  <div className="subscription-helper-text" style={{ fontSize: '0.95rem', marginBottom: '24px' }}>per month</div>
 
-                  <p style={{ fontSize: '1.2rem', color: 'var(--text-muted)', lineHeight: '1.6', marginBottom: '40px' }}>
+                  <p style={{ fontSize: '1rem', color: 'var(--text-muted)', lineHeight: '1.5', marginBottom: '32px' }}>
                     Everything you need to manage customers, track revenue, understand business performance, and strengthen customer relationships.
                   </p>
 
-                  <div style={{ textAlign: 'left', display: 'inline-block', width: '100%', maxWidth: '380px', marginBottom: '40px' }}>
-                    <h4 style={{ fontSize: '1.2rem', fontWeight: 700, marginBottom: '24px', textAlign: 'center' }}>Includes:</h4>
-                    {[
-                      'Customer Database',
-                      'Revenue Tracking',
-                      'Daily, Weekly & Monthly Reports',
-                      'Appreciation SMS Integration',
-                      'Customer Analytics',
-                      'Transaction History',
-                      'Future Updates Included'
-                    ].map(feature => (
-                      <div key={feature} style={{ display: 'flex', gap: '12px', marginBottom: '16px', fontSize: '1.1rem', alignItems: 'center', justifyContent: 'center' }}>
-                        <span style={{ color: 'var(--success)', fontWeight: 'bold', fontSize: '1.3rem' }}>✓</span>
-                        <span style={{ fontWeight: 500 }}>{feature}</span>
-                      </div>
-                    ))}
+                  <div style={{ textAlign: 'left', display: 'inline-block', width: '100%', maxWidth: '350px', marginBottom: '32px' }}>
+                    <h4 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '16px', textAlign: 'center' }}>Includes:</h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '8px' }}>
+                      {[
+                        'Customer Database',
+                        'Revenue Tracking',
+                        'Daily, Weekly & Monthly Reports',
+                        'Appreciation SMS Integration',
+                        'Customer Analytics',
+                        'Transaction History',
+                        'Future Updates Included'
+                      ].map(feature => (
+                        <div key={feature} style={{ display: 'flex', gap: '10px', fontSize: '0.95rem', alignItems: 'center', justifyContent: 'center' }}>
+                          <span style={{ color: 'var(--success)', fontWeight: 'bold', fontSize: '1.1rem' }}>✓</span>
+                          <span style={{ fontWeight: 500 }}>{feature}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
 
-                  <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '16px', marginBottom: '40px', border: '1px solid #e2e8f0' }}>
-                    <p style={{ fontSize: '0.95rem', color: 'var(--text-muted)', lineHeight: '1.5', margin: 0 }}>
+                  <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '16px', marginBottom: '32px', border: '1px solid #e2e8f0' }}>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: '1.4', margin: 0 }}>
                       SMS credits are purchased directly from your preferred SMS provider and are not included in the subscription fee.
                     </p>
                   </div>
 
                   <button
                     className="btn-security-primary"
-                    style={{ width: '100%', padding: '20px', fontSize: '1.3rem', borderRadius: '16px', fontWeight: 800, boxShadow: '0 10px 20px -3px rgba(0, 114, 206, 0.4)' }}
+                    style={{ width: '100%', padding: '16px', fontSize: '1.15rem', borderRadius: '16px', fontWeight: 800, boxShadow: '0 8px 16px -3px rgba(0, 114, 206, 0.4)' }}
                     onClick={() => {
                       setSelectedPlan('Standard');
                       setMpesaPhone(restaurant?.phone || '');
@@ -1574,25 +1576,25 @@ function App() {
                   </button>
                 </div>
 
-                <div className="card" style={{ maxWidth: '800px', width: '100%', textAlign: 'center', marginBottom: '40px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'center', gap: '48px', marginBottom: '32px' }}>
+                <div className="card" style={{ maxWidth: '800px', width: '100%', textAlign: 'center', marginBottom: '20px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'center', gap: '32px', marginBottom: '20px' }}>
                     <div>
-                      <div className="subscription-helper-text">Account Status</div>
-                      <div className={`subscription-badge ${restaurant?.subscriptionStatus === 'Active' ? 'badge-sent' : 'badge-pending'}`} style={{ marginTop: '8px', fontSize: '1rem', padding: '6px 16px' }}>
+                      <div className="subscription-helper-text" style={{ fontSize: '0.85rem' }}>Account Status</div>
+                      <div className={`subscription-badge ${restaurant?.subscriptionStatus === 'Active' ? 'badge-sent' : 'badge-pending'}`} style={{ marginTop: '4px', fontSize: '0.9rem', padding: '4px 12px' }}>
                         {restaurant?.subscriptionStatus || 'Inactive'}
                       </div>
                     </div>
                     {restaurant?.subscriptionStatus === 'Active' && (
                       <div>
-                        <div className="subscription-helper-text">Expires On</div>
-                        <div style={{ fontWeight: 700, color: 'var(--text-main)', marginTop: '8px', fontSize: '1.1rem' }}>
+                        <div className="subscription-helper-text" style={{ fontSize: '0.85rem' }}>Expires On</div>
+                        <div style={{ fontWeight: 700, color: 'var(--text-main)', marginTop: '4px', fontSize: '1rem' }}>
                           {restaurant?.subscriptionExpiry ? formatActivityDate(restaurant.subscriptionExpiry) : 'N/A'}
                         </div>
                       </div>
                     )}
                   </div>
 
-                  <h3 className="subscription-section-title" style={{ textAlign: 'left', marginTop: '40px' }}>Payment History</h3>
+                  <h3 className="subscription-section-title" style={{ textAlign: 'left', marginTop: '24px', fontSize: '1.1rem' }}>Payment History</h3>
                   <div className="table-container">
                     <table className="activity-table">
                       <colgroup>
