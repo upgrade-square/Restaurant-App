@@ -1589,7 +1589,7 @@ function App() {
 
                   <button
                     className="btn-security-primary"
-                    style={{ width: '100%', padding: '14px', fontSize: '1.1rem', borderRadius: '12px', fontWeight: 800, boxShadow: '0 8px 16px -3px rgba(0, 114, 206, 0.4)' }}
+                    style={{ width: 'auto', minWidth: '220px', padding: '10px 24px', fontSize: '1rem', borderRadius: '12px', fontWeight: 800, boxShadow: '0 8px 16px -3px rgba(0, 114, 206, 0.4)', margin: '0 auto' }}
                     onClick={() => {
                       setSelectedPlan('Standard');
                       setMpesaPhone(restaurant?.phone || '');
