@@ -1553,9 +1553,9 @@ function App() {
                     marginBottom: '32px'
                   }}
                 >
-                  <h2 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '0px', color: 'var(--text-main)' }}>MikrodCAP Standard</h2>
-                  <div className="price-display" style={{ fontSize: '2rem', fontWeight: 900, color: 'var(--primary-blue)', margin: '4px 0 0' }}>KES 2,000</div>
-                  <div className="subscription-helper-text" style={{ fontSize: '0.8rem', marginBottom: '12px', opacity: 0.8 }}>per month</div>
+                  <h2 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '0px', color: 'var(--text-main)' }}>MikrodCAP Standard</h2>
+                  <div className="price-display" style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--primary-blue)', margin: '4px 0 0' }}>KES 2,000</div>
+                  <div className="subscription-helper-text" style={{ fontSize: '0.7rem', marginBottom: '12px', opacity: 0.8 }}>per month</div>
 
                   <p style={{ fontSize: '0.95rem', color: 'var(--text-muted)', lineHeight: '1.4', marginBottom: '20px' }}>
                     A complete toolkit to manage customers, track revenue, and grow your business with automated appreciation.
