@@ -601,6 +601,21 @@ h4 {
   background: var(--danger-light);
 }
 
+.subscription-status-header {
+  display: flex !important;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+@media (max-width: 480px) {
+  .subscription-status-header {
+    flex-direction: column;
+    text-align: center;
+    gap: 8px;
+  }
+}
+
 
 /* --- Responsive --- */
 @media (max-width: 768px) {

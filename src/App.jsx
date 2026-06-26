@@ -3,7 +3,7 @@ import './App.css'
 import API_URL from './config/api'
 import ErrorBoundary from './components/ErrorBoundary'
 import { io } from 'socket.io-client'
-import { getRelativeTime, formatActivityDate, formatDateTime } from './utils/dateUtils'
+import { getRelativeTime, formatActivityDate, formatDateTime, calculateDaysRemaining } from './utils/dateUtils'
 
 const DEFAULT_TEMPLATE = "Hello {name}, thank you for choosing {business_name}. We appreciate your support.";
 
@@ -39,17 +39,12 @@ const Modal = ({ title, onClose, children }) => (
 )
 
 const StatusBadge = ({ status }) => {
-  let s = (status || 'Not Activated').toLowerCase()
-  if (s === 'suspended') s = 'inactive'
-  const displayStatus = s.charAt(0).toUpperCase() + s.slice(1)
-  return <span className={`badge badge-${s}`}>{displayStatus}</span>
+  const s = (status || 'Inactive').toLowerCase()
+  const displayStatus = s === 'active' ? 'Active' : 'Inactive'
+  const badgeClass = s === 'active' ? 'badge-active' : 'badge-failed'
+  return <span className={`badge ${badgeClass}`}>{displayStatus}</span>
 }
 
-const getDaysRemaining = (expiry) => {
-  if (!expiry) return '---'
-  const days = Math.ceil((new Date(expiry) - new Date()) / (1000 * 60 * 60 * 24))
-  return Math.max(0, days)
-}
 
 const formatAmount = (amt) => {
   if (!amt || amt === '-' || amt === 'M-Pesa') return '—'
@@ -1515,6 +1510,35 @@ function App() {
           {
             activeTab === 'subscription' && (
               <div className="section" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 180px)', padding: '20px' }}>
+                <div className="subscription-status-header" style={{
+                  background: '#fff',
+                  padding: '12px 20px',
+                  borderRadius: '16px',
+                  border: '1px solid var(--border)',
+                  width: '100%',
+                  maxWidth: '440px',
+                  marginBottom: '16px',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>Subscription:</span>
+                    <StatusBadge status={restaurant?.subscriptionStatus} />
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-muted)' }}>Time Left:</span>
+                    <span style={{
+                      fontSize: '0.9rem',
+                      fontWeight: 700,
+                      color: calculateDaysRemaining(restaurant?.subscriptionExpiry) > 0 ? 'var(--primary-blue)' : 'var(--danger)'
+                    }}>
+                      {(() => {
+                        const days = calculateDaysRemaining(restaurant?.subscriptionExpiry);
+                        if (days <= 0) return 'Expired';
+                        return `${days} days remaining`;
+                      })()}
+                    </span>
+                  </div>
+                </div>
                 <div
                   className="pricing-card selected"
                   style={{

@@ -80,3 +80,17 @@ export const formatActivityDate = (timestamp) => {
  * Alias for backward compatibility or general use
  */
 export const formatDateTime = (timestamp) => formatActivityDate(timestamp);
+
+/**
+ * Calculates days remaining until a given expiry date
+ */
+export const calculateDaysRemaining = (expiry) => {
+    const date = toDate(expiry);
+    if (!date) return 0;
+
+    const now = new Date();
+    const diffInTime = date.getTime() - now.getTime();
+    const diffInDays = Math.ceil(diffInTime / (1000 * 3600 * 24));
+
+    return diffInDays;
+};
