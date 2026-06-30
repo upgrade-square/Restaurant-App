@@ -234,5 +234,16 @@
       "email": "upgradesquareke@gmail.com"
     },
     "timestamp": "2026-06-22T17:41:47.871Z"
+  },
+  {
+    "id": 1782717549939,
+    "userId": 1780494557796,
+    "restaurantId": "rahlah-691",
+    "type": "LOGIN_FAILURE",
+    "details": {
+      "email": "mikrodtech@gmail.com",
+      "reason": "invalid_password"
+    },
+    "timestamp": "2026-06-29T07:19:09.939Z"
   }
 ]

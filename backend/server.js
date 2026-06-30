@@ -51,6 +51,88 @@ const DEFAULT_RESTAURANT_ID = 'default';
 
 const gatewaySockets = new Map(); // socket.id -> { deviceId, restaurantId }
 
+// --- GATEWAY STATUS MANAGEMENT ---
+const GATEWAY_ONLINE_THRESHOLD_SECONDS = 90; // Since Android app heartbeat is 60s and poll is 20s
+
+function getGatewayStatus(device) {
+    if (!device || !device.lastSeen || device.status === 'Inactive' || device.status === 'Unregistered') {
+        return 'OFFLINE';
+    }
+    const diffSeconds = Math.floor((Date.now() - new Date(device.lastSeen)) / 1000);
+    return (diffSeconds <= GATEWAY_ONLINE_THRESHOLD_SECONDS) ? 'ONLINE' : 'OFFLINE';
+}
+
+function refreshGatewayActivity(restaurantId, deviceId = null, actionType = 'API Call', extraPayload = {}) {
+    try {
+        const devices = readData(GATEWAY_FILE);
+        let index = -1;
+        if (deviceId) {
+            index = devices.findIndex(d => d.deviceId === deviceId && d.restaurantId === restaurantId);
+        } else {
+            // Find active devices for this restaurant (not explicitly inactive or unregistered)
+            const activeDevices = devices
+                .map((d, idx) => ({ device: d, index: idx }))
+                .filter(item => item.device.restaurantId === restaurantId && item.device.status !== 'Inactive' && item.device.status !== 'Unregistered');
+
+            if (activeDevices.length > 0) {
+                // Find primary or most recent lastSeen
+                activeDevices.sort((a, b) => new Date(b.device.lastSeen) - new Date(a.device.lastSeen));
+                index = activeDevices[0].index;
+            }
+        }
+
+        if (index === -1) {
+            return null;
+        }
+
+        const now = nowUTC();
+        const device = devices[index];
+        const oldStatus = getGatewayStatus(device);
+
+        // Update device entry
+        device.lastSeen = now;
+        device.status = 'ONLINE'; // set strictly ONLINE on activity
+        if (extraPayload.batteryLevel !== undefined) device.batteryLevel = extraPayload.batteryLevel;
+        if (extraPayload.appVersion !== undefined) device.appVersion = extraPayload.appVersion;
+        if (extraPayload.isCharging !== undefined) {
+            device.isCharging = (extraPayload.isCharging === true || extraPayload.isCharging === 'true' || extraPayload.isCharging === 1);
+        }
+
+        writeData(GATEWAY_FILE, devices);
+
+        const newStatus = 'ONLINE';
+        const ageSeconds = 0; // Just updated now
+
+        // Temporary debug logs requested:
+        console.log(`[DEBUG_GATEWAY] Activity Refreshed: Current lastSeen = ${device.lastSeen} | Current calculated status = ${newStatus} | Time since last activity = ${ageSeconds}s`);
+
+        const statusPayload = {
+            deviceId: device.deviceId,
+            status: newStatus,
+            lastSeen: now,
+            batteryLevel: device.batteryLevel,
+            isCharging: device.isCharging,
+            deviceName: device.deviceName || `Android Gateway (${device.deviceId})`,
+            timestamp: Date.now()
+        };
+
+        // Emit status update to Socket.IO room for restaurant
+        io.to(restaurantId).emit("gateway-status", statusPayload);
+        io.to(restaurantId).emit("gateway_status_changed", statusPayload);
+        console.log(`[DEBUG_GATEWAY_SOCKET] Socket status emitted = ${JSON.stringify(statusPayload)}`);
+
+        if (oldStatus !== 'ONLINE') {
+            io.to(restaurantId).emit("gateway_online", statusPayload);
+            console.log(`[STATE_TRANSITION] Device: ${device.deviceId} | ${oldStatus} -> ${newStatus} | Reason: Gateway Activity (${actionType})`);
+        }
+
+        return device;
+    } catch (err) {
+        console.error('[refreshGatewayActivity] Error:', err);
+        return null;
+    }
+}
+
 // Socket.IO Room Management
 io.on("connection", (socket) => {
     console.log(`[SOCKET] CONNECTED: ${socket.id} | IP: ${socket.handshake.address}`);
@@ -80,30 +162,39 @@ io.on("connection", (socket) => {
             console.log(`[GATEWAY_DISCONNECTED] ID: ${deviceId} | Restaurant: ${restaurantId} | Reason: ${reason}`);
             gatewaySockets.delete(socket.id);
 
-            // Immediate Offline Logic
+            // Immediate Offline Logic (uses getGatewayStatus check)
             try {
                 const devices = readData(GATEWAY_FILE);
                 const index = devices.findIndex(d => d.deviceId === deviceId && d.restaurantId === restaurantId);
 
-                if (index > -1 && devices[index].status !== 'OFFLINE' && devices[index].status !== 'Unregistered' && devices[index].status !== 'Inactive') {
+                if (index > -1 && devices[index].status !== 'Unregistered' && devices[index].status !== 'Inactive') {
                     devices[index].status = 'OFFLINE';
                     writeData(GATEWAY_FILE, devices);
 
+                    const currentStatus = getGatewayStatus(devices[index]);
+                    const diffSeconds = Math.floor((Date.now() - new Date(devices[index].lastSeen)) / 1000);
+
+                    // User temporary debug logs request:
+                    console.log(`[DEBUG_GATEWAY_DISCONNECT] Socket disconnected reason = ${reason} | Device: ${deviceId} | Current lastSeen: ${devices[index].lastSeen} | Current calculated status: ${currentStatus} | Time since last activity: ${diffSeconds}s`);
+
                     const statusPayload = {
                         deviceId,
-                        status: "OFFLINE",
+                        status: currentStatus,
                         lastSeen: devices[index].lastSeen,
                         batteryLevel: devices[index].batteryLevel,
                         isCharging: devices[index].isCharging,
                         deviceName: devices[index].deviceName,
                         timestamp: Date.now(),
-                        reason: "Socket Disconnected"
+                        reason: `Socket Disconnected (${reason})`
                     };
 
                     io.to(restaurantId).emit("gateway-status", statusPayload);
-                    io.to(restaurantId).emit("gateway_offline", statusPayload);
+                    if (currentStatus === 'OFFLINE') {
+                        io.to(restaurantId).emit("gateway_offline", statusPayload);
+                    }
                     io.to(restaurantId).emit("gateway_status_changed", statusPayload);
-                    console.log(`[SOCKET_STATUS_EMITTED] Offline status sent for ${deviceId} (Immediate)`);
+                    console.log(`[DEBUG_GATEWAY_SOCKET] Socket status emitted = ${JSON.stringify(statusPayload)}`);
+                    console.log(`[SOCKET_STATUS_EMITTED] Disconnect status sent for ${deviceId} (Immediate)`);
                 }
             } catch (err) {
                 console.error('[SocketDisconnect] Status update failed:', err);
@@ -116,7 +207,7 @@ io.on("connection", (socket) => {
     });
 });
 
-// Connectivity Monitor (Runs every 5s) - Implements ONLINE, NO_INTERNET, OFFLINE model
+// Connectivity Monitor (Runs every 5s) - Implements ONLINE, OFFLINE model
 setInterval(() => {
     try {
         const devices = readData(GATEWAY_FILE);
@@ -127,24 +218,16 @@ setInterval(() => {
             // Ignore devices that are explicitly inactive or unregistered
             if (!device.restaurantId || device.status === 'Unregistered' || device.status === 'Inactive') return;
 
-            const lastSeenDate = new Date(device.lastSeen);
-            const ageSeconds = Math.floor((now - lastSeenDate) / 1000);
-
-            let newStatus = device.status;
+            const newStatus = getGatewayStatus(device);
+            const ageSeconds = Math.floor((now - new Date(device.lastSeen)) / 1000);
             let reason = "";
 
-            if (ageSeconds > 120) {
-                newStatus = 'OFFLINE';
-                reason = "Heartbeat timeout (>120s)";
-            } else if (ageSeconds > 30) {
-                newStatus = 'NO_INTERNET';
-                reason = "Heartbeat delayed (>30s)";
-            } else {
-                // If heartbeat is fresh, status depends on whether we also want to check socket?
-                // Requirements say: ONLINE = Socket connected + Heartbeat received recently.
-                // We'll trust the heartbeat freshness for "ONLINE" here, socket disconnect is separate.
-                newStatus = 'ONLINE';
+            if (newStatus === 'OFFLINE') {
+                reason = `Heartbeat timeout (>${GATEWAY_ONLINE_THRESHOLD_SECONDS}s)`;
             }
+
+            // User temporary debug logs request:
+            console.log(`[DEBUG_GATEWAY_MONITOR] Monitor Check: Current lastSeen = ${device.lastSeen} | Current calculated status = ${newStatus} | Time since last activity = ${ageSeconds}s`);
 
             // Only update and emit if state has changed
             if (newStatus !== device.status) {
@@ -171,6 +254,7 @@ setInterval(() => {
                 if (newStatus === 'ONLINE') io.to(device.restaurantId).emit("gateway_online", statusPayload);
 
                 io.to(device.restaurantId).emit("gateway_status_changed", statusPayload);
+                console.log(`[DEBUG_GATEWAY_SOCKET] Socket status emitted = ${JSON.stringify(statusPayload)}`);
                 console.log(`[SOCKET_STATUS_EMITTED] ${newStatus} status sent for ${device.deviceId}`);
             }
         });
@@ -684,6 +768,10 @@ app.post('/payments/incoming', authenticateToken, (req, res) => {
     const customerPhone = req.body.customerPhone || req.body.phone || req.body.phoneNumber;
     const amount = req.body.amount || req.body.billAmount || 'M-Pesa';
     const restaurantId = req.user.restaurantId;
+    const deviceId = req.body.deviceId;
+
+    // Refresh Gateway activity because of incoming payment API communication
+    refreshGatewayActivity(restaurantId, deviceId || null, 'Incoming Payment API Call');
 
     console.log(`[PAYMENT_RECEIVED] Trace: ${transactionCode} | Name: ${customerName} | Phone: ${customerPhone} | Restaurant: ${restaurantId}`);
 
@@ -997,6 +1085,10 @@ app.get('/sms-queue/pending', authenticateToken, checkSubscription, (req, res) =
     try {
         const restaurantId = req.user.restaurantId;
         console.log(`[PENDING_SMS_QUERY] Initiated by restaurant ${restaurantId}`);
+
+        // Refresh Gateway activity because of pending SMS check API communication
+        refreshGatewayActivity(restaurantId, null, 'Pending SMS Check API Call');
+
         const smsQueue = readData(SMS_DATA_FILE);
         const pendingSms = smsQueue.filter(sms => sms.status === 'Pending' && (sms.restaurantId === restaurantId || (!sms.restaurantId && restaurantId === DEFAULT_RESTAURANT_ID)));
         console.log(`[PENDING_SMS_COUNT] ${pendingSms.length}`);
@@ -1013,8 +1105,11 @@ app.get('/sms-queue/pending', authenticateToken, checkSubscription, (req, res) =
 app.put('/sms-queue/:id', authenticateToken, checkSubscription, (req, res) => {
     try {
         const { id } = req.params;
-        const { status } = req.body;
+        const { status, deviceId } = req.body;
         const restaurantId = req.user.restaurantId;
+
+        // Refresh Gateway activity because of SMS status update API communication
+        refreshGatewayActivity(restaurantId, deviceId || null, `SMS Status Update API Call (${status})`);
 
         // Expanded validation to allow "Processing"
         if (!['Pending', 'Processing', 'Sent', 'Failed'].includes(status)) {
@@ -1034,6 +1129,8 @@ app.put('/sms-queue/:id', authenticateToken, checkSubscription, (req, res) => {
 
         if (status === 'Sent') {
             sms.sentAt = nowUTC();
+            // User temporary debug logs request:
+            console.log(`[DEBUG_GATEWAY_SMS] SMS sent time = ${sms.sentAt} | Message ID = ${id}`);
             // Log successful SMS for historical "Sent Today" metrics
             const activityLog = readData(ACTIVITY_LOG_FILE);
             activityLog.push({
@@ -1948,8 +2045,7 @@ app.get('/admin/metrics', authenticateToken, (req, res) => {
             .reduce((sum, p) => sum + (p.amount || 0), 0);
 
         const onlineGateways = devices.filter(d => {
-            const diffSeconds = Math.floor((now - new Date(d.lastSeen)) / 1000);
-            return diffSeconds <= 120 && d.restaurantId;
+            return d.restaurantId && getGatewayStatus(d) === 'ONLINE';
         }).length;
 
         const metrics = {
@@ -2570,8 +2666,13 @@ app.post('/gateway/register', authenticateToken, (req, res) => {
             deviceName: devices[index].deviceName,
             timestamp: Date.now()
         };
+
+        console.log(`[DEBUG_GATEWAY_REGISTER] Device registered time: ${new Date().toISOString()} | Current lastSeen: ${statusPayload.lastSeen} | Current calculated status: ONLINE | Time since last activity: 0s`);
+
         io.to(restaurantId).emit("gateway-status", statusPayload);
         io.to(restaurantId).emit("gateway_online", statusPayload);
+        io.to(restaurantId).emit("gateway_status_changed", statusPayload);
+        console.log(`[DEBUG_GATEWAY_SOCKET] Socket status emitted = ${JSON.stringify(statusPayload)}`);
         console.log(`[SOCKET_STATUS_EMITTED] Online status sent for ${deviceId} (Registration)`);
 
         res.json({ message: 'Device registered successfully', device: deviceData });
@@ -2593,26 +2694,6 @@ app.post('/gateway/heartbeat', authenticateToken, (req, res) => {
 
         console.log(`[HEARTBEAT_RECEIVED] ID: ${deviceId} | Restaurant: ${restaurantId} | Battery: ${batteryLevel}%`);
 
-        const devices = readData(GATEWAY_FILE);
-
-        // Verify the correct device record is updated (must match both deviceId and restaurantId)
-        const index = devices.findIndex(d => d.deviceId === deviceId && d.restaurantId === restaurantId);
-
-        if (index === -1) {
-            console.warn(`[HEARTBEAT_REJECTED] Device: ${deviceId} | Restaurant: ${restaurantId} | Reason: Not found or ownership mismatch`);
-            return res.status(404).json({ error: 'Gateway record not found. Please re-register.' });
-        }
-
-        const now = nowUTC();
-        devices[index].lastSeen = now;
-        devices[index].status = 'ONLINE';
-        if (batteryLevel !== undefined) devices[index].batteryLevel = batteryLevel;
-        if (appVersion !== undefined) devices[index].appVersion = appVersion;
-        if (isCharging !== undefined) {
-            // Robust boolean conversion to prevent string "false" or 0 from causing issues
-            devices[index].isCharging = (isCharging === true || isCharging === 'true' || isCharging === 1);
-        }
-
         // Added for Audit: Log the raw heartbeat body with strict typing check
         console.log(`[HEARTBEAT_INCOMING] ${JSON.stringify({
             deviceId,
@@ -2622,34 +2703,31 @@ app.post('/gateway/heartbeat', authenticateToken, (req, res) => {
             timestamp: new Date().toISOString()
         })}`);
 
+        // User temporary debug logs request:
+        console.log(`[DEBUG_GATEWAY_HEARTBEAT] Heartbeat received time = ${new Date().toISOString()}`);
+
+        const device = refreshGatewayActivity(restaurantId, deviceId, 'Heartbeat', {
+            batteryLevel,
+            appVersion,
+            isCharging
+        });
+
+        if (!device) {
+            console.warn(`[HEARTBEAT_REJECTED] Device: ${deviceId} | Restaurant: ${restaurantId} | Reason: Not found or ownership mismatch`);
+            return res.status(404).json({ error: 'Gateway record not found. Please re-register.' });
+        }
+
         // Add audit logging showing requested fields
         console.log(`[HEARTBEAT_AUDIT]`, {
             gatewayId: deviceId,
             deviceId: deviceId,
-            lastSeen: now,
+            lastSeen: device.lastSeen,
             restaurantId: restaurantId,
-            battery: devices[index].batteryLevel,
-            isCharging: devices[index].isCharging,
+            battery: device.batteryLevel,
+            isCharging: device.isCharging,
             receivedIsCharging: isCharging
         });
 
-        // Real-time update via Socket.IO
-        const statusPayload = {
-            deviceId,
-            status: "ONLINE",
-            lastSeen: now,
-            batteryLevel: devices[index].batteryLevel,
-            isCharging: devices[index].isCharging,
-            deviceName: devices[index].deviceName,
-            timestamp: Date.now()
-        };
-
-        console.log(`[SOCKET_EMIT] Room: ${restaurantId} | Payload: ${JSON.stringify(statusPayload)}`);
-
-        io.to(restaurantId).emit("gateway-status", statusPayload);
-        console.log(`[SOCKET_STATUS_EMITTED] Online status sent for ${deviceId} (Heartbeat)`);
-
-        writeData(GATEWAY_FILE, devices);
         res.json({ message: 'Heartbeat acknowledged' });
     } catch (error) {
         console.error('[HEARTBEAT_ERROR]', error);
@@ -2700,7 +2778,7 @@ app.get('/gateway/status', authenticateToken, (req, res) => {
         const restaurantDevices = allDevices.filter(d => d.restaurantId === restaurantId);
 
         if (restaurantDevices.length === 0) {
-            return res.json({ status: 'No Gateway', message: 'No devices paired to this account' });
+            return res.json({ status: 'OFFLINE', message: 'No devices paired to this account' });
         }
 
         // 2. Prefer the gateway with the most recent lastSeen (Ensure we don't return stale/duplicate records)
@@ -2723,17 +2801,8 @@ app.get('/gateway/status', authenticateToken, (req, res) => {
         }
 
         // 4. Calculate actual status based on heartbeat window
+        const status = getGatewayStatus(selectedDevice);
         const diffSeconds = Math.floor((Date.now() - new Date(selectedDevice.lastSeen)) / 1000);
-        let calculatedStatus = 'OFFLINE';
-        if (selectedDevice.status === 'Inactive') {
-            calculatedStatus = 'Inactive';
-        } else if (diffSeconds <= 30) {
-            calculatedStatus = 'ONLINE';
-        } else if (diffSeconds <= 120) {
-            calculatedStatus = 'NO_INTERNET';
-        }
-
-        const status = calculatedStatus;
 
         // 5. Add audit logging showing: gateway id selected, device id selected, lastSeen used, restaurant id
         console.log(`[GATEWAY_STATUS_AUDIT]`, {
@@ -2745,6 +2814,9 @@ app.get('/gateway/status', authenticateToken, (req, res) => {
             diffSeconds: diffSeconds,
             isCharging: selectedDevice.isCharging
         });
+
+        // User temporary debug logs request:
+        console.log(`[DEBUG_GATEWAY_STATUS_API] API status returned: Current lastSeen = ${selectedDevice.lastSeen} | Current calculated status = ${status} | Time since last activity = ${diffSeconds}s | API status returned = ${status}`);
 
         res.json({
             ...selectedDevice,

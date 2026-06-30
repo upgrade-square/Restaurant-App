@@ -472,7 +472,9 @@ function App() {
       setSmsHistory(results[0])
       setMetrics(results[1])
       setCustomers(results[2])
-      setGatewayStatus(results[3])
+      const fetchedStatus = results[3];
+      console.log(`[DEBUG_FRONTEND_STATUS] Frontend status received = ${JSON.stringify(fetchedStatus)}`);
+      setGatewayStatus(fetchedStatus);
 
       if (!isDashboardHeartbeat) {
         const settingsRes = results[4];
@@ -598,6 +600,7 @@ function App() {
         status: data.status,
         timestamp: new Date().toISOString()
       });
+      console.log(`[DEBUG_FRONTEND_STATUS] Frontend status received via gateway-status = ${JSON.stringify(data)}`);
       setGatewayStatus(prev => {
         if (prev.status !== data.status) {
           console.log(`[STATUS_TRANSITION] ${prev.status} -> ${data.status} for ${data.deviceId}`);
@@ -608,16 +611,19 @@ function App() {
 
     socket.on('gateway_online', (data) => {
       console.log('[SOCKET_GATEWAY_ONLINE]', data);
+      console.log(`[DEBUG_FRONTEND_STATUS] Frontend status received via gateway_online = ${JSON.stringify(data)}`);
       setGatewayStatus(data);
     });
 
     socket.on('gateway_offline', (data) => {
       console.log('[SOCKET_GATEWAY_OFFLINE]', data);
+      console.log(`[DEBUG_FRONTEND_STATUS] Frontend status received via gateway_offline = ${JSON.stringify(data)}`);
       setGatewayStatus(data);
     });
 
     socket.on('gateway_status_changed', (data) => {
       console.log('[SOCKET_STATUS_CHANGED]', data);
+      console.log(`[DEBUG_FRONTEND_STATUS] Frontend status received via gateway_status_changed = ${JSON.stringify(data)}`);
       setGatewayStatus(data);
     });
 
@@ -1051,14 +1057,12 @@ function App() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span style={{
                         fontSize: '1.25rem',
-                        color: gatewayStatus.status === 'ONLINE' ? 'var(--success)' :
-                          gatewayStatus.status === 'NO_INTERNET' ? 'var(--warning)' : 'var(--danger)',
+                        color: gatewayStatus.status === 'ONLINE' ? 'var(--success)' : 'var(--danger)',
                         fontWeight: 'bold'
                       }}>
-                        {gatewayStatus.status === 'ONLINE' ? 'ONLINE' :
-                          gatewayStatus.status === 'NO_INTERNET' ? 'NO INTERNET' : 'OFFLINE'}
+                        {gatewayStatus.status === 'ONLINE' ? '🟢 Online' : '🔴 Offline'}
                       </span>
-                      {(gatewayStatus.status === 'ONLINE' || gatewayStatus.status === 'NO_INTERNET') && gatewayStatus.deviceId && (
+                      {gatewayStatus.deviceId && (
                         <span className={`battery-pill ${gatewayStatus.batteryLevel < 30 ? 'critical' : gatewayStatus.batteryLevel < 80 ? 'warning' : 'healthy'}`}>
                           {(() => {
                             // Diagnostic log for render state
@@ -1082,9 +1086,7 @@ function App() {
                             : `Android Gateway (${gatewayStatus.deviceId})`}
                         </div>
                         <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                          {gatewayStatus.status === 'NO_INTERNET' ?
-                            <span style={{ color: 'var(--warning)' }}>Connection unstable</span> :
-                            `Last seen: ${gatewayStatus.lastSeen ? getRelativeTime(gatewayStatus.lastSeen) : 'Never'}`}
+                          Last seen: {gatewayStatus.lastSeen ? getRelativeTime(gatewayStatus.lastSeen) : 'Never'}
                         </div>
                       </div>
                     )}
