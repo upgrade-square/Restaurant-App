@@ -1034,26 +1034,11 @@ h4 {
 .battery-pill.critical {
   background: #FEE2E2;
   color: #991B1B;
-  animation: pulse 2s infinite;
 }
 
 .charging-icon {
   font-size: 0.8rem;
   color: #EAB308;
-}
-
-@keyframes pulse {
-  0% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.5;
-  }
-
-  100% {
-    opacity: 1;
-  }
 }
 
 @keyframes slideInRight {

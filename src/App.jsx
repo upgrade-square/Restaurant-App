@@ -1054,7 +1054,7 @@ function App() {
                 <div className="card kpi-card">
                   <div className="kpi-label">Gateway Status</div>
                   <div className="kpi-value" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
                       <span style={{
                         fontSize: '1.25rem',
                         color: gatewayStatus.status === 'ONLINE' ? 'var(--success)' : 'var(--danger)',
@@ -1062,19 +1062,15 @@ function App() {
                       }}>
                         {gatewayStatus.status === 'ONLINE' ? '🟢 Online' : '🔴 Offline'}
                       </span>
-                      {gatewayStatus.deviceId && (
+                      {gatewayStatus.status === 'ONLINE' && gatewayStatus.deviceId && (
                         <span className={`battery-pill ${gatewayStatus.batteryLevel < 30 ? 'critical' : gatewayStatus.batteryLevel < 80 ? 'warning' : 'healthy'}`}>
-                          {(() => {
-                            // Diagnostic log for render state
-                            if (gatewayStatus.deviceId) {
-                              console.log('[RENDER_CHARGING_ICON]', {
-                                isCharging: gatewayStatus.isCharging,
-                                status: gatewayStatus.status
-                              });
-                            }
-                            return gatewayStatus.isCharging ? <span className="charging-icon">⚡</span> : null;
-                          })()}
+                          <span>🔋</span>
                           {gatewayStatus.batteryLevel || 0}%
+                        </span>
+                      )}
+                      {gatewayStatus.status === 'ONLINE' && gatewayStatus.deviceId && gatewayStatus.isCharging && (
+                        <span className="battery-pill healthy" style={{ gap: '2px' }}>
+                          <span className="charging-icon">⚡</span> Charging
                         </span>
                       )}
                     </div>
@@ -1085,9 +1081,11 @@ function App() {
                             ? gatewayStatus.deviceName
                             : `Android Gateway (${gatewayStatus.deviceId})`}
                         </div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                          Last seen: {gatewayStatus.lastSeen ? getRelativeTime(gatewayStatus.lastSeen) : 'Never'}
-                        </div>
+                        {gatewayStatus.status !== 'ONLINE' && (
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                            Last seen: {gatewayStatus.lastSeen ? getRelativeTime(gatewayStatus.lastSeen) : 'Never'}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
